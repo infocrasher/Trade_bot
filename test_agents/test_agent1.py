@@ -1,5 +1,5 @@
 import mt5_data as mt5_utils
-from agent_structure import StructureAgent
+from agents.agent_structure import StructureAgent
 
 def test():
     print("Connexion à MT5...")

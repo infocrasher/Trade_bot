@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Réglages — ICTBot Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0e1a;
+            color: #e0e6f0;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: #111827;
+            border-bottom: 1px solid #1e293b;
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .navbar .brand {
+            color: #3b82f6;
+            font-weight: 700;
+            font-size: 16px;
+            text-decoration: none;
+        }
+
+        .navbar a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .navbar a:hover,
+        .navbar a.active {
+            color: #e2e8f0;
+            background: #1e293b;
+        }
+
+        .container {
+            padding: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #475569;
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+
+        .section {
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        /* FORM ROWS */
+        .form-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #0f172a;
+        }
+
+        .form-row:last-child {
+            border-bottom: none;
+        }
+
+        .form-label {
+            flex: 1;
+        }
+
+        .form-label .name {
+            font-size: 14px;
+            color: #e2e8f0;
+        }
+
+        .form-label .desc {
+            font-size: 12px;
+            color: #475569;
+            margin-top: 2px;
+        }
+
+        .form-control {
+            flex: 0 0 180px;
+            text-align: right;
+        }
+
+        /* INPUTS */
+        input[type="number"],
+        input[type="text"],
+        input[type="password"] {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 8px 12px;
+            font-size: 14px;
+            width: 160px;
+            text-align: right;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: #3b82f6;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            text-align: left;
+            width: 220px;
+        }
+
+        /* TOGGLE */
+        .toggle-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: #1e293b;
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #475569;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle input:checked+.toggle-slider {
+            background: #3b82f620;
+        }
+
+        .toggle input:checked+.toggle-slider:before {
+            transform: translateX(20px);
+            background: #3b82f6;
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: #64748b;
+            min-width: 30px;
+        }
+
+        /* PAIRS GRID */
+        .pairs-group {
+            margin-bottom: 16px;
+        }
+
+        .pairs-group-title {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .pairs-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pair-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+            color: #64748b;
+            user-select: none;
+        }
+
+        .pair-chip.active {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: #172554;
+        }
+
+        .pair-chip input {
+            display: none;
+        }
+
+        /* KILLZONE ROWS */
+        .kz-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #0f172a;
+        }
+
+        .kz-row:last-child {
+            border-bottom: none;
+        }
+
+        .kz-name {
+            font-size: 14px;
+            color: #e2e8f0;
+        }
+
+        .kz-hours {
+            font-size: 12px;
+            color: #475569;
+            margin-top: 2px;
+        }
+
+        /* NEXT KZ BADGE */
+        .next-kz {
+            background: #172554;
+            border: 1px solid #1e3a8a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #93c5fd;
+        }
+
+        /* SAVE BUTTON */
+        .save-bar {
+            position: sticky;
+            bottom: 0;
+            background: #0a0e1a;
+            border-top: 1px solid #1e293b;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .btn-save {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 28px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-save:hover {
+            background: #2563eb;
+        }
+
+        .btn-save:disabled {
+            background: #1e293b;
+            color: #475569;
+            cursor: not-allowed;
+        }
+
+        .save-status {
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .save-status.success {
+            color: #22c55e;
+        }
+
+        .save-status.error {
+            color: #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #475569;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a href="/" class="brand">📈 ICTBot Pro</a>
+        <a href="/">Dashboard</a>
+        <a href="/performance">📊 Performance</a>
+        <a href="/settings" class="active">⚙️ Réglages</a>
+    </nav>
+
+    <div class="container">
+        <h1>⚙️ Réglages</h1>
+        <p class="subtitle">Les modifications sont appliquées immédiatement sans redémarrer le bot.</p>
+
+        <div id="loading" class="loading">Chargement...</div>
+        <div id="content" style="display:none">
+
+            <!-- BOT CORE -->
+            <div class="section">
+                <div class="section-title">🤖 Bot Core</div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Score minimum</div>
+                        <div class="desc">Seuil de confiance ICT pour ouvrir un trade (0-100)</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="MIN_CONFIDENCE_SCORE" min="0" max="100" step="5">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Paper Trading</div>
+                        <div class="desc">Simulation sans capital réel</div>
+                    </div>
+                    <div class="form-control">
+                        <div class="toggle-wrap">
+                            <span class="toggle-label" id="paper-label">ON</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="PAPER_TRADING">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Force Analyze</div>
+                        <div class="desc">Bypass les filtres Killzone — analyse 24/7</div>
+                    </div>
+                    <div class="form-control">
+                        <div class="toggle-wrap">
+                            <span class="toggle-label" id="force-label">OFF</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="FORCE_ANALYZE">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RISQUE -->
+            <div class="section">
+                <div class="section-title">🛡️ Gestion du Risque</div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Risque par trade (%)</div>
+                        <div class="desc">% du capital risqué par position</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="RISK_PER_TRADE_PCT" min="0.1" max="10" step="0.1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">R:R minimum</div>
+                        <div class="desc">Ratio Risque/Récompense minimum accepté</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="MIN_RISK_REWARD" min="0.5" max="10" step="0.5">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Perte max journalière (%)</div>
+                        <div class="desc">Circuit breaker — stop total si dépassé</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT" min="0.5" max="20" step="0.5">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Max trades / jour</div>
+                        <div class="desc">Nombre maximum de trades par jour</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="CIRCUIT_BREAKER_MAX_TRADES_PER_DAY" min="1" max="50" step="1">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Max SL consécutifs</div>
+                        <div class="desc">Pause automatique après X stop-loss d'affilée</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT" min="1" max="20" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAIRES -->
+            <div class="section">
+                <div class="section-title">💱 Paires Actives</div>
+                <div id="pairs-container"></div>
+            </div>
+
+            <!-- KILLZONES -->
+            <div class="section">
+                <div class="section-title">🕐 Scheduler — Killzones</div>
+                <div id="next-kz" class="next-kz">⏳ Calcul de la prochaine Killzone...</div>
+                <div id="kz-container"></div>
+            </div>
+
+            <!-- TELEGRAM -->
+            <div class="section">
+                <div class="section-title">📱 Notifications Telegram</div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Bot Token</div>
+                        <div class="desc">Token fourni par @BotFather</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="password" id="TELEGRAM_BOT_TOKEN" placeholder="7123...AAF">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Chat ID</div>
+                        <div class="desc">Votre Telegram User ID</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="text" id="TELEGRAM_CHAT_ID" placeholder="123456789">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-label">
+                        <div class="name">Score minimum alerte</div>
+                        <div class="desc">N'alerter que si score ≥ cette valeur</div>
+                    </div>
+                    <div class="form-control">
+                        <input type="number" id="TELEGRAM_MIN_SCORE" min="0" max="100" step="5">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SAVE BAR -->
+    <div class="save-bar">
+        <span class="save-status" id="save-status">Aucune modification</span>
+        <button class="btn-save" id="btn-save" onclick="saveSettings()">💾 Sauvegarder</button>
+    </div>
+
+    <script>
+        let currentSettings = {};
+        let allPairs = {};
+        let activePairs = new Set();
+        let kzSchedule = [];
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const d = await res.json();
+                currentSettings = d;
+
+                // Bot Core
+                document.getElementById('MIN_CONFIDENCE_SCORE').value = d.MIN_CONFIDENCE_SCORE;
+                setToggle('PAPER_TRADING', d.PAPER_TRADING, 'paper-label', ['ON', 'OFF']);
+                setToggle('FORCE_ANALYZE', d.FORCE_ANALYZE, 'force-label', ['ON', 'OFF']);
+
+                // Risque
+                document.getElementById('RISK_PER_TRADE_PCT').value = d.RISK_PER_TRADE_PCT;
+                document.getElementById('MIN_RISK_REWARD').value = d.MIN_RISK_REWARD;
+                document.getElementById('CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT').value = d.CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT;
+                document.getElementById('CIRCUIT_BREAKER_MAX_TRADES_PER_DAY').value = d.CIRCUIT_BREAKER_MAX_TRADES_PER_DAY;
+                document.getElementById('CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT').value = d.CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT;
+
+                // Telegram
+                document.getElementById('TELEGRAM_BOT_TOKEN').value = d.TELEGRAM_BOT_TOKEN || '';
+                document.getElementById('TELEGRAM_CHAT_ID').value = d.TELEGRAM_CHAT_ID || '';
+                document.getElementById('TELEGRAM_MIN_SCORE').value = d.TELEGRAM_MIN_SCORE;
+
+                // Paires
+                allPairs = d.ALL_PAIRS || {};
+                activePairs = new Set(d.TRADING_PAIRS || []);
+                renderPairs();
+
+                // Killzones
+                kzSchedule = d.killzone_schedule || [];
+                renderKillzones();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+            } catch (e) {
+                document.getElementById('loading').textContent = 'Erreur: ' + e.message;
+            }
+        }
+
+        function setToggle(id, value, labelId, labels) {
+            const el = document.getElementById(id);
+            el.checked = value;
+            document.getElementById(labelId).textContent = value ? labels[0] : labels[1];
+            el.addEventListener('change', () => {
+                document.getElementById(labelId).textContent = el.checked ? labels[0] : labels[1];
+                markDirty();
+            });
+        }
+
+        function renderPairs() {
+            const container = document.getElementById('pairs-container');
+            const groupNames = { forex: '💱 Forex', metals: '🥇 Métaux', crypto: '₿ Crypto', energy: '⚡ Énergie' };
+            container.innerHTML = Object.entries(allPairs).map(([group, pairs]) => `
+        <div class="pairs-group">
+            <div class="pairs-group-title">${groupNames[group] || group}</div>
+            <div class="pairs-grid">
+                ${pairs.map(p => `
+                <div class="pair-chip ${activePairs.has(p) ? 'active' : ''}" 
+                     onclick="togglePair('${p}', this)">
+                    ${activePairs.has(p) ? '✓' : '+'} ${p}
+                </div>`).join('')}
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function togglePair(pair, el) {
+            if (activePairs.has(pair)) {
+                activePairs.delete(pair);
+                el.classList.remove('active');
+                el.innerHTML = `+ ${pair}`;
+            } else {
+                activePairs.add(pair);
+                el.classList.add('active');
+                el.innerHTML = `✓ ${pair}`;
+            }
+            markDirty();
+        }
+
+        function renderKillzones() {
+            const container = document.getElementById('kz-container');
+            if (!kzSchedule.length) {
+                container.innerHTML = '<div style="color:#475569;font-size:13px">Scheduler non chargé</div>';
+                return;
+            }
+
+            // Calculer prochaine KZ
+            const now = new Date();
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+            let nextKZ = null;
+            let minDiff = Infinity;
+
+            kzSchedule.forEach(kz => {
+                const [sh, sm] = kz.start.split(':').map(Number);
+                const startMin = sh * 60 + sm;
+                let diff = startMin - nowMin;
+                if (diff < 0) diff += 24 * 60;
+                if (diff < minDiff) { minDiff = diff; nextKZ = kz; }
+            });
+
+            if (nextKZ) {
+                const h = Math.floor(minDiff / 60);
+                const m = minDiff % 60;
+                document.getElementById('next-kz').textContent =
+                    `🟢 Prochaine Killzone : ${nextKZ.name} à ${nextKZ.start} (dans ${h}h${m.toString().padStart(2, '0')}m)`;
+            }
+
+            container.innerHTML = kzSchedule.map((kz, i) => `
+        <div class="kz-row">
+            <div>
+                <div class="kz-name">${kz.name}</div>
+                <div class="kz-hours">🕐 ${kz.start} → ${kz.end} (heure Alger)</div>
+            </div>
+            <div class="toggle-wrap">
+                <span class="toggle-label" id="kz-label-${i}">${kz.enabled !== false ? 'ON' : 'OFF'}</span>
+                <label class="toggle">
+                    <input type="checkbox" id="kz-toggle-${i}" 
+                           ${kz.enabled !== false ? 'checked' : ''}
+                           onchange="toggleKZ(${i}, this)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>`).join('');
+        }
+
+        function toggleKZ(index, el) {
+            kzSchedule[index].enabled = el.checked;
+            document.getElementById(`kz-label-${index}`).textContent = el.checked ? 'ON' : 'OFF';
+            markDirty();
+        }
+
+        function markDirty() {
+            const status = document.getElementById('save-status');
+            status.textContent = '● Modifications non sauvegardées';
+            status.className = 'save-status';
+            status.style.color = '#f59e0b';
+        }
+
+        async function saveSettings() {
+            const btn = document.getElementById('btn-save');
+            const status = document.getElementById('save-status');
+            btn.disabled = true;
+            btn.textContent = '⏳ Sauvegarde...';
+
+            const payload = {
+                MIN_CONFIDENCE_SCORE: parseInt(document.getElementById('MIN_CONFIDENCE_SCORE').value),
+                PAPER_TRADING: document.getElementById('PAPER_TRADING').checked,
+                FORCE_ANALYZE: document.getElementById('FORCE_ANALYZE').checked,
+                RISK_PER_TRADE_PCT: parseFloat(document.getElementById('RISK_PER_TRADE_PCT').value),
+                MIN_RISK_REWARD: parseFloat(document.getElementById('MIN_RISK_REWARD').value),
+                CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT: parseFloat(document.getElementById('CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT').value),
+                CIRCUIT_BREAKER_MAX_TRADES_PER_DAY: parseInt(document.getElementById('CIRCUIT_BREAKER_MAX_TRADES_PER_DAY').value),
+                CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT: parseInt(document.getElementById('CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT').value),
+                TRADING_PAIRS: Array.from(activePairs),
+                TELEGRAM_BOT_TOKEN: document.getElementById('TELEGRAM_BOT_TOKEN').value,
+                TELEGRAM_CHAT_ID: document.getElementById('TELEGRAM_CHAT_ID').value,
+                TELEGRAM_MIN_SCORE: parseInt(document.getElementById('TELEGRAM_MIN_SCORE').value),
+            };
+
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await res.json();
+
+                if (d.success) {
+                    status.textContent = `✓ Sauvegardé — ${Object.keys(d.applied).length} paramètre(s) mis à jour`;
+                    status.className = 'save-status success';
+                } else {
+                    status.textContent = '✗ Erreur: ' + (d.error || 'Inconnue');
+                    status.className = 'save-status error';
+                }
+            } catch (e) {
+                status.textContent = '✗ Erreur réseau: ' + e.message;
+                status.className = 'save-status error';
+            }
+
+            btn.disabled = false;
+            btn.textContent = '💾 Sauvegarder';
+        }
+
+        loadSettings();
+    </script>
+</body>
+
+</html>

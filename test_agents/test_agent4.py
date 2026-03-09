@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from agent_macro import MacroBiasAgent
+from agents.agent_macro import MacroBiasAgent
 
 class TestResults:
     def __init__(self):

@@ -1,0 +1,38 @@
+# Fateh_trade_bot Audit Task List
+
+- [x] Analyze Architecture (List Python files, imports, entry point)
+- [x] Analyze Agents & Trading Logic (Classes, methods, ICT concepts, decision logic)
+- [x] Analyze Data & APIs (MT5, LLM, Dashboard, Notifications)
+- [x] Analyze Configuration (Pairs, Risk, Timeframes, Paper Trading)
+- [x] Checklist of ICT Concepts Coverage
+- [x] Analyze Knowledge Base (knowledge, memory, plans directories)
+- [x] Analyze Dashboard Interface (routes, templates, frontend tech)
+- [x] Analyze Tests (framework, count, coverage)
+- [x] Determine Pros & Cons
+- [x] Extract Key Functions Code
+- [x] Generate `rapport_audit.md`
+- [x] Generate `bot_functionalities.md`
+- [x] Fix dependency issues (matplotlib, pandas, numpy)
+- [x] Create `requirements.txt`
+- [x] Correction des problèmes de dépendances (matplotlib, pandas, numpy)
+- [x] Restauration des fichiers d'infrastructure manquants (`performance_tracker.py`, etc.)
+- [x] Vérification du démarrage de `main.py`
+- [x] Mise à jour de `documentation/Task.md`
+- [x] Implémentation du rendu des ordres (badges couleurs, détails, pendings)
+- [x] Validation de l'affichage des ordres pending même avec score bas
+- [x] Refonte de l'interface graphique en grille de cartes ("clickable cards")
+- [x] Configuration de l'accès distant via Ngrok
+- [x] **Implémentation du Paper Trading** (auto-activation, suivi SL/TP en tâche de fond, PnL live, historique JSON)
+- [x] **Gestion avancée du Paper Trading** (Rechargement au démarrage avec vérification offline, APIs de nettoyage)
+- [x] **Création de l'Agent LLM Validateur (Claude Sonnet)** pour bloquer/valider les signaux
+- [x] **Assouplissement règles ICT** (R:R=1.2, OTE=50-79%, conf=0.25, LLM consultatif -15%)
+- [x] **Corrections Paper Trading** (Anti-doublons de timeframes, Garde-fou SL max H4/D1)
+- [x] **Optimisation des coûts LLM** (Prompt caching, seuil score >= 60%, Haiku — 90% de réduction)
+- [x] **Gestion des sessions de logs** (Création auto `logs/sessions/SESSION__DATETIME/` avec `bot.log` et `trades.log`)
+- [x] **Calibration stricte Encyclopédie ICT** (Score mini 70/100, R:R mini 2.0, Biais HTF cohérent obligatoire)
+- [x] **Injection Encyclopédie complète** (Chargement dynamique `.md` et Prompt Caching LLM)
+- [x] **Smart Killzone Scheduler** (Pause intelligente hors Killzones ICT pour économie de tokens LLM, avec Crypto/Energy 24/7)
+- [x] **Persistance des Cooldowns** (Sauvegarde JSON locale pour éviter les trades doublons après un redémarrage)
+- [x] **Dashboard Performance** (Page `/performance` dédiée : KPIs, Courbe de capital, Répartition par paire et historique des trades fermés)
+- [x] **Page Settings temps réel** (Modification des réglages du bot en live avec sauvegarde persistante sans redémarrage)
+- [x] **Page d'Analyse de Trade** (Détails complets de l'analyse LLM pour chaque trade sur `/analysis/<id>`)

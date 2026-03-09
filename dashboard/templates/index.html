@@ -1,0 +1,2556 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICT Trading — Broker Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --bg2: #111520;
+      --bg3: #161c2d;
+      --bg4: #1e2640;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-h: rgba(255, 255, 255, 0.12);
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --dim: #4a5568;
+      --accent: #3b82f6;
+      --accent-g: rgba(59, 130, 246, 0.15);
+      --green: #22c55e;
+      --green-g: rgba(34, 197, 94, 0.12);
+      --red: #ef4444;
+      --red-g: rgba(239, 68, 68, 0.12);
+      --yellow: #f59e0b;
+      --yellow-g: rgba(245, 158, 11, 0.10);
+      --purple: #a855f7;
+      --purple-g: rgba(168, 85, 247, 0.12);
+      --cyan: #06b6d4;
+      --sidebar-w: 230px;
+      --narrative-w: 380px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 52px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: .95rem;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .topbar-stats {
+      display: flex;
+      gap: 24px;
+      margin-left: auto;
+      margin-right: 16px;
+    }
+
+    .ts-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.2;
+    }
+
+    .ts-label {
+      font-size: .65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .ts-val {
+      font-size: .95rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono';
+    }
+
+    .ts-val.pos {
+      color: var(--green);
+    }
+
+    .ts-val.neg {
+      color: var(--red);
+    }
+
+    .ts-val.neu {
+      color: var(--text);
+    }
+
+    .bot-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 5px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      letter-spacing: .02em;
+    }
+
+    .btn-start {
+      background: var(--green);
+      color: #000;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn-start:hover {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .pair-queued {
+      border-left: 3px solid var(--cyan) !important;
+      background: rgba(0, 212, 255, 0.05) !important;
+    }
+
+    .pair-select-cb {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pair-select-cb.cb-on {
+      background: var(--cyan);
+      color: #000;
+      border-color: var(--cyan);
+    }
+
+    .btn-pause {
+      background: var(--yellow);
+      color: #000;
+    }
+
+    .btn-stop {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .status-badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+    }
+
+    .badge-stopped {
+      background: rgba(239, 68, 68, .15);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, .3);
+    }
+
+    .badge-running {
+      background: rgba(34, 197, 94, .15);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, .3);
+    }
+
+    .badge-paused {
+      background: rgba(245, 158, 11, .15);
+      color: var(--yellow);
+      border: 1px solid rgba(245, 158, 11, .3);
+    }
+
+    .badge-starting {
+      background: rgba(59, 130, 246, .15);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, .3);
+    }
+
+    .badge-simu {
+      background: rgba(245, 158, 11, .15);
+      color: var(--yellow);
+      border: 1px solid rgba(245, 158, 11, .3);
+      animation: blink 2s infinite;
+    }
+
+    .badge-live {
+      background: rgba(239, 68, 68, .2);
+      color: #ff4d4d;
+      border: 1px solid rgba(239, 68, 68, .5);
+      font-weight: 800;
+    }
+
+    @keyframes blink {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    /* ── MAIN 3-COL LAYOUT ── */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR (pairs) ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--bg4);
+      border-radius: 2px;
+    }
+
+    .sb-section {
+      padding: 14px 14px 4px;
+    }
+
+    .sb-section-title {
+      font-size: .65rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pair-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      margin-bottom: 2px;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .12s;
+      text-align: left;
+    }
+
+    .pair-btn:hover {
+      background: var(--bg4);
+      color: var(--text);
+    }
+
+    .pair-btn.active {
+      background: var(--accent-g);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, .25);
+    }
+
+    .pair-btn.has-signal .signal-dot {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    .signal-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--dim);
+      flex-shrink: 0;
+    }
+
+    .pair-pnl-chip {
+      font-size: .65rem;
+      font-family: 'JetBrains Mono';
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .chip-pos {
+      background: var(--green-g);
+      color: var(--green);
+    }
+
+    .chip-neg {
+      background: var(--red-g);
+      color: var(--red);
+    }
+
+    .sb-filter-all {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .filter-all-btn {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border-h);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .filter-all-btn.active,
+    .filter-all-btn:hover {
+      background: var(--accent-g);
+      border-color: rgba(59, 130, 246, .4);
+      color: var(--accent);
+    }
+
+    .cb-status {
+      margin: 12px 14px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: .75rem;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+    }
+
+    .cb-ok {
+      border-color: rgba(34, 197, 94, .3);
+      background: var(--green-g);
+      color: var(--green);
+    }
+
+    .cb-warn {
+      border-color: rgba(239, 68, 68, .3);
+      background: var(--red-g);
+      color: var(--red);
+    }
+
+    /* ── CENTRE (orders) ── */
+    .centre {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .tab-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 16px 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--bg2);
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 6px 14px 8px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 700;
+    }
+
+    .tab-sep {
+      width: 1px;
+      height: 16px;
+      background: var(--border);
+      margin: 0 6px;
+    }
+
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 16px;
+      border-radius: 10px;
+      font-size: .62rem;
+      font-weight: 700;
+      margin-left: 4px;
+      padding: 0 4px;
+    }
+
+    .badge-active {
+      background: var(--green-g);
+      color: var(--green);
+    }
+
+    .badge-pending {
+      background: var(--yellow-g);
+      color: var(--yellow);
+    }
+
+    .badge-closed {
+      background: var(--bg4);
+      color: var(--muted);
+    }
+
+    /* Orders Table */
+    .orders-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .orders-area::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .orders-area::-webkit-scrollbar-thumb {
+      background: var(--bg4);
+      border-radius: 2px;
+    }
+
+    table.orders-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+
+    .orders-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--bg2);
+      color: var(--muted);
+      font-size: .67rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      z-index: 5;
+    }
+
+    .orders-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .orders-table tbody tr:hover {
+      background: var(--bg3);
+    }
+
+    .orders-table tbody tr.selected {
+      background: var(--accent-g);
+    }
+
+    .orders-table td {
+      padding: 11px 14px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .pair-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pair-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+      flex-shrink: 0;
+    }
+
+    .icon-forex {
+      background: rgba(59, 130, 246, .15);
+    }
+
+    .icon-metal {
+      background: rgba(245, 158, 11, .15);
+    }
+
+    .icon-crypto {
+      background: rgba(168, 85, 247, .15);
+    }
+
+    .icon-energy {
+      background: rgba(34, 197, 94, .15);
+    }
+
+    .pair-name {
+      font-weight: 700;
+      font-size: .88rem;
+    }
+
+    .pair-school {
+      font-size: .68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .dir-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 5px;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+
+    .dir-ACHAT {
+      background: var(--green-g);
+      color: var(--green);
+    }
+
+    .dir-VENTE {
+      background: var(--red-g);
+      color: var(--red);
+    }
+
+    .school-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .school-ict {
+      background: rgba(59, 130, 246, .15);
+      color: var(--accent);
+    }
+
+    .school-elliott {
+      background: rgba(168, 85, 247, .15);
+      color: var(--purple);
+    }
+
+    .school-footprint {
+      background: rgba(6, 182, 212, .15);
+      color: var(--cyan);
+    }
+
+    .school-fundamental {
+      background: rgba(245, 158, 11, .15);
+      color: var(--yellow);
+    }
+
+    .status-cell {
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: .72rem;
+      font-weight: 700;
+      display: inline-block;
+    }
+
+    .s-active {
+      background: var(--green-g);
+      color: var(--green);
+    }
+
+    .s-pending {
+      background: rgba(255, 165, 0, 0.12);
+      color: #FFA500;
+      animation: blink 2.5s infinite;
+    }
+
+    .s-expired {
+      background: rgba(120, 120, 120, 0.15);
+      color: var(--muted);
+    }
+
+    .badge-simu {
+      background: var(--yellow-g);
+      color: var(--yellow);
+      border: 1px solid var(--yellow);
+      animation: blink 2s infinite;
+    }
+
+    .badge-live {
+      background: var(--red-g);
+      color: var(--red);
+      border: 1px solid var(--red);
+      box-shadow: 0 0 8px var(--red-g);
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .s-pending {
+      background: var(--yellow-g);
+      color: var(--yellow);
+    }
+
+    .s-closed {
+      background: var(--bg4);
+      color: var(--muted);
+    }
+
+    .s-cancelled {
+      background: var(--red-g);
+      color: var(--red);
+    }
+
+    .pnl-pos {
+      color: var(--green);
+      font-family: 'JetBrains Mono';
+      font-weight: 700;
+    }
+
+    .pnl-neg {
+      color: var(--red);
+      font-family: 'JetBrains Mono';
+      font-weight: 700;
+    }
+
+    .pnl-neu {
+      color: var(--muted);
+      font-family: 'JetBrains Mono';
+    }
+
+    /* ── ORDERS GRID & CARDS ── */
+    .orders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      padding: 10px;
+    }
+
+    .order-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .order-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--accent);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      background: var(--bg3);
+    }
+
+    .order-card.selected {
+      border-color: var(--cyan);
+      background: var(--bg3);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .pair-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pair-icon-bg {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .pair-name-big {
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .pair-tf-small {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .score-badge-card {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .card-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .price-item-card {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .price-label-card {
+      font-size: 0.65rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .price-val-card {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .status-pill-card {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .dot-card {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .s-active .dot-card {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .s-pending .dot-card {
+      background: var(--yellow);
+    }
+
+    .s-closed .dot-card {
+      background: var(--muted);
+    }
+
+    .btn-detail-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .order-card:hover .btn-detail-card {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    .empty-orders {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--dim);
+      font-size: .9rem;
+    }
+
+    .empty-orders .ei {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+
+    /* ── RIGHT PANEL (narrative) ── */
+    .narrative-panel {
+      width: var(--narrative-w);
+      background: var(--bg2);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+      transition: width .25s;
+    }
+
+    .narrative-panel.collapsed {
+      width: 0;
+    }
+
+    .np-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .np-title-group {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .np-pair {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .np-sub {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .np-score {
+      font-size: 1.6rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono';
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .np-close {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: var(--bg4);
+      border-radius: 5px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .np-close:hover {
+      background: var(--border-h);
+      color: var(--text);
+    }
+
+    .np-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .np-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .np-body::-webkit-scrollbar-thumb {
+      background: var(--bg4);
+      border-radius: 2px;
+    }
+
+    /* Entry/SL/TP row */
+    .price-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .price-box {
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+    }
+
+    .price-box-label {
+      font-size: .62rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .price-box-val {
+      font-size: .9rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono';
+      margin-top: 3px;
+    }
+
+    .price-box-val.entry-val {
+      color: var(--accent);
+    }
+
+    .price-box-val.sl-val {
+      color: var(--red);
+    }
+
+    .price-box-val.tp-val {
+      color: var(--green);
+    }
+
+    .pnl-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
+    .pnl-box-label {
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    .pnl-box-val {
+      font-size: 1.05rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono';
+    }
+
+    /* Section headings in panel */
+    .np-section-title {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .np-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Checklist */
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .cl-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: .78rem;
+      line-height: 1.3;
+    }
+
+    .cl-item.pass {
+      background: var(--green-g);
+    }
+
+    .cl-item.fail {
+      background: var(--red-g);
+    }
+
+    .cl-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .6rem;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    .cl-icon.pass {
+      background: var(--green);
+      color: #000;
+    }
+
+    .cl-icon.fail {
+      background: var(--red);
+      color: #fff;
+    }
+
+    /* Narrative text */
+    .narrative-text {
+      font-size: .8rem;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--bg3);
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+
+    .narrative-text strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Pending conditions */
+    .pending-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .pending-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: var(--yellow-g);
+      border: 1px solid rgba(245, 158, 11, .2);
+      font-size: .78rem;
+      color: var(--yellow);
+    }
+
+    .pending-icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Actions in panel */
+    .np-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .np-btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: .8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      letter-spacing: .02em;
+      min-width: 100px;
+    }
+
+    .np-btn:hover {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    .np-btn-close {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .np-btn-cancel {
+      background: var(--yellow);
+      color: #000;
+    }
+
+    .np-btn-neutral {
+      background: var(--bg4);
+      color: var(--text);
+      border: 1px solid var(--border-h);
+    }
+
+    /* No selection state */
+    .no-selection {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--dim);
+      padding: 30px;
+      text-align: center;
+    }
+
+    .no-selection .ns-icon {
+      font-size: 2.5rem;
+    }
+
+    .no-selection .ns-text {
+      font-size: .85rem;
+      line-height: 1.5;
+    }
+
+    /* ── LOGS drawer (bottom) ── */
+    .logs-toggle {
+      position: fixed;
+      bottom: 0;
+      left: var(--sidebar-w);
+      right: var(--narrative-w);
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      z-index: 50;
+    }
+
+    .logs-toggle-btn {
+      width: 100%;
+      padding: 6px 16px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logs-toggle-btn:hover {
+      color: var(--text);
+    }
+
+    .logs-drawer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .25s;
+    }
+
+    .logs-drawer.open {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-area {
+      padding: 8px 16px;
+      font-size: .72rem;
+      font-family: 'JetBrains Mono';
+    }
+
+    .log-line {
+      display: flex;
+      gap: 10px;
+      padding: 2px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-time {
+      color: var(--dim);
+      flex-shrink: 0;
+    }
+
+    .log-level {
+      width: 50px;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
+    .log-level.INFO {
+      color: var(--accent);
+    }
+
+    .log-level.ERROR {
+      color: var(--red);
+    }
+
+    .log-level.SUCCESS {
+      color: var(--green);
+    }
+
+    .log-level.SIGNAL {
+      color: var(--yellow);
+    }
+
+    .log-level.WARNING {
+      color: var(--yellow);
+    }
+
+    .log-msg {
+      color: var(--muted);
+    }
+
+    /* Responsive */
+    @media(max-width:1100px) {
+      :root {
+        --narrative-w: 320px;
+      }
+    }
+
+    @media(max-width:900px) {
+      .narrative-panel {
+        display: none;
+      }
+
+      .logs-toggle {
+        right: 0;
+      }
+    }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg4);
+      border-radius: 3px;
+    }
+
+    /* Pair selection checkbox */
+    .pair-select-cb {
+      width: 18px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--dim);
+      font-size: .65rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+
+    .pair-select-cb.cb-on {
+      background: var(--cyan);
+      border-color: var(--cyan);
+      color: #000;
+      font-weight: 900;
+    }
+
+    .pair-select-cb:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .pair-btn.pair-queued {
+      border-color: var(--cyan) !important;
+      background: rgba(34, 211, 238, .08) !important;
+    }
+
+    /* ─── SCAN BAR (monitoring) ─── */
+    #scanBar {
+      height: 3px;
+      background: var(--bg2);
+      overflow: hidden;
+      display: none;
+    }
+
+    #scanBar.active {
+      display: block;
+    }
+
+    #scanBarFill {
+      height: 100%;
+      width: 30%;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      animation: scanPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes scanPulse {
+      0% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(400%);
+      }
+    }
+
+    /* ─── LIVE PAIR TICKER ─── */
+    .ts-pair-ticker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--cyan);
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ts-pair-none {
+      color: var(--dim);
+      font-size: .7rem;
+    }
+
+    /* ─── LOG LEVEL COLORS ─── */
+    .log-level.SUCCESS {
+      color: var(--green);
+    }
+
+    .log-level.SIGNAL {
+      color: #fbbf24;
+      font-weight: 800;
+    }
+
+    .log-line.sig-line .log-msg {
+      color: #fbbf24;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ─── TOPBAR ─────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-dot" id="runDot"></div>
+      <span>ICT<strong>Bot</strong> Pro</span>
+    </div>
+    <a href="/performance"
+      style="color: var(--accent); text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 4px 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-left: 12px; display: flex; align-items: center; gap: 6px;">📊
+      Performance</a>
+    <div class="topbar-stats">
+      <!-- ✅ FIX AUDIT-01 : Widget Baromètre -->
+      <div class="ts-item"
+        style="border-right: 1px solid var(--border); padding-right: 16px; margin-right: 8px; flex-direction: row; gap: 10px; align-items: center;">
+        <div class="ts-label">Baromètre Confiance</div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <input type="number" id="min-score-input" value="75" min="0" max="100"
+            style="width: 45px; background: var(--bg3); border: 1px solid var(--border-h); color: var(--accent); font-weight: 700; text-align: center; border-radius: 4px; font-size: 0.85rem; padding: 2px 0;">
+          <span style="font-size: 0.75rem; color: var(--muted); font-weight: 600;">/ 100</span>
+          <button onclick="updateMinScore()"
+            style="background: var(--accent-g); color: var(--accent); border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">SET</button>
+        </div>
+      </div>
+
+      <div class="ts-item">
+        <span class="ts-label">P&amp;L Total</span>
+        <span class="ts-val neu" id="statPnl">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Win Rate</span>
+        <span class="ts-val neu" id="statWr">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Actifs</span>
+        <span class="ts-val neu" id="statActive">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Max DD</span>
+        <span class="ts-val neg" id="statDd">--</span>
+      </div>
+      <!-- LIVE: Paire en cours + Cycle -->
+      <div class="ts-item" id="liveItemPair" style="display:none">
+        <span class="ts-label">Analyse</span>
+        <span class="ts-pair-ticker" id="livePair">—</span>
+      </div>
+      <div class="ts-item" id="liveItemCycle" style="display:none">
+        <span class="ts-label">Cycle</span>
+        <span class="ts-val" id="liveCycle" style="color:var(--cyan)">#0</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Seuil Auto</span>
+        <span class="ts-val" id="statThreshold" style="color:var(--yellow)">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">API Active</span>
+        <span class="ts-val" id="activeAPI" style="color:var(--cyan)">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Flux</span>
+        <span class="status-badge" id="modeBadge">--</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">MT5</span>
+        <span class="status-badge badge-stopped" id="mt5StatusBadge">DISCONNECTED</span>
+      </div>
+      <div class="ts-item">
+        <span class="ts-label">Statut Bot</span>
+        <span class="status-badge badge-stopped" id="statusBadge">ARRÊTÉ</span>
+      </div>
+    </div>
+    <div class="bot-controls">
+      <div id="horizonCheckboxes" style="display:flex;gap:4px;margin-right:8px;">
+        <label
+          style="display:flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:3px 8px;font-size:.7rem;color:#ccc;cursor:pointer;">
+          <input type="checkbox" class="horizon-cb" value="scalp" style="accent-color:#00d4ff;width:12px;height:12px;">
+          M5
+        </label>
+        <label
+          style="display:flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:3px 8px;font-size:.7rem;color:#ccc;cursor:pointer;">
+          <input type="checkbox" class="horizon-cb" value="intraday" checked
+            style="accent-color:#00d4ff;width:12px;height:12px;"> H1
+        </label>
+        <label
+          style="display:flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:3px 8px;font-size:.7rem;color:#ccc;cursor:pointer;">
+          <input type="checkbox" class="horizon-cb" value="daily" style="accent-color:#00d4ff;width:12px;height:12px;">
+          H4
+        </label>
+        <label
+          style="display:flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:3px 8px;font-size:.7rem;color:#ccc;cursor:pointer;">
+          <input type="checkbox" class="horizon-cb" value="weekly" style="accent-color:#00d4ff;width:12px;height:12px;">
+          D1
+        </label>
+      </div>
+      <button class="btn btn-start" id="btnStart" onclick="startBot()" title="Analyser toutes les paires">▶
+        Démarrer</button>
+      <button class="btn btn-pause" onclick="pauseBot()">⏸ Pause</button>
+      <button class="btn btn-stop" onclick="stopBot()">⏹ Stop</button>
+      <button class="btn btn-exit" onclick="exitApp()" title="Fermer tout (Serveur + MT5)"
+        style="background: #222; color: #aaa; border: 1px solid #444; margin-left:12px;">🔌 Quitter</button>
+    </div>
+  </header>
+  <!-- Barre de scan animée -->
+  <div id="scanBar">
+    <div id="scanBarFill"></div>
+  </div>
+
+  <!-- ─── BODY ──────────────────────────────────────────────────── -->
+  <div class="app-body">
+
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sb-filter-all">
+        <button class="filter-all-btn active" id="btnAllPairs" onclick="filterPair('all')">
+          🌐 Toutes les paires
+        </button>
+      </div>
+
+      <div id="cbStatus" class="cb-status cb-ok">✅ Circuit Breaker OK</div>
+
+      <!-- ✅ FIX AUDIT-03 : Panneau de réglage CB -->
+      <div id="cbSettings"
+        style="margin: 0 14px 12px; padding: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem;">
+        <div
+          style="font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          Réglages Sécurité
+          <button onclick="resetCB()"
+            style="background: var(--red-g); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; cursor: pointer;">RESET</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Perte Max Jour (%)</span>
+            <input type="number" id="cb-max-loss" value="3.0" step="0.1"
+              style="width: 45px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 3px; text-align: center;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Trades Max / Jour</span>
+            <input type="number" id="cb-max-trades" value="5"
+              style="width: 45px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 3px; text-align: center;">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>SL Consécutifs Max</span>
+            <input type="number" id="cb-max-sl" value="3"
+              style="width: 45px; background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 3px; text-align: center;">
+          </div>
+          <button onclick="updateCBConfig()"
+            style="width: 100%; background: var(--accent); color: white; border: none; padding: 4px; border-radius: 4px; font-weight: 700; margin-top: 4px; cursor: pointer;">APPLIQUER</button>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-section-title">💱 Forex</div>
+        <div id="pairsForex"></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-section-title">🥇 Métaux</div>
+        <div id="pairsMetals"></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-section-title">₿ Crypto</div>
+        <div id="pairsCrypto"></div>
+      </div>
+      <div class="sb-section">
+        <div class="sb-section-title">🛢️ Énergie</div>
+        <div id="pairsEnergy"></div>
+      </div>
+    </aside>
+
+    <!-- CENTRE -->
+    <main class="centre">
+      <!-- TABS -->
+      <div class="tab-row">
+        <!-- School -->
+        <button class="tab active" id="tab-school-all" onclick="setSchool('all')">Toutes les Écoles</button>
+        <button class="tab" id="tab-school-ict" onclick="setSchool('ict')">🎯 ICT</button>
+        <button class="tab" id="tab-school-elliott" onclick="setSchool('elliott')">〰️ Elliott</button>
+        <button class="tab" id="tab-school-footprint" onclick="setSchool('footprint')">📊 Footprint</button>
+        <button class="tab" id="tab-school-fundamental" onclick="setSchool('fundamental')">🌐 Fondamental</button>
+        <div class="tab-sep"></div>
+        <!-- Status -->
+        <button class="tab active" id="tab-st-all" onclick="setStatus('all')">Tous</button>
+        <button class="tab" id="tab-st-active" onclick="setStatus('active')">
+          Actifs <span class="tab-badge badge-active" id="cnt-active">0</span>
+        </button>
+        <button class="tab" id="tab-st-pending" onclick="setStatus('pending')">
+          En Attente <span class="tab-badge badge-pending" id="cnt-pending">0</span>
+        </button>
+        <button class="tab" id="tab-st-closed" onclick="setStatus('closed')">
+          Fermés <span class="tab-badge badge-closed" id="cnt-closed">0</span>
+        </button>
+      </div>
+
+      <!-- ORDERS GRID -->
+      <div class="orders-area" id="ordersArea" style="margin-bottom:32px;">
+        <div class="empty-orders">
+          <div class="ei">📋</div>
+          Chargement des ordres...
+        </div>
+      </div>
+    </main>
+
+    <!-- NARRATIVE PANEL -->
+    <aside class="narrative-panel" id="narrativePanel">
+      <div class="no-selection" id="noSelection">
+        <div class="ns-icon">🖱️</div>
+        <div class="ns-text">Sélectionnez un ordre<br>pour voir son analyse complète,<br>sa checklist ICT et ses
+          conditions.</div>
+      </div>
+      <div id="narrativeContent" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="np-header">
+          <div class="np-title-group">
+            <div class="np-pair" id="npPair">—</div>
+            <div class="np-sub" id="npSub">—</div>
+          </div>
+          <div class="np-score" id="npScore" style="color:var(--green)">—</div>
+          <button class="np-close" onclick="closeNarrative()">✕</button>
+        </div>
+        <div class="np-body" id="npBody"></div>
+      </div>
+
+      <!-- SETUP PANEL (Contextuel par paire) -->
+      <div id="setupPanel" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="np-header">
+          <div class="np-title-group">
+            <div class="np-pair" id="setupPair">—</div>
+            <div class="np-sub" id="setupSub">Dernière analyse en direct</div>
+          </div>
+          <div class="np-score" id="setupScore" style="color:var(--green)">—</div>
+          <button class="np-close" onclick="closeSetup()">✕</button>
+        </div>
+        <div class="np-body" id="setupBody"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- LOGS BAR (bottom) -->
+  <div class="logs-toggle" id="logsToggle">
+    <button class="logs-toggle-btn" onclick="toggleLogs()">
+      <span id="logsArrow">▲</span> Journal système
+      <span id="logCount" style="margin-left:auto;opacity:.6"></span>
+    </button>
+    <div class="logs-drawer" id="logsDrawer">
+      <div class="log-area" id="logArea"></div>
+    </div>
+  </div>
+
+  <script>
+    // ─── STATE ─────────────────────────────────────────────────────
+    let state = {
+      pairs: { forex: [], metals: [], crypto: [], energy: [] },
+      orders: [],
+      stats: {},
+      filter: { pair: 'all', school: 'all', status: 'all' },
+      selected: null,
+      logsOpen: false,
+      isDemoMode: false,
+    };
+    state.selectedPairs = new Set(); // Paires sélectionnées pour l'analyse bot
+
+    let sse = null;
+
+    // ─── BOOT ──────────────────────────────────────────────────
+    async function init() {
+      state.isDemoMode = false;
+      await Promise.all([loadPairs(), loadCB()]);
+      await loadOrders();      // Charge uniquement les vrais ordres du bot
+      connectSSE();
+      setInterval(() => { if (!state.isDemoMode) loadOrders(); }, 8000);
+    }
+
+    // ─── SSE ───────────────────────────────────────────────────────
+    function connectSSE() {
+      if (sse) sse.close();
+      sse = new EventSource('/api/stream');
+      sse.onmessage = e => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'status') handleStatusUpdate(msg.data);
+          if (msg.type === 'log') addLog(msg.data);
+          if (msg.type === 'report') loadOrders();
+          if (msg.type === 'order_update') loadOrders();
+          if (msg.type === 'analysis_report') handleAnalysisReport(msg.data);
+        } catch (err) { }
+      };
+      sse.onerror = () => setTimeout(connectSSE, 3000);
+    }
+
+    // ─── PAIRS ─────────────────────────────────────────────────────
+    async function loadPairs() {
+      const data = await fetchJ('/api/pairs');
+      if (!data) return;
+      state.pairs = data;
+      renderPairSidebar();
+    }
+
+    // Toggle sélection d'une paire pour l'analyse du bot
+    function togglePairSelection(pair, event) {
+      event.stopPropagation();
+      if (state.selectedPairs.has(pair)) {
+        state.selectedPairs.delete(pair);
+      } else {
+        state.selectedPairs.add(pair);
+      }
+      renderPairSidebar();
+      // Mettre à jour le bouton Démarrer avec le nombre de paires
+      const btn = document.getElementById('btnStart');
+      if (btn) {
+        const n = state.selectedPairs.size;
+        btn.innerHTML = n > 0
+          ? `▶ Démarrer <span style="background:var(--cyan);color:#000;border-radius:10px;padding:0 6px;font-size:.7rem;font-weight:900;">${n}</span>`
+          : '▶ Démarrer';
+        btn.title = n > 0 ? `Analyser ${n} paire(s) sélectionnée(s)` : 'Aucune sélection = confirmation demandée';
+      }
+    }
+
+
+    function renderPairSidebar() {
+      const map = {
+        forex: { el: 'pairsForex', icon: 'icon-forex', emoji: pairEmoji },
+        metals: { el: 'pairsMetals', icon: 'icon-metal', emoji: pairEmoji },
+        crypto: { el: 'pairsCrypto', icon: 'icon-crypto', emoji: pairEmoji },
+        energy: { el: 'pairsEnergy', icon: 'icon-energy', emoji: pairEmoji },
+      };
+      for (const [cat, cfg] of Object.entries(map)) {
+        const el = document.getElementById(cfg.el);
+        if (!el) continue;
+        el.innerHTML = (state.pairs[cat] || []).map(p => {
+          const active = state.filter.pair === p ? 'active' : '';
+          const selected = state.selectedPairs.has(p);
+          const pnlData = getPairPnl(p);
+          return `<div style="display:flex;align-items:center;gap:4px;">
+              <button class="pair-select-cb ${selected ? 'cb-on' : ''}" title="Cocher pour analyse" onclick="togglePairSelection('${p}', event)">${selected ? '✓' : '+'}</button>
+              <button class="pair-btn ${active} ${pnlData.hasSignal ? 'has-signal' : ''} ${selected ? 'pair-queued' : ''}"
+                  onclick="selectPair('${p}')" id="pb-${p}" style="flex:1">
+                <span>${p}</span>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  ${pnlData.chip}
+                  <div class="signal-dot"></div>
+                </div>
+              </button>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    function pairEmoji(pair) { return ''; }
+
+    function getPairPnl(pair) {
+      const orders = state.orders.filter(o => o.pair === pair && (o.status === 'active' || o.status === 'closed'));
+      const total = orders.reduce((s, o) => s + (o.pnl_money || 0), 0);
+      const hasSignal = orders.some(o => o.status === 'active');
+      let chip = '';
+      if (Math.abs(total) > 0.01) {
+        const cls = total > 0 ? 'chip-pos' : 'chip-neg';
+        chip = `<span class="pair-pnl-chip ${cls}">${total > 0 ? '+' : ''}${total.toFixed(0)}</span>`;
+      }
+      return { chip, hasSignal };
+    }
+
+    // ─── ORDERS ────────────────────────────────────────────────
+    async function loadOrders() {
+      const data = await fetchJ('/api/orders');
+      if (data === null) return;
+      // Ne pas écraser si on est déjà en mode démo (sélection manuelle)
+      if (state.isDemoMode && data.length === 0) return;
+
+      state.orders = data;
+      state.isDemoMode = false;
+      renderOrders();
+      computeStats();
+      updateSelectedIfOpen();
+      renderPairSidebar();
+    }
+
+    async function loadDemoOrders() {
+      const data = await fetchJ('/api/demo_orders');
+      if (!data) return;
+      state.orders = data;
+      state.isDemoMode = true;
+      renderOrders();
+      computeStats();
+      renderPairSidebar();
+    }
+
+    function getFilteredOrders() {
+      let o = [...state.orders];
+      if (state.filter.pair !== 'all') o = o.filter(x => x.pair === state.filter.pair);
+      if (state.filter.school !== 'all') o = o.filter(x => x.school === state.filter.school);
+
+      if (state.filter.status !== 'all') {
+        o = o.filter(x => x.status === state.filter.status);
+      }
+      return o;
+    }
+
+    function renderOrders() {
+      const orders = getFilteredOrders();
+      const area = document.getElementById('ordersArea');
+      if (!orders.length) {
+        const isDemoMode = state.isDemoMode || false;
+        area.innerHTML = `
+      <div class="empty-orders">
+        <div class="ei">${isDemoMode ? '🧩' : '📋'}</div>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:6px">
+          ${isDemoMode ? 'Aucun ordre dans cette vue' : 'Aucun ordre réel détecté'}
+        </div>
+        <div style="font-size:.8rem;color:var(--dim);margin-bottom:16px">
+          ${isDemoMode
+            ? 'Essayez un autre filtre (statut, école ou paire).'
+            : 'Le bot n\'a pas encore généré d\'ordre. Démarrez le bot ou chargez des données de démonstration.'}
+        </div>
+        ${!isDemoMode ? `<button class="btn btn-pause" onclick="loadDemoOrders()" style="font-size:.8rem">
+          🧩 Charger données de démo
+        </button>
+        <div style="font-size:.7rem;color:var(--dim);margin-top:6px">Simule des trades ICT pour visualiser l'interface</div>` : ''}
+      </div>`;
+        return;
+      }
+
+      const cards = orders.map(o => {
+        const pnlCls = o.pnl_money > 0 ? 'pnl-pos' : o.pnl_money < 0 ? 'pnl-neg' : 'pnl-neu';
+        const pnlStr = (o.pnl_money != null && Math.abs(o.pnl_money) > 0.001)
+          ? `${o.pnl_money > 0 ? '+' : ''}${o.pnl_money.toFixed(2)}€`
+          : '<span style="color:var(--dim)">—</span>';
+
+        let scoreCls = 'score-lo';
+        if (o.score >= 81) scoreCls = 'score-hi';
+        else if (o.score >= 61) scoreCls = 'score-mid';
+        else if (o.score >= 31) scoreCls = 'score-warn';
+
+        const isSelected = state.selected && state.selected.id === o.id ? 'selected' : '';
+        const icon = pairCatIcon(o.pair);
+
+        return `
+        <div class="order-card ${isSelected}" onclick="selectOrder('${o.id}')">
+            <div class="card-header">
+                <div class="pair-info">
+                    <div class="pair-icon-bg">${icon.emoji}</div>
+                    <div>
+                        <span class="pair-name-big">${o.pair}</span>
+                        <span class="pair-tf-small">${o.timeframe || '—'} · ${o.school.toUpperCase()}</span>
+                    </div>
+                </div>
+                <div class="score-badge-card ${scoreCls}">${o.score}/100</div>
+            </div>
+
+            <div class="card-body">
+                <div class="price-item-card">
+                    <span class="price-label-card">Direction</span>
+                    <span class="price-val-card ${o.direction === 'ACHAT' ? 'pnl-pos' : 'pnl-neg'}">
+                        ${o.direction === 'ACHAT' ? '▲' : '▼'} ${o.direction}
+                    </span>
+                </div>
+                <div class="price-item-card">
+                    <span class="price-label-card">PnL / Lots</span>
+                    <span class="price-val-card"><span class="${pnlCls}">${pnlStr}</span> · ${o.volume} lot</span>
+                </div>
+                <div class="price-item-card">
+                    <span class="price-label-card">Entrée</span>
+                    <span class="price-val-card">${o.entry || '—'}</span>
+                </div>
+                <div class="price-item-card">
+                    <span class="price-label-card">SL / TP1</span>
+                    <span class="price-val-card" style="font-size:0.8rem">
+                        <span style="color:var(--red)">${o.sl || '—'}</span> / 
+                        <span style="color:var(--green)">${o.tp1 || '—'}</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                <div class="status-pill-card s-${o.status}">
+                    <div class="dot-card"></div> ${statusLabel(o.status)}
+                </div>
+                <div style="display:flex;gap:4px;">
+                    ${o.status === 'active' && o.ticket ? `<button class="act-btn danger" onclick="event.stopPropagation();closeMT5('${o.ticket}', '${o.id}')">MT5</button>` : ''}
+                    <button class="btn-detail-card" onclick="event.stopPropagation();window.location.href='/analysis/${o.id}'">Détails</button>
+                </div>
+            </div>
+        </div>`;
+      }).join('');
+
+      area.innerHTML = `<div class="orders-grid">${cards}</div>`;
+    }
+
+    function buildActionBtns(o) {
+      if (o.status === 'active') {
+        const ticketBtn = o.ticket ? `<button class="act-btn danger" onclick="closeMT5('${o.ticket}', '${o.id}')">Fermer MT5</button>` : '';
+        return `${ticketBtn}
+            <button class="act-btn danger" onclick="closeOrder('${o.id}')">Fermer Dashboard</button>
+            <button class="act-btn" onclick="window.location.href='/analysis/' + '${o.id}'">Détail</button>`;
+      }
+      if (o.status === 'pending') {
+        return `<button class="act-btn danger" onclick="cancelOrder('${o.id}')">Annuler</button>
+            <button class="act-btn" onclick="window.location.href='/analysis/' + '${o.id}'">Détail</button>`;
+      }
+      return `<button class="act-btn" onclick="window.location.href='/analysis/' + '${o.id}'">Rapport</button>`;
+    }
+
+    function pairCatIcon(pair) {
+      if (['XAUUSD', 'XAGUSD'].includes(pair)) return { cls: 'icon-metal', emoji: '🥇' };
+      if (['BTCUSD', 'ETHUSD'].includes(pair)) return { cls: 'icon-crypto', emoji: '₿' };
+      if (['USOIL', 'UKOIL'].includes(pair)) return { cls: 'icon-energy', emoji: '🛢️' };
+      return { cls: 'icon-forex', emoji: '💱' };
+    }
+
+    function statusLabel(s) {
+      return { active: 'ACTIF', pending: 'EN ATTENTE', closed: 'FERMÉ', cancelled: 'ANNULÉ' }[s] || s.toUpperCase();
+    }
+
+    // ─── STATS + BADGES — Calculé depuis state.orders (toujours en sync) ─────
+    function computeStats() {
+      const all = state.orders;
+      const closed = all.filter(o => o.status === 'closed');
+      const active = all.filter(o => o.status === 'active');
+      const pending = all.filter(o => o.status === 'pending');
+
+      // Badges onglets
+      document.getElementById('cnt-active').textContent = active.length;
+      document.getElementById('cnt-pending').textContent = pending.length;
+      document.getElementById('cnt-closed').textContent = closed.length;
+
+      // Calculs stats
+      const totalPnl = [...closed, ...active].reduce((s, o) => s + (o.pnl_money || 0), 0);
+      const totalPips = [...closed, ...active].reduce((s, o) => s + (o.pnl_pips || 0), 0);
+      const wins = closed.filter(o => (o.pnl_money || 0) > 0);
+      const winRate = closed.length ? Math.round(wins.length / closed.length * 100) : 0;
+      const maxDd = [...closed, ...active].reduce((min, o) => Math.min(min, o.pnl_pips || 0), 0);
+
+      // Topbar
+      const pnlEl = document.getElementById('statPnl');
+      pnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}€`;
+      pnlEl.className = `ts-val ${totalPnl >= 0 ? 'pos' : 'neg'}`;
+
+      document.getElementById('statWr').textContent = `${winRate}%`;
+      document.getElementById('statActive').textContent = active.length;
+
+      const ddEl = document.getElementById('statDd');
+      ddEl.textContent = `${maxDd.toFixed(1)} pips`;
+      ddEl.className = `ts-val ${maxDd >= 0 ? 'neu' : 'neg'}`;
+    }
+
+    // ─── CIRCUIT BREAKER ───────────────────────────────────────────
+    async function loadCB() {
+      const cb = await fetchJ('/api/circuit_breaker');
+      if (!cb) return;
+
+      const el = document.getElementById('cbStatus');
+      if (cb.active) {
+        el.className = 'cb-status cb-warn';
+        el.textContent = `🚨 CB Actif: ${cb.reason || 'Limite atteinte'}`;
+      } else {
+        el.className = 'cb-status cb-ok';
+        el.textContent = `✅ CB OK — ${cb.trades_today || 0} trades / ${cb.sl_streak || 0} SL`;
+      }
+
+      // Remplir les champs de réglage s'ils ne sont pas modifiés par l'utilisateur (ou au premier chargement)
+      if (document.activeElement.id !== 'cb-max-loss') document.getElementById('cb-max-loss').value = cb.max_daily_loss_pct;
+      if (document.activeElement.id !== 'cb-max-trades') document.getElementById('cb-max-trades').value = cb.max_trades;
+      if (document.activeElement.id !== 'cb-max-sl') document.getElementById('cb-max-sl').value = cb.max_sl_streak;
+    }
+
+    async function resetCB() {
+      if (!confirm("Réinitialiser manuellement le Circuit Breaker ?")) return;
+      const res = await fetchJ('/api/circuit_breaker/reset', { method: 'POST' });
+      if (res && res.ok) loadCB();
+    }
+
+    async function updateCBConfig() {
+      const daily_loss_pct = parseFloat(document.getElementById('cb-max-loss').value);
+      const max_trades = parseInt(document.getElementById('cb-max-trades').value);
+      const sl_streak = parseInt(document.getElementById('cb-max-sl').value);
+
+      const res = await fetchJ('/api/circuit_breaker/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ daily_loss_pct, max_trades, sl_streak })
+      });
+      if (res && res.ok) {
+        alert("Réglages de sécurité mis à jour !");
+        loadCB();
+      }
+    }
+
+    // ─── FILTERS ───────────────────────────────────────────────────
+    function filterPair(pair) {
+      state.filter.pair = pair;
+      document.getElementById('btnAllPairs').classList.toggle('active', pair === 'all');
+      document.querySelectorAll('.pair-btn').forEach(b => b.classList.remove('active'));
+      if (pair !== 'all') {
+        const btn = document.getElementById(`pb-${pair}`);
+        if (btn) btn.classList.add('active');
+      }
+      renderOrders();
+    }
+
+    function setSchool(school) {
+      state.filter.school = school;
+      document.querySelectorAll('[id^="tab-school-"]').forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-school-${school}`).classList.add('active');
+      renderOrders();
+    }
+
+    function setStatus(status) {
+      state.filter.status = status;
+      const validId = status === 'all' ? 'tab-st-all' : `tab-st-${status}`;
+      document.querySelectorAll('[id^="tab-st-"]').forEach(t => t.classList.remove('active'));
+      document.getElementById(validId).classList.add('active');
+      renderOrders();
+    }
+
+    // ─── ORDER SELECTION / NARRATIVE ──────────────────────────────
+    async function selectOrder(id) {
+      const order = state.orders.find(o => o.id === id);
+      if (!order) return;
+      state.selected = order;
+      renderOrders();   // update selected highlight
+      renderNarrative(order);
+    }
+
+    function updateSelectedIfOpen() {
+      if (!state.selected) return;
+      const updated = state.orders.find(o => o.id === state.selected.id);
+      if (updated) {
+        state.selected = updated;
+        renderNarrative(updated);
+      }
+    }
+
+    function renderNarrative(o) {
+      document.getElementById('noSelection').style.display = 'none';
+      const content = document.getElementById('narrativeContent');
+      content.style.display = 'flex';
+
+      // Header
+      const dirIcon = o.direction === 'ACHAT' ? '🟢' : '🔴';
+      document.getElementById('npPair').textContent = `${o.pair} ${dirIcon} ${o.direction}`;
+      document.getElementById('npSub').textContent =
+        `${o.school.toUpperCase()} · ${statusLabel(o.status)} · Ouvert le ${o.opened_at}`;
+      const scoreEl = document.getElementById('npScore');
+      scoreEl.textContent = `${o.score}/100`;
+      scoreEl.style.color = o.score >= 80 ? 'var(--green)' : o.score >= 65 ? 'var(--yellow)' : 'var(--red)';
+
+      // Build body
+      const pnlCls = (o.pnl_money || 0) > 0 ? 'pnl-pos' : (o.pnl_money || 0) < 0 ? 'pnl-neg' : 'pnl-neu';
+      const pnlStr = (typeof o.pnl_money === 'number' && Math.abs(o.pnl_money) > 0.001)
+        ? `${o.pnl_money > 0 ? '+' : ''}${o.pnl_money.toFixed(2)}€ (${(o.pnl_pips || 0) >= 0 ? '+' : ''}${(o.pnl_pips || 0).toFixed(1)} pips)`
+        : 'Analyse en cours';
+
+      const checklistHtml = (o.checklist || []).map(c => `
+    <div class="cl-item ${c.status}">
+      <div class="cl-icon ${c.status}">${c.status === 'pass' ? '✓' : '✗'}</div>
+      <span>${c.item}</span>
+    </div>`).join('');
+
+      const passCount = (o.checklist || []).filter(c => c.status === 'pass').length;
+      const totalCount = (o.checklist || []).length;
+
+      const pendingHtml = (o.pending_conditions || []).length ? `
+    <div>
+      <div class="np-section-title">⏳ Conditions en attente</div>
+      <div class="pending-list">
+        ${(o.pending_conditions || []).map(c => `
+        <div class="pending-item">
+          <span class="pending-icon">⏳</span><span>${c}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
+
+      // narrative text: convert **text** to <strong>
+      const narr = (o.narrative || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      const actionsHtml = buildNarrativeActions(o);
+
+      document.getElementById('npBody').innerHTML = `
+    <!-- Price grid -->
+    <div class="price-grid">
+      <div class="price-box">
+        <div class="price-box-label">Entrée (${o.timeframe || 'N/A'})</div>
+        <div class="price-box-val entry-val">${o.entry || '—'}</div>
+      </div>
+      <div class="price-box">
+        <div class="price-box-label">Stop Loss</div>
+        <div class="price-box-val sl-val">${o.sl || '—'}</div>
+      </div>
+      <div class="price-box">
+        <div class="price-box-label">TP1 / TP2</div>
+        <div class="price-box-val tp-val">${o.tp1 || '—'} / ${o.tp2 || '—'}</div>
+      </div>
+    </div>
+    <!-- Volume + Montant + Date -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div class="price-box">
+        <div class="price-box-label">Volume</div>
+        <div class="price-box-val" style="color:var(--text)">${o.volume || '—'} lot</div>
+      </div>
+      <div class="price-box">
+        <div class="price-box-label">Montant risqué</div>
+        <div class="price-box-val" style="color:var(--yellow)">${o.montant_risque ? o.montant_risque.toFixed(2) + '€' : '—'}</div>
+      </div>
+      <div class="price-box">
+        <div class="price-box-label">Date</div>
+        <div class="price-box-val" style="color:var(--muted);font-size:.78rem">${o.opened_at || '—'}</div>
+      </div>
+    </div>
+    <!-- PnL -->
+    <div class="pnl-box">
+      <span class="pnl-box-label">P&L · R:R ${o.rr || '—'}</span>
+      <span class="pnl-box-val ${pnlCls}">${pnlStr}</span>
+    </div>
+    <!-- Strategic Info -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="price-box" style="border-left: 3px solid var(--purple)">
+        <div class="price-box-label">🎯 Draw on Liquidity</div>
+        <div class="price-box-val" style="font-size:.85rem;color:var(--text)">${o.ict_dol || '— Non défini —'}</div>
+      </div>
+      <div class="price-box" style="border-left: 3px solid var(--cyan)">
+        <div class="price-box-label">🏗️ Market Model</div>
+        <div class="price-box-val" style="font-size:.85rem;color:var(--text)">${o.ict_model || '— Standard —'}</div>
+      </div>
+    </div>
+    <!-- Scenarios -->
+    ${o.ict_scenario ? `
+    <div class="price-box" style="background:var(--bg4);border-color:var(--border-h)">
+      <div class="np-section-title" style="margin-bottom:6px">🗺️ Scénarios Stratégiques</div>
+      <div class="narrative-text" style="font-size:.82rem;line-height:1.4">${o.ict_scenario.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
+    </div>` : ''}
+    <!-- Checklist -->
+    <div>
+      <div class="np-section-title">✅ Checklist ICT (${passCount}/${totalCount})</div>
+      <div class="checklist">${checklistHtml || '<div style="color:var(--dim);font-size:.8rem">Checklist non disponible</div>'}</div>
+    </div>
+    ${pendingHtml}
+    <!-- Narrative -->
+    <div>
+      <div class="np-section-title">📝 Narrative d'Analyse</div>
+      <div class="narrative-text">${narr || '— Narrative non disponible —'}</div>
+    </div>
+    <!-- Actions -->
+    <div>
+      <div class="np-section-title">⚡ Actions</div>
+      <div class="np-actions">${actionsHtml}</div>
+    </div>
+  `;
+    }
+
+    function buildNarrativeActions(o) {
+      if (o.status === 'active') {
+        return `<button class="np-btn np-btn-close" onclick="closeOrder('${o.id}')">🔒 Fermer le Trade</button>
+            <button class="np-btn np-btn-neutral" onclick="closeNarrative()">← Retour</button>`;
+      }
+      if (o.status === 'pending') {
+        return `<button class="np-btn np-btn-cancel" onclick="cancelOrder('${o.id}')">❌ Annuler l'Ordre</button>
+            <button class="np-btn np-btn-neutral" onclick="closeNarrative()">← Retour</button>`;
+      }
+      return `<button class="np-btn np-btn-neutral" onclick="closeNarrative()">← Retour</button>`;
+    }
+
+    function closeNarrative() {
+      state.selected = null;
+      document.getElementById('noSelection').style.display = 'flex';
+      document.getElementById('narrativeContent').style.display = 'none';
+      document.getElementById('setupPanel').style.display = 'none';
+      renderOrders();
+    }
+
+    // --- SETUP PANEL LOGIC ---
+    async function selectPair(pair) {
+      if (state.filter.pair === pair && document.getElementById('setupPanel').style.display === 'flex') {
+        // Déjà sur cette paire, on masque
+        closeSetup();
+        return;
+      }
+
+      state.filter.pair = pair;
+      document.getElementById('btnAllPairs').classList.remove('active');
+      document.querySelectorAll('.pair-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById(`pb-${pair}`);
+      if (btn) btn.classList.add('active');
+
+      // Masquer narrative si ouverte
+      document.getElementById('noSelection').style.display = 'none';
+      document.getElementById('narrativeContent').style.display = 'none';
+      document.getElementById('setupPanel').style.display = 'flex';
+
+      document.getElementById('setupPair').textContent = pair + " (Scan...)";
+      document.getElementById('setupBody').innerHTML = `<div style="padding:20px;text-align:center;color:var(--dim)">Chargement du dernier rapport...</div>`;
+
+      try {
+        const report = await fetchJ(`/api/setup/${pair}`);
+        if (report && !report.error) {
+          renderSetup(report);
+        } else {
+          document.getElementById('setupBody').innerHTML = `<div style="padding:20px;text-align:center;color:var(--dim)">Aucune analyse récente pour ${pair}.<br><br>Démarrez le bot pour l'analyser.</div>`;
+        }
+      } catch (err) {
+        console.error("selectPair error:", err);
+      }
+
+      renderOrders();
+    }
+
+    function closeSetup() {
+      state.filter.pair = 'all';
+      document.getElementById('btnAllPairs').classList.add('active');
+      document.querySelectorAll('.pair-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('setupPanel').style.display = 'none';
+      document.getElementById('noSelection').style.display = 'flex';
+      renderOrders();
+    }
+
+    function renderSetup(o) {
+      document.getElementById('setupPair').textContent = o.pair;
+      document.getElementById('setupScore').textContent = `${o.score || 0}/100`;
+      document.getElementById('setupScore').style.color = (o.score || 0) >= 70 ? 'var(--green)' : 'var(--yellow)';
+
+      const checklistHtml = (o.checklist || []).map(c => `
+        <div class="cl-item ${c.status}">
+          <div class="cl-icon ${c.status}">${c.status === 'pass' ? '✓' : '✗'}</div>
+          <span>${c.item}</span>
+        </div>`).join('');
+
+      const narr = (o.narrative || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+
+      document.getElementById('setupBody').innerHTML = `
+        <div class="pnl-box" style="background:var(--bg3);border-color:var(--border)">
+          <span class="pnl-box-label">SIGNAL / DIRECTION</span>
+          <span class="pnl-box-val ${o.decision === 'RESTER_DEHORS' ? 'pnl-neu' : 'pnl-pos'}">${o.decision || 'NEUTRE'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="price-box">
+            <div class="price-box-label">Biais HTF</div>
+            <div class="price-box-val" style="font-size:.85rem;color:var(--text)">${o.ict_bias || 'N/A'}</div>
+          </div>
+          <div class="price-box">
+             <div class="price-box-label">Modèle</div>
+             <div class="price-box-val" style="font-size:.85rem;color:var(--text)">${o.ict_model || 'Standard'}</div>
+          </div>
+        </div>
+        <div>
+          <div class="np-section-title">Analyse Narrative</div>
+          <div class="narrative-text" style="font-size:.8rem;max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.2);padding:10px;border-radius:6px;">${narr || '— Pas de détails —'}</div>
+        </div>
+        <div>
+          <div class="np-section-title">Checklist de Confirmation</div>
+          <div class="checklist">${checklistHtml || 'Non disponible'}</div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="np-btn np-btn-neutral" style="width:100%" onclick="closeSetup()">Fermer</button>
+        </div>
+      `;
+    }
+
+    // ─── TRADE ACTIONS ─────────────────────────────────────────────
+    async function closeOrder(id) {
+      if (!confirm('Fermer ce trade ?')) return;
+      const r = await fetchJ('/api/close_order', { method: 'POST', json: { id } });
+      if (r?.ok) { await loadOrders(); computeStats(); }
+      else showToast('Erreur fermeture trade');
+    }
+
+    async function closeMT5(ticket, orderId) {
+      if (!confirm(`Fermer la position réelle MT5 #${ticket} ?`)) return;
+      try {
+        const res = await fetchJ('/api/close_mt5', { ticket: parseInt(ticket), id: orderId });
+        if (res.ok) {
+          showNotif("Position MT5 fermée avec succès", "success");
+        } else {
+          showNotif("Erreur MT5: " + res.message, "error");
+        }
+      } catch (e) {
+        showNotif("Erreur réseau", "error");
+      }
+    }
+
+    async function cancelOrder(id) {
+      if (!confirm('Annuler cet ordre en attente ?')) return;
+      const r = await fetchJ('/api/cancel_pending', { method: 'POST', json: { id } });
+      if (r?.ok) { await loadOrders(); computeStats(); }
+      else showToast('Erreur annulation ordre');
+    }
+
+    // ─── BOT CONTROLS ──────────────────────────────────────────────
+    async function startBot() {
+      const selected = [...state.selectedPairs];
+      let toScan = selected;
+
+      if (toScan.length === 0) {
+        // Aucune paire cochée → confirmer avant d'analyser toutes les paires
+        const all = Object.values(state.pairs).flat();
+        if (!confirm(`Aucune paire sélectionnée.\nAnalyser toutes les ${all.length} paires ?`)) return;
+        toScan = all;
+      }
+
+      const horizons = [...document.querySelectorAll('.horizon-cb:checked')].map(cb => cb.value);
+      if (horizons.length === 0) {
+        showToast('⚠️ Cochez au moins un horizon (M5/H1/H4/D1)');
+        return;
+      }
+      const r = await fetchJ('/api/start', { method: 'POST', json: { pairs: toScan, interval: 5, horizons: horizons } });
+      if (r?.ok) {
+        showToast(`🚀 Bot démarré sur ${toScan.length} paire(s) — ${horizons.map(h => h.toUpperCase()).join('+')}`);
+        if (!state.logsOpen) toggleLogs();
+        loadLogs();
+      } else if (r?.message) {
+        showToast(`⚠️ ${r.message}`);
+      }
+    }
+    async function pauseBot() { await fetchJ('/api/pause', { method: 'POST', json: {} }); }
+    async function stopBot() {
+      if (!confirm('Arrêter le bot ?')) return;
+      await fetchJ('/api/stop', { method: 'POST', json: {} });
+    }
+
+    async function exitApp() {
+      if (!confirm('Voulez-vous vraiment arrêter le serveur et déconnecter MT5 ?\nL\'interface ne sera plus accessible.')) return;
+      try {
+        const r = await fetchJ('/api/exit', { method: 'POST', json: {} });
+        if (r?.ok) {
+          showToast("🔌 Shutdown en cours...");
+          setTimeout(() => {
+            document.body.innerHTML = `
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0b0e14;color:#8892a4;font-family:sans-serif;">
+                <h1 style="color:#e2e8f0;margin-bottom:12px;">Application Arrêtée</h1>
+                <p>Le serveur et la connexion MT5 ont été fermés proprement.</p>
+                <p style="margin-top:20px;font-size:0.8rem;">Vous pouvez fermer cet onglet.</p>
+              </div>
+            `;
+          }, 1000);
+        }
+      } catch (e) {
+        // Normal si le serveur se coupe avant de répondre
+        window.location.reload();
+      }
+    }
+
+    // ─── STATUS ────────────────────────────────────────────────────
+    function handleStatusUpdate(data) {
+      const badge = document.getElementById('statusBadge');
+      const dot = document.getElementById('runDot');
+      const scanBar = document.getElementById('scanBar');
+      const itemPair = document.getElementById('liveItemPair');
+      const itemCycle = document.getElementById('liveItemCycle');
+      const livePair = document.getElementById('livePair');
+      const liveCycle = document.getElementById('liveCycle');
+      const thr = document.getElementById('statThreshold');
+
+      const labels = { stopped: 'ARRÊTÉ', running: 'EN COURS', paused: 'EN PAUSE', starting: 'DÉMARRAGE' };
+      badge.textContent = labels[data.status] || data.status.toUpperCase();
+      badge.className = `status-badge badge-${data.status}`;
+
+      const isRunning = data.status === 'running';
+      const isPaused = data.status === 'paused';
+      dot.style.background = isRunning ? 'var(--green)' : isPaused ? 'var(--yellow)' : 'var(--accent)';
+
+      // Barre de scan pulsante
+      if (scanBar) scanBar.classList.toggle('active', isRunning);
+
+      // Champs live paire / cycle
+      if (itemPair) itemPair.style.display = isRunning ? '' : 'none';
+      if (itemCycle) itemCycle.style.display = isRunning ? '' : 'none';
+      if (livePair) livePair.textContent = data.current_pair || (isRunning ? '⊙ Scan...' : '—');
+      if (liveCycle && data.cycle != null) liveCycle.textContent = `#${data.cycle}`;
+
+      if (thr && data.min_score) {
+        thr.textContent = data.min_score + '/100';
+      }
+
+      const activeAPI = document.getElementById('activeAPI');
+      if (activeAPI) {
+        activeAPI.textContent = data.current_api || 'N/A';
+      }
+
+      const mt5Badge = document.getElementById('mt5StatusBadge');
+      if (mt5Badge) {
+        const isConn = data.mt5_connected;
+        mt5Badge.textContent = isConn ? 'CONNECTED' : 'DISCONNECTED';
+        mt5Badge.className = 'status-badge ' + (isConn ? 'badge-running' : 'badge-stopped');
+      }
+
+      function updateMode(mode) {
+        const el = document.getElementById('modeBadge');
+        if (!el) return;
+        el.textContent = mode;
+        el.className = 'status-badge ' + (mode === 'SIMU' ? 'badge-simu' : 'badge-live');
+      }
+
+      if (data.mt5_status) updateMode(data.mt5_status);
+
+      // Auto-ouvrir le journal au démarrage
+      if (data.cycle && (data.status === 'starting' || (isRunning && (data.cycle === 0 || data.cycle === 1))) && !state.logsOpen) {
+        toggleLogs();
+        loadLogs();
+      }
+    }
+
+
+    // ✅ NOUVEAU : Gère l'affichage automatique des analyses reçues en direct
+    function handleAnalysisReport(data) {
+      if (!data) return;
+
+      // Update Setup Panel if this pair is currently selected
+      if (state.filter.pair === data.pair) {
+        renderSetup(data);
+      }
+
+      // Si c'est un trade (pas juste une analyse neutre), on peut l'afficher en narrative
+      if (data.decision !== 'RESTER_DEHORS') {
+        // On n'écrase pas si l'utilisateur a sélectionné manuellement un ordre actif
+        if (!(state.selected && state.selected.status === 'active')) {
+          state.selected = data;
+          renderNarrative(data);
+        }
+      }
+
+      // Petit feedback sur le bouton de la paire
+      const btn = document.getElementById(`pb-${data.pair}`);
+      if (btn) {
+        btn.classList.add('has-signal');
+        setTimeout(() => btn.classList.remove('has-signal'), 3000);
+      }
+    }
+
+
+    // ─── LOGS ──────────────────────────────────────────────────────
+    function toggleLogs() {
+      state.logsOpen = !state.logsOpen;
+      document.getElementById('logsDrawer').classList.toggle('open', state.logsOpen);
+      document.getElementById('logsArrow').textContent = state.logsOpen ? '▼' : '▲';
+    }
+
+    function addLog(entry) {
+      const area = document.getElementById('logArea');
+      const line = document.createElement('div');
+      const isSig = entry.level === 'SIGNAL';
+      line.className = 'log-line' + (isSig ? ' sig-line' : '');
+      line.innerHTML = `<span class="log-time">${entry.time}</span>
+    <span class="log-level ${entry.level}">${entry.level}</span>
+    <span class="log-msg">${entry.message}</span>`;
+      area.appendChild(line);
+      area.scrollTop = area.scrollHeight;
+      while (area.children.length > 200) area.removeChild(area.firstChild);
+      const cnt = document.getElementById('logCount');
+      cnt.textContent = `${area.children.length} lignes`;
+      // Si on voit un log SIGNAL, ouvrir le journal si fermé
+      if (isSig && !state.logsOpen) toggleLogs();
+    }
+
+    // Charge les logs historiques depuis le backend
+    async function loadLogs() {
+      const data = await fetchJ('/api/logs');
+      if (!data || !Array.isArray(data)) return;
+      const area = document.getElementById('logArea');
+      area.innerHTML = '';
+      data.slice(-100).forEach(e => addLog(e));
+    }
+
+    // ─── HELPERS ───────────────────────────────────────────────────
+    async function fetchJ(url, opts = {}) {
+      try {
+        const res = await fetch(url, {
+          method: opts.method || 'GET',
+          headers: opts.json ? { 'Content-Type': 'application/json' } : {},
+          body: opts.json ? JSON.stringify(opts.json) : undefined,
+        });
+        return await res.json();
+      } catch (e) { console.error('fetchJ error:', url, e); return null; }
+    }
+
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.style.cssText = `
+    position:fixed;bottom:60px;left:50%;transform:translateX(-50%);
+    background:var(--bg4);color:var(--text);border:1px solid var(--border-h);
+    padding:8px 16px;border-radius:8px;font-size:.8rem;z-index:999;
+  `;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
+    }
+
+    // ─── BOOT ──────────────────────────────────────────────────────
+    init();
+    // ✅ FIX AUDIT-01 : Gestion du baromètre
+    async function updateMinScore() {
+      const val = document.getElementById('min-score-input').value;
+      try {
+        const res = await fetch('/api/config/min_score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: parseInt(val) })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          console.log("Baromètre mis à jour :", data.value);
+        } else {
+          alert("Erreur mise à jour : " + data.message);
+        }
+      } catch (e) {
+        console.error("Erreur API baromètre :", e);
+      }
+    }
+
+    // Charger le score au démarrage
+    fetch('/api/config/min_score').then(r => r.json()).then(d => {
+      document.getElementById('min-score-input').value = d.value;
+    });
+
+  </script>
+</body>
+
+</html>

@@ -470,3 +470,181 @@ class StructureAgent:
             "liquidity_sweeps": sweeps,
             "bias": bias
         }
+
+    def detect_mss(self, df: pd.DataFrame, swings: list, displacements: list, 
+                   fvgs: list, bos_choch: list) -> list[dict]:
+        """
+        MSS = BOS/CHoCH + Displacement + FVG créé, tous dans le même mouvement.
+        """
+        mss_events = []
+        df_times = df['time'].dt.strftime('%Y-%m-%d %H:%M').values
+        
+        fvg_disp_indices = set(f['displacement_index'] for f in fvgs)
+        
+        for event in bos_choch:
+            event_idx = event['index']
+            # Chercher un displacement proche (±2 bougies de la cassure)
+            close_displacements = [d for d in displacements if abs(d['index'] - event_idx) <= 2]
+            
+            for d in close_displacements:
+                d_idx = d['index']
+                if d_idx in fvg_disp_indices:
+                    # Trouver le FVG correspondant
+                    fvg_idx = next((f['index'] for f in fvgs if f['displacement_index'] == d_idx), d_idx + 1)
+                    
+                    is_bullish = 'bullish' in event['type']
+                    mss_type = "bullish_mss" if is_bullish else "bearish_mss"
+                    
+                    mss_events.append({
+                        "type": mss_type,
+                        "bos_index": event_idx,
+                        "displacement_index": d_idx,
+                        "fvg_index": fvg_idx,
+                        "broken_level": event['broken_level'],
+                        "confidence": "high",
+                        "time": df_times[event_idx]
+                    })
+                    break # Un seul MSS pour cet event
+                    
+        return mss_events
+
+    def detect_equal_levels(self, swings: list[dict], tolerance_pips: float = 3.0, 
+                             pip_value: float = 0.0001) -> list[dict]:
+        """
+        Détecte les swing highs/lows qui sont au même niveau (± tolérance).
+        """
+        equal_levels = []
+        tolerance = tolerance_pips * pip_value
+        
+        highs = [s for s in swings if s['type'] == 'swing_high']
+        lows = [s for s in swings if s['type'] == 'swing_low']
+        
+        def group_swings(swing_list, level_type, liquidity_type):
+            groups = [] # liste de dicts {price_avg, swings: []}
+            for s in swing_list:
+                matched = False
+                for g in groups:
+                    if abs(s['price'] - g['price_avg']) <= tolerance:
+                        g['swings'].append(s)
+                        # Recalculer la moyenne
+                        g['price_avg'] = sum(x['price'] for x in g['swings']) / len(g['swings'])
+                        matched = True
+                        break
+                if not matched:
+                    groups.append({'price_avg': s['price'], 'swings': [s]})
+            
+            for g in groups:
+                count = len(g['swings'])
+                if count >= 2:
+                    strength = "strong" if count >= 3 else "moderate"
+                    equal_levels.append({
+                        "type": level_type,
+                        "level": round(g['price_avg'], 5),
+                        "count": count,
+                        "indices": [x['index'] for x in g['swings']],
+                        "strength": strength,
+                        "liquidity_type": liquidity_type
+                    })
+                    
+        group_swings(highs, "EQH", "buyside")
+        group_swings(lows, "EQL", "sellside")
+        return equal_levels
+
+    def detect_key_levels(self, df_daily: pd.DataFrame, df_weekly: pd.DataFrame = None,
+                           df_monthly: pd.DataFrame = None) -> dict:
+        """
+        Identifie les niveaux clés institutionnels.
+        """
+        levels = {}
+        
+        if df_daily is not None and len(df_daily) >= 2:
+            # Avant-dernière bougie = yesterday (index -2) si le marché est ouvert aujourd'hui
+            prev_day = df_daily.iloc[-2]
+            levels["PDH"] = float(prev_day['high'])
+            levels["PDL"] = float(prev_day['low'])
+            
+        if df_weekly is not None and len(df_weekly) >= 2:
+            prev_week = df_weekly.iloc[-2]
+            levels["PWH"] = float(prev_week['high'])
+            levels["PWL"] = float(prev_week['low'])
+            
+        if df_monthly is not None and len(df_monthly) >= 2:
+            prev_month = df_monthly.iloc[-2]
+            levels["PMH"] = float(prev_month['high'])
+            levels["PML"] = float(prev_month['low'])
+            
+        return levels
+
+    def analyze_multi_tf(self, dataframes: dict[str, pd.DataFrame]) -> dict:
+        """
+        Analyse plusieurs timeframes et retourne un rapport hiérarchique.
+        """
+        report = {}
+        biases = {}
+        
+        for tf, df_tf in dataframes.items():
+            if df_tf is None or len(df_tf) == 0:
+                continue
+                
+            swings = self.detect_swing_points(df_tf)
+            displacements = self.detect_displacement(df_tf, swings)
+            fvgs = self.detect_fvg(df_tf)
+            
+            fvg_disp_indices = set(f['displacement_index'] for f in fvgs)
+            valid_disps = [d for d in displacements if d['index'] in fvg_disp_indices]
+            
+            obs = self.detect_order_blocks(df_tf, valid_disps, fvgs)
+            bos_choch = self.detect_bos_choch(df_tf, swings)
+            sweeps = self.detect_liquidity_sweeps(df_tf, swings)
+            mss = self.detect_mss(df_tf, swings, valid_disps, fvgs, bos_choch)
+            eq_levels = self.detect_equal_levels(swings)
+            
+            bias = self._determine_bias(bos_choch, swings)
+            last_event = bos_choch[-1]['type'] if bos_choch else "none"
+            
+            report[tf] = {
+                "bias": bias,
+                "swings": swings,
+                "fvg": fvgs,
+                "bos_choch": bos_choch,
+                "last_bos_type": last_event,
+                "mss": mss,
+                "equal_levels": eq_levels,
+                "order_blocks": obs,
+                "liquidity_sweeps": sweeps,
+                "displacements": valid_disps
+            }
+            biases[tf] = bias
+            
+        # Vote majoritaire pour HTF alignment (indépendant des TFs hardcodés)
+        bias_counts = {}
+        for tf_key, tf_data in report.items():
+            if isinstance(tf_data, dict) and "bias" in tf_data:
+                b = tf_data["bias"]
+                if b in ("bullish", "bearish"):
+                    bias_counts[b] = bias_counts.get(b, 0) + 1
+
+        total_tfs = sum(bias_counts.values())
+        if total_tfs == 0:
+            htf_alignment = "unknown"
+            modifier = 0.5
+        elif len(bias_counts) == 1:
+            # Tous les TFs avec un biais s'accordent
+            htf_alignment = list(bias_counts.keys())[0]
+            modifier = 1.0
+        else:
+            dominant = max(bias_counts, key=bias_counts.get)
+            if bias_counts[dominant] >= 2:
+                # Majorité (2/3 ou plus) → on prend le biais dominant
+                htf_alignment = dominant
+                modifier = 0.85
+            else:
+                # Parfaite égalité (ex: 1 bullish / 1 bearish)
+                htf_alignment = "conflicting"
+                modifier = 0.0
+
+        report["htf_alignment"] = htf_alignment
+        report["htf_alignment_detail"] = biases
+        report["htf_confidence_modifier"] = modifier
+        
+        return report

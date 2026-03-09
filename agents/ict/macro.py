@@ -1,3 +1,4 @@
+import pandas as pd
 from datetime import datetime
 
 # Mapping des paires et leurs relations avec le USD
@@ -331,3 +332,72 @@ class MacroBiasAgent:
         news_res = self.analyze_news_calendar(news_data, current_time) if news_data is not None else None
         
         return self.synthesize_macro_bias(cot_res, smt_res, dxy_res, news_res)
+
+    def analyze_ipda_ranges(self, df_daily: pd.DataFrame) -> dict:
+        """
+        Identifie les cibles de l'algorithme IPDA (20, 40, 60 jours).
+        """
+        if df_daily is None or len(df_daily) < 60:
+            return {}
+            
+        # Prendre au maximum les 60 derniers jours
+        df_60 = df_daily.tail(60)
+        df_40 = df_daily.tail(40)
+        df_20 = df_daily.tail(20)
+        
+        range_20 = {"high": float(df_20['high'].max()), "low": float(df_20['low'].min()), "days": 20}
+        range_40 = {"high": float(df_40['high'].max()), "low": float(df_40['low'].min()), "days": 40}
+        range_60 = {"high": float(df_60['high'].max()), "low": float(df_60['low'].min()), "days": 60}
+        
+        current_price = float(df_daily.iloc[-1]['close'])
+        
+        targets_above = [t for t in [range_20["high"], range_40["high"], range_60["high"]] if t > current_price]
+        targets_below = [t for t in [range_20["low"], range_40["low"], range_60["low"]] if t < current_price]
+        
+        nearest_target_above = min(targets_above) if targets_above else None
+        nearest_target_below = max(targets_below) if targets_below else None
+        
+        return {
+            "range_20": range_20,
+            "range_40": range_40,
+            "range_60": range_60,
+            "nearest_target_above": nearest_target_above,
+            "nearest_target_below": nearest_target_below
+        }
+
+    def get_quarterly_context(self, current_date: str) -> dict:
+        """
+        Identifie le trimestre et le contexte saisonnier.
+        """
+        from datetime import datetime
+        if isinstance(current_date, str):
+            dt = datetime.strptime(current_date, "%Y-%m-%d %H:%M")
+        else:
+            dt = current_date
+            
+        q = (dt.month - 1) // 3 + 1
+        
+        quarter = f"Q{q}"
+        year = dt.year
+        
+        start_month = (q - 1) * 3 + 1
+        start_date = f"{year}-{start_month:02d}-01"
+        
+        seasonality = {
+            "Q1": {"usd": "bullish", "eurusd": "bearish", "detail": "Q1: USD typically strong (risk-off, new year flows)"},
+            "Q2": {"usd": "neutral", "eurusd": "neutral", "detail": "Q2: Transitional quarter, mixed flows"},
+            "Q3": {"usd": "bearish", "eurusd": "bullish", "detail": "Q3: USD typically weak (summer doldrums, risk-on)"},
+            "Q4": {"usd": "bullish", "eurusd": "bearish", "detail": "Q4: USD safe haven flows, year-end repatriation"}
+        }
+        
+        bias_usd = seasonality[quarter]["usd"]
+        bias_eurusd = seasonality[quarter]["eurusd"]
+        detail = seasonality[quarter]["detail"]
+        
+        return {
+            "quarter": quarter,
+            "quarter_start": start_date,
+            "seasonal_bias_usd": bias_usd,
+            "seasonal_bias_eurusd": bias_eurusd,
+            "detail": detail
+        }

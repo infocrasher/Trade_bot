@@ -1,5 +1,5 @@
 import mt5_data as mt5_utils
-from agent_time_session import TimeSessionAgent
+from agents.agent_time_session import TimeSessionAgent
 
 def test():
     print("Connexion à MT5...")

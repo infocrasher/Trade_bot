@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from agent_entry import EntryAgent
+from agents.agent_entry import EntryAgent
 
 class TestResults:
     def __init__(self):

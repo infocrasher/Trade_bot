@@ -47,6 +47,10 @@ class OrchestratorAgent:
         # 1. ÉLIMINATIONS DIRECTES
         if trade_signal.get('signal') == "NO_TRADE":
             return {"decision": "NO_TRADE", "reason": "Agent d'entrée (A3) ne voit pas d'opportunité."}
+            
+        pd_check = trade_signal.get('premium_discount', {})
+        if pd_check.get('is_valid') == False:
+            return {"decision": "NO_TRADE", "reason": f"Wrong zone: {pd_check.get('detail')}"}
         
         if not time_report.get('can_trade', False):
             return {"decision": "NO_TRADE", "reason": "Agent Temporel (A2) bloque le trade (Killzone/Jour)."}
@@ -56,6 +60,10 @@ class OrchestratorAgent:
             
         if macro_report.get('macro_bias') == "no_trade":
             return {"decision": "NO_TRADE", "reason": "Biais Macro est trop instable (no_trade)."}
+            
+        htf_alignment = structure_report.get('htf_alignment', 'unknown')
+        if htf_alignment == "conflicting":
+            return {"decision": "NO_TRADE", "reason": "Biais HTF contradictoire (Rule 11.1.10 - Daily Bias incertain)"}
 
         # 2. ALIGNEMENT DIRECTIONNEL
         s_bias = structure_report.get('bias', 'neutral')
@@ -76,11 +84,13 @@ class OrchestratorAgent:
         # Comptage des votes alignés avec final_direction
         aligned_count = sum(1 for v in alignment.values() if v == final_direction)
         
-        if aligned_count < 3:
+        if aligned_count < 2:
             return {
                 "decision": "NO_TRADE", 
                 "reason": f"Manque de consensus : seul {aligned_count}/4 agents sont alignés sur {final_direction}."
             }
+        elif aligned_count < 3:
+            warnings.append(f"Consensus partiel : {aligned_count}/4 alignés (seuil abaissé)")
             
         reasons.append(f"{aligned_count}/4 agents alignés {final_direction}")
 
@@ -97,17 +107,26 @@ class OrchestratorAgent:
             AGENT_WEIGHTS['macro'] * macro_report.get('confidence', 0.0)
         )
         
+        # NEW V2 - HTF Modifier
+        htf_mod = structure_report.get('htf_confidence_modifier', 1.0)
+        conf_score *= htf_mod
+
+        # NEW V2 - Macro active bonus
+        if time_report.get('active_macro'):
+            conf_score += 0.10
+            reasons.append("Algorithmic Macro active (+10% conf)")
+
         # 4. VALIDATION R:R FINALE
         rr = trade_signal.get('rr_ratio', 0.0)
-        if rr < 1.5:
-             return {"decision": "NO_TRADE", "reason": f"R:R trop faible ({rr} < 1.5)."}
+        if rr < 1.2:
+             return {"decision": "NO_TRADE", "reason": f"R:R trop faible ({rr} < 1.2)."}
         
         if rr >= 3.0:
             conf_score += 0.05
             reasons.append("Bonus R:R élevé (>= 3.0)")
 
-        if conf_score < 0.55:
-            return {"decision": "NO_TRADE", "reason": f"Confiance globale trop faible ({conf_score:.2f} < 0.55)."}
+        if conf_score < 0.25:
+            return {"decision": "NO_TRADE", "reason": f"Confiance globale trop faible ({conf_score:.2f} < 0.25)."}
 
         # Détails des raisons
         reasons.append(f"Structure: {s_bias}")

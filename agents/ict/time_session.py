@@ -5,6 +5,7 @@ import zoneinfo
 KILLZONES = {
     "asian": {"start": "19:00", "end": "00:00"},       # 19h-00h NY (dimanche soir → lundi matin)
     "london": {"start": "02:00", "end": "05:00"},       # 2h-5h NY
+    "london_close": {"start": "10:00", "end": "12:00"}, # London Close Killzone
     "ny_am": {"start": "07:00", "end": "10:00"},        # 7h-10h NY (Killzone principale)
     "ny_pm": {"start": "13:30", "end": "16:00"},        # 13h30-16h NY (Ajusté pour inclure NY PM)
 }
@@ -14,6 +15,21 @@ SILVER_BULLET_WINDOWS = {
     "ny_am_sb": {"start": "10:00", "end": "11:00"},     # 10h-11h NY
     "ny_pm_sb": {"start": "14:00", "end": "15:00"},     # 14h-15h NY
 }
+
+MACROS = [
+    {"id": "midnight_open",  "name": "Midnight Open Macro",  "start": "23:50", "end": "00:10",  "crosses_midnight": True},
+    {"id": "london_open",    "name": "London Open Macro",    "start": "01:50", "end": "02:10",  "crosses_midnight": False},
+    {"id": "london_am_1",    "name": "London AM Macro 1",    "start": "04:03", "end": "04:23",  "crosses_midnight": False},
+    {"id": "london_am_2",    "name": "London AM Macro 2",    "start": "05:13", "end": "05:33",  "crosses_midnight": False},
+    {"id": "ny_open",        "name": "NY Open Macro",        "start": "07:50", "end": "08:10",  "crosses_midnight": False},
+    {"id": "ny_am_1",        "name": "NY AM Macro 1",        "start": "08:50", "end": "09:10",  "crosses_midnight": False},
+    {"id": "ny_am_2",        "name": "NY AM Macro 2",        "start": "09:50", "end": "10:10", "crosses_midnight": False},
+    {"id": "ny_am_3",        "name": "NY AM Macro 3",        "start": "10:50", "end": "11:10", "crosses_midnight": False},
+    {"id": "ny_lunch",       "name": "NY Lunch Macro",       "start": "11:50", "end": "12:10", "crosses_midnight": False},
+    {"id": "ny_pm_1",        "name": "NY PM Macro 1",        "start": "13:10", "end": "13:30", "crosses_midnight": False},
+    {"id": "ny_pm_2",        "name": "NY PM Macro 2",        "start": "14:50", "end": "15:10", "crosses_midnight": False},
+    {"id": "ny_close",       "name": "NY Close Macro",       "start": "15:15", "end": "15:45", "crosses_midnight": False},
+]
 
 # Filtres journaliers ICT
 DAY_FILTERS = {
@@ -105,6 +121,7 @@ class TimeSessionAgent:
                 name_map = {
                     "asian": "Asian Killzone",
                     "london": "London Killzone",
+                    "london_close": "London Close",
                     "ny_am": "New York AM Killzone",
                     "ny_pm": "New York PM Killzone"
                 }
@@ -153,6 +170,15 @@ class TimeSessionAgent:
         if weekday == 6 and current_time_ny.hour >= 17:
              day_info["quality"] = "setup" # On le traite comme monday setup
              day_info["note"] = "Ouverture asiatique (Dimanche soir)"
+             
+        # Seek & Destroy — Lundi avant 10h
+        if weekday == 0:
+             if current_time_ny.hour < 10:
+                 day_info["quality"] = "seek_destroy"
+                 day_info["note"] = "Lundi avant 10h: Seek & Destroy profile"
+             else:
+                 day_info["quality"] = "setup"
+                 day_info["note"] = "Lundi après 10h: Setup profile"
              
         day_info["can_trade"] = day_info["quality"] in ["prime", "setup"]
         return day_info
@@ -342,12 +368,67 @@ class TimeSessionAgent:
         return {"detected": False, "reason": "No Asian range sweep"}
 
 
+    def get_active_macro(self, ny_time: datetime) -> dict | None:
+        """
+        Vérifie si l'heure actuelle est dans une Macro algorithmique.
+        """
+        for macro in MACROS:
+            if self._is_time_in_window(ny_time, macro["start"], macro["end"]):
+                minutes = self._get_minutes_remaining(ny_time, macro["end"])
+                return {
+                    "id": macro["id"],
+                    "name": macro["name"],
+                    "minutes_remaining": minutes
+                }
+        return None
+
+    def calculate_midnight_open(self, df_m5: pd.DataFrame) -> dict:
+        """
+        Identifie le prix à 00:00 NY (Midnight Open).
+        """
+        if df_m5 is None or len(df_m5) == 0:
+            return {"midnight_open": None, "current_vs_midnight": "unknown"}
+            
+        ny_times = df_m5['time'].apply(lambda x: to_ny_time(x, self.broker_utc_offset))
+        current_time_ny = ny_times.iloc[-1]
+        
+        # Le minuit actuel est le 00:00 du jour de current_time_ny
+        midnight_target = current_time_ny.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        mask = ny_times >= midnight_target
+        valid_df = df_m5[mask]
+        
+        if len(valid_df) == 0:
+            return {"midnight_open": None, "current_vs_midnight": "unknown"}
+            
+        midnight_open_price = float(valid_df.iloc[0]['open'])
+        current_price = float(df_m5.iloc[-1]['close'])
+        
+        current_vs_midnight = "discount" if current_price < midnight_open_price else "premium"
+        
+        return {
+            "midnight_open": midnight_open_price,
+            "current_vs_midnight": current_vs_midnight
+        }
+
+    def get_trade_quality(self, kz: dict, sb: dict, macro: dict, day_filter: dict, judas: dict) -> str:
+        if not day_filter.get("can_trade", False) or kz is None:
+            return "no_trade"
+            
+        if sb is not None and day_filter["quality"] == "prime" and judas.get("detected", False) and macro is not None:
+            return "high"
+        elif kz is not None and day_filter["quality"] in ["prime", "setup"] and macro is not None:
+            return "medium"
+        elif kz is not None:
+            return "low"
+            
+        return "no_trade"
+
     def analyze(self, df: pd.DataFrame, current_broker_time: datetime = None) -> dict:
         """
         Analyse temporelle complète.
         """
         if current_broker_time is None:
-             # S'il n'y a pas d'heure passée, on utilise la dernière bougie dispo
              if df is not None and len(df) > 0:
                  current_broker_time = df.iloc[-1]['time']
              else:
@@ -357,32 +438,27 @@ class TimeSessionAgent:
         
         kz = self.get_active_killzone(current_time_ny)
         sb = self.get_active_silver_bullet(current_time_ny)
+        macro = self.get_active_macro(current_time_ny)
         day_filter = self.get_day_filter(current_time_ny)
         asian_range = self.get_asian_range(df)
         po3 = self.get_po3_phase(current_time_ny, df, asian_range)
         judas = self.detect_judas_swing(df, asian_range, current_time_ny)
+        midnight_open = self.calculate_midnight_open(df)
         
         # Calcul Synthèse trade quality
-        can_trade = day_filter["can_trade"] and kz is not None
-        
-        trade_quality = "no_trade"
-        if not can_trade:
-            trade_quality = "no_trade"
-        elif sb is not None and day_filter["quality"] == "prime" and judas.get("detected", False):
-             trade_quality = "high"
-        elif kz is not None and day_filter["quality"] in ["prime", "setup"]:
-             trade_quality = "medium"
-        elif kz is not None and day_filter["quality"] == "caution":
-             trade_quality = "low"
+        trade_quality = self.get_trade_quality(kz, sb, macro, day_filter, judas)
+        can_trade = trade_quality != "no_trade"
         
         return {
             "current_time_ny": current_time_ny.strftime("%Y-%m-%d %H:%M"),
             "killzone": kz,
             "silver_bullet": sb,
+            "active_macro": macro,
             "day_filter": day_filter,
             "asian_range": asian_range,
             "po3_phase": po3,
             "judas_swing": judas,
+            "midnight_open": midnight_open,
             "can_trade": can_trade,
             "trade_quality": trade_quality
         }

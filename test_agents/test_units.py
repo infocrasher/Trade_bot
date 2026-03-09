@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from agent_structure import StructureAgent
-from agent_time_session import TimeSessionAgent, to_ny_time
+from agents.agent_structure import StructureAgent
+from agents.agent_time_session import TimeSessionAgent, to_ny_time
 
 class TestResults:
     def __init__(self):

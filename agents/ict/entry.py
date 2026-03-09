@@ -25,17 +25,17 @@ class EntryAgent:
         swing_range = abs(swing_end - swing_start)
         
         if direction == "bullish":
-            fib_62 = swing_end - 0.618 * swing_range
+            fib_50 = swing_end - 0.50 * swing_range
             fib_705 = swing_end - 0.705 * swing_range
             fib_79 = swing_end - 0.786 * swing_range
-            ote_top = fib_62
+            ote_top = fib_50
             ote_bottom = fib_79
         elif direction == "bearish":
-            fib_62 = swing_end + 0.618 * swing_range
+            fib_50 = swing_end + 0.50 * swing_range
             fib_705 = swing_end + 0.705 * swing_range
             fib_79 = swing_end + 0.786 * swing_range
             ote_top = fib_79
-            ote_bottom = fib_62
+            ote_bottom = fib_50
         else:
             return {}
 
@@ -43,7 +43,7 @@ class EntryAgent:
             "direction": direction,
             "swing_start": float(swing_start),
             "swing_end": float(swing_end),
-            "fib_62": float(fib_62),
+            "fib_50": float(fib_50),
             "fib_705": float(fib_705),
             "fib_79": float(fib_79),
             "ote_top": float(ote_top),
@@ -291,8 +291,8 @@ class EntryAgent:
         confidence = min(0.95, confidence)
         
         rr_tp1 = take_profits.get('tp1', {}).get('rr_ratio', 0)
-        if rr_tp1 < 1.5:
-            return {"signal": "NO_TRADE", "reason": f"R:R ratio too low ({rr_tp1} < 1.5)"}
+        if rr_tp1 < 2.0:
+            return {"signal": "NO_TRADE", "reason": f"R:R ratio too low ({rr_tp1} < 2.0)"}
             
         # Determiner SENS
         direction = "bullish" if stop_loss['stop_loss'] < stop_loss['entry_price'] else "bearish"
@@ -348,23 +348,31 @@ class EntryAgent:
             
         s_start, s_end = None, None
         
-        # Approximation : on prend le dernier mouvement complet
-        last_s = swings[-1]
-        prev_s = swings[-2]
-        
         if bias == "bullish":
-            if prev_s['type'] == 'swing_low' and last_s['type'] == 'swing_high':
-                s_start, s_end = prev_s['price'], last_s['price']
-            else:
-                # Chercher manuellement le dernier low -> high
-                if t_lows and t_highs and t_lows[-1]['index'] < t_highs[-1]['index']:
-                    s_start, s_end = t_lows[-1]['price'], t_highs[-1]['price']
-        else: # bearish
-            if prev_s['type'] == 'swing_high' and last_s['type'] == 'swing_low':
-                 s_start, s_end = prev_s['price'], last_s['price']
-            else:
-                 if t_highs and t_lows and t_highs[-1]['index'] < t_lows[-1]['index']:
-                     s_start, s_end = t_highs[-1]['price'], t_lows[-1]['price']
+            # Chercher le dernier mouvement Low → High (parcourir depuis la fin)
+            for i in range(len(swings) - 1, 0, -1):
+                if swings[i]['type'] == 'swing_high' and swings[i-1]['type'] == 'swing_low':
+                    s_start, s_end = swings[i-1]['price'], swings[i]['price']
+                    break
+            # Fallback : dernier low avant dernier high
+            if s_start is None and t_lows and t_highs:
+                # Prendre le dernier high et le low le plus récent avant lui
+                last_high = t_highs[-1]
+                candidates = [l for l in t_lows if l['index'] < last_high['index']]
+                if candidates:
+                    s_start, s_end = candidates[-1]['price'], last_high['price']
+        else:  # bearish
+            # Chercher le dernier mouvement High → Low
+            for i in range(len(swings) - 1, 0, -1):
+                if swings[i]['type'] == 'swing_low' and swings[i-1]['type'] == 'swing_high':
+                    s_start, s_end = swings[i-1]['price'], swings[i]['price']
+                    break
+            # Fallback : dernier high avant dernier low
+            if s_start is None and t_highs and t_lows:
+                last_low = t_lows[-1]
+                candidates = [h for h in t_highs if h['index'] < last_low['index']]
+                if candidates:
+                    s_start, s_end = candidates[-1]['price'], last_low['price']
                      
         if s_start is None or s_end is None:
              return {"signal": "NO_TRADE", "reason": "No valid swing movement matching bias"}
@@ -386,10 +394,146 @@ class EntryAgent:
             
         entry_price = confirmation['entry_price']
         
+        # Nouvelles fonctions Phase 1
+        # Pour Premium/Discount, il nous faut le high et low du dernier move
+        if bias == "bullish":
+            swing_high = s_end
+            swing_low = s_start
+        else:
+            swing_high = s_start
+            swing_low = s_end
+            
+        pd_check = self.check_premium_discount(entry_price, swing_high, swing_low, bias)
+        if not pd_check['is_valid']:
+            return {"signal": "NO_TRADE", "reason": pd_check["detail"]}
+            
+        key_levels = structure_report.get('key_levels', {})
+        eq_levels = structure_report.get('equal_levels', [])
+        
+        dol_targets = self.find_draw_on_liquidity(bias, entry_price, key_levels, eq_levels, fvgs)
+        
+        judas = time_report.get("judas_swing", {})
+        sd_targets = {}
+        if judas.get("detected"):
+            sd_targets = self.calculate_std_dev_targets(judas.get("sweep_level", 0.0), judas.get("sweep_extreme", 0.0), bias)
+        
         # Stop loss & TPs
         sl_data = self.calculate_stop_loss(bias, ote, entry_price, structure_report.get('liquidity_sweeps', []), buffer_pips=2.0)
+        
+
+
         tps = self.calculate_take_profits(bias, entry_price, ote)
         tps = self._add_rr_to_tps(tps, entry_price, sl_data['stop_loss'])
         
         # Final Signal
-        return self.generate_trade_signal(best_confluence, sl_data, tps, confirmation, time_q)
+        signal_output = self.generate_trade_signal(best_confluence, sl_data, tps, confirmation, time_q)
+        
+        if signal_output['signal'] != "NO_TRADE":
+            signal_output['premium_discount'] = pd_check
+            signal_output['dol_targets'] = dol_targets
+            signal_output['sd_targets'] = sd_targets
+            
+        return signal_output
+
+    def check_premium_discount(self, current_price: float, swing_high: float, 
+                                swing_low: float, direction: str) -> dict:
+        """
+        Vérifie que l'entrée est dans la bonne zone.
+        """
+        equilibrium = (swing_high + swing_low) / 2
+        is_valid = False
+        zone = "equilibrium"
+        detail = ""
+        
+        if direction == "bullish":
+            if current_price < equilibrium:
+                is_valid = True
+                zone = "discount"
+                detail = f"Price {current_price} is in Discount (below {round(equilibrium, 5)}) — valid for BUY"
+            else:
+                zone = "premium"
+                detail = f"Price {current_price} is in Premium (above {round(equilibrium, 5)}) — INVALID for BUY"
+        elif direction == "bearish":
+            if current_price > equilibrium:
+                is_valid = True
+                zone = "premium"
+                detail = f"Price {current_price} is in Premium (above {round(equilibrium, 5)}) — valid for SELL"
+            else:
+                zone = "discount"
+                detail = f"Price {current_price} is in Discount (below {round(equilibrium, 5)}) — INVALID for SELL"
+                
+        return {
+            "equilibrium": float(equilibrium),
+            "zone": zone,
+            "is_valid": is_valid,
+            "detail": detail
+        }
+
+    def find_draw_on_liquidity(self, direction: str, entry_price: float,
+                                key_levels: dict, equal_levels: list[dict],
+                                htf_fvgs: list[dict] = None) -> list[dict]:
+        """
+        Identifie les cibles institutionnelles réelles.
+        """
+        targets = []
+        if not htf_fvgs: htf_fvgs = []
+        
+        if direction == "bullish":
+            if "PDH" in key_levels and key_levels["PDH"] > entry_price:
+                targets.append({"level": key_levels["PDH"], "type": "PDH", "distance_pips": self.price_to_pips(key_levels["PDH"] - entry_price)})
+            if "PWH" in key_levels and key_levels["PWH"] > entry_price:
+                targets.append({"level": key_levels["PWH"], "type": "PWH", "distance_pips": self.price_to_pips(key_levels["PWH"] - entry_price)})
+            if "PMH" in key_levels and key_levels["PMH"] > entry_price:
+                targets.append({"level": key_levels["PMH"], "type": "PMH", "distance_pips": self.price_to_pips(key_levels["PMH"] - entry_price)})
+                
+            for eq in equal_levels:
+                if eq["type"] == "EQH" and eq["level"] > entry_price:
+                    targets.append({"level": eq["level"], "type": "EQH", "distance_pips": self.price_to_pips(eq["level"] - entry_price), "strength": eq["strength"]})
+                    
+            for f in htf_fvgs:
+                if f["type"] == "bearish_fvg" and f["bottom"] > entry_price:
+                    targets.append({"level": f["bottom"], "type": "HTF_FVG", "distance_pips": self.price_to_pips(f["bottom"] - entry_price)})
+                    
+        else: # bearish
+            if "PDL" in key_levels and key_levels["PDL"] < entry_price:
+                targets.append({"level": key_levels["PDL"], "type": "PDL", "distance_pips": self.price_to_pips(entry_price - key_levels["PDL"])})
+            if "PWL" in key_levels and key_levels["PWL"] < entry_price:
+                targets.append({"level": key_levels["PWL"], "type": "PWL", "distance_pips": self.price_to_pips(entry_price - key_levels["PWL"])})
+            if "PML" in key_levels and key_levels["PML"] < entry_price:
+                targets.append({"level": key_levels["PML"], "type": "PML", "distance_pips": self.price_to_pips(entry_price - key_levels["PML"])})
+                
+            for eq in equal_levels:
+                if eq["type"] == "EQL" and eq["level"] < entry_price:
+                    targets.append({"level": eq["level"], "type": "EQL", "distance_pips": self.price_to_pips(entry_price - eq["level"]), "strength": eq["strength"]})
+                    
+            for f in htf_fvgs:
+                if f["type"] == "bullish_fvg" and f["top"] < entry_price:
+                    targets.append({"level": f["top"], "type": "HTF_FVG", "distance_pips": self.price_to_pips(entry_price - f["top"])})
+                    
+        targets.sort(key=lambda x: x["distance_pips"])
+        return targets
+
+    def calculate_std_dev_targets(self, judas_start: float, judas_end: float, 
+                                   direction: str) -> dict:
+        """
+        Calcule les projections Standard Deviation à partir de la jambe Judas.
+        """
+        judas_range = abs(judas_end - judas_start)
+        
+        if judas_range == 0:
+            return {}
+            
+        if direction == "bullish":
+            sd_1 = judas_end + 1.0 * judas_range
+            sd_2 = judas_end + 2.0 * judas_range
+            sd_2_5 = judas_end + 2.5 * judas_range
+        else: # bearish
+            sd_1 = judas_end - 1.0 * judas_range
+            sd_2 = judas_end - 2.0 * judas_range
+            sd_2_5 = judas_end - 2.5 * judas_range
+            
+        return {
+            "sd_1": {"price": float(sd_1), "label": "SD -1.0 (partiel scalp)"},
+            "sd_2": {"price": float(sd_2), "label": "SD -2.0 (target principal)"},
+            "sd_2_5": {"price": float(sd_2_5), "label": "SD -2.5 (target algorithmique)"}
+        }
