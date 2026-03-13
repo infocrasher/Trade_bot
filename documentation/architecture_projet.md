@@ -15,10 +15,13 @@ Trading_Bot_Project/
 ├── agents/                   # Intelligence Artificielle et Trading Logics
 │   ├── ict/                  # École de trading ICT (Inner Circle Trader)
 │   │   ├── structure.py      # A1 : Analyse de structure HTF (Order Blocks, FVGs, Sweeps)
+│   │   ├── ob_scorer.py      # (Helper A1) Évalue la qualité d'un Order Block sur 5 critères stricts (A++)
 │   │   ├── time.py           # A2 : Analyse temporelle (Killzones, Macros algorithmiques)
 │   │   ├── entry.py          # A3 : Points d'entrée (OTE, Confirmations M5, SL/TP dynamiques)
 │   │   ├── macro.py          # A4 : Contexte Macro (DXY, COT, IPDA Ranges)
-│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (Fusion des analyses A1+A2+A3+A4)
+│   │   ├── enigma.py         # (Helper A5) Niveaux algorithmiques institutionnels (.00, .20, .50, .80)
+│   │   ├── sod_detector.py   # (Helper A5) State of Delivery à 5 états (STRONG, WEAK, ACC, MANIP)
+│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (Fusion des analyses A1+A2+A3+A4+ENIGMA+SOD)
 │   │
 │   ├── elliott/              # École de trading Elliott Waves (Vagues d'Elliott)
 │   │   ├── wave_counter.py   # Compteur de vagues et reconnaissance de patterns (Impulsion/Correction)
@@ -60,13 +63,15 @@ Le bot analyse les graphiques selon l'approche "Multi-Agents" pour garantir une 
    ↳ Le bot télécharge l'historique complet (M5 à Daily) via `MetaTrader5` pour chaque paire définie dans `config.py`.
 
 2. **Évaluation Multi-Timeframes (ICT Agents)**
-   - **A1 — Structure :** Biais directionnel (Daily/H4), détection des Order Blocks (OB) et Fair Value Gaps (FVG).
+   - **A1 — Structure :** Biais directionnel (Daily/H4), détection des Order Blocks (notés sur 5 critères stricts) et FVGs.
    - **A2 — Temporalité :** Vérifie si on est dans une *Killzone* ou une *Macro* algorithmique valide. Si hors fenêtre → `NO_TRADE`.
    - **A3 — Zones d'Entrée :** Cherche une *Optimal Trade Entry* (OTE 62-79%). Applique **strictement R:R ≥ 2.0**.
    - **A4 — Contexte Macro :** Vérifie la corrélation DXY (Dollar Index) et la saisonnalité institutionnelle.
 
 3. **Orchestrateur Local (ICT)**
    ↳ Fusionne A1+A2+A3+A4. Si le système valide un Signal "EXECUTE" avec la condition stricte **HTF Concordant**, il calcule un score de confiance `/100`.
+   ↳ Applique les bonus/malus finaux tels que l'éloignement de la liquidité ou la concordance avec les **Niveaux ENIGMA** (Snap TP).
+   ↳ Bloque le trade si le spread dynamique est excessif (**KS4**) ou si les configurations Macro vs CBDR sont piégeuses (**KS8**).
 
 4. **Évaluation Alternative (Elliott Waves)**
    ↳ Parallèlement, le module Elliott compte les vagues (1-2-3-4-5, A-B-C) et émet un signal indépendant.

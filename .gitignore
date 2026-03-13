@@ -20,3 +20,13 @@ build/
 *.png
 *.jpg
 /tmp/
+data/gate_logs/
+Fateh_bot/
+Sentinelle bot/
+documentation/avis_ia/
+tests/
+test_*.py
+old_*
+ngrok.log
+paper_trades/
+paper_trading/

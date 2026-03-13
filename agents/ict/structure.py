@@ -2,6 +2,12 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
+try:
+    from agents.ict.ob_scorer import score_order_block
+    _OB_SCORER_AVAILABLE = True
+except ImportError:
+    _OB_SCORER_AVAILABLE = False
+
 class StructureAgent:
     def __init__(self, symbol: str, structure_tf: str = "H1", entry_tf: str = "M5"):
         self.symbol = symbol
@@ -177,7 +183,8 @@ class StructureAgent:
         return fvgs
 
 
-    def detect_order_blocks(self, df: pd.DataFrame, displacements: list[dict], fvgs: list[dict]) -> list[dict]:
+    def detect_order_blocks(self, df: pd.DataFrame, displacements: list[dict], fvgs: list[dict],
+                            equal_levels: list = None) -> list[dict]:
         """
         Détecte les Order Blocks (OB) avant un grand mouvement (displacement).
         """
@@ -213,7 +220,10 @@ class StructureAgent:
                         "has_fvg_confluence": has_fvg,
                         "displacement_index": disp_idx,
                         "status": "unmitigated",
-                        "time": times[ob_idx]
+                        "time": times[ob_idx],
+                        # Défauts si scorer indisponible
+                        "ob_score": 3, "ob_grade": "OK",
+                        "ob_details": ["scorer_unavailable"], "ob_valid": True
                     })
                     
             elif disp_type == 'bearish_displacement':
@@ -233,7 +243,10 @@ class StructureAgent:
                         "has_fvg_confluence": has_fvg,
                         "displacement_index": disp_idx,
                         "status": "unmitigated",
-                        "time": times[ob_idx]
+                        "time": times[ob_idx],
+                        # Défauts si scorer indisponible
+                        "ob_score": 3, "ob_grade": "OK",
+                        "ob_details": ["scorer_unavailable"], "ob_valid": True
                     })
 
         # Vérification de la mitigation
@@ -249,6 +262,21 @@ class StructureAgent:
                     if highs[j] >= ob['bottom'] and highs[j] <= ob['top']:
                         ob['status'] = 'mitigated'
                         break
+
+        # ── Scoring OB (après mitigation connue) ─────────────────────────────────
+        if _OB_SCORER_AVAILABLE:
+            for ob in obs:
+                scoring = score_order_block(
+                    ob_idx       = ob['index'],
+                    opens        = opens,
+                    closes       = closes,
+                    highs        = highs,
+                    lows         = lows,
+                    has_fvg      = ob['has_fvg_confluence'],
+                    is_mitigated = ob['status'] == 'mitigated',
+                    equal_levels = equal_levels
+                )
+                ob.update(scoring)
                         
         return obs
 
@@ -593,11 +621,11 @@ class StructureAgent:
             fvg_disp_indices = set(f['displacement_index'] for f in fvgs)
             valid_disps = [d for d in displacements if d['index'] in fvg_disp_indices]
             
-            obs = self.detect_order_blocks(df_tf, valid_disps, fvgs)
+            eq_levels = self.detect_equal_levels(swings)
+            obs = self.detect_order_blocks(df_tf, valid_disps, fvgs, equal_levels=eq_levels)
             bos_choch = self.detect_bos_choch(df_tf, swings)
             sweeps = self.detect_liquidity_sweeps(df_tf, swings)
             mss = self.detect_mss(df_tf, swings, valid_disps, fvgs, bos_choch)
-            eq_levels = self.detect_equal_levels(swings)
             
             bias = self._determine_bias(bos_choch, swings)
             last_event = bos_choch[-1]['type'] if bos_choch else "none"

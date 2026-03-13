@@ -41,6 +41,16 @@ GEMINI_VISION_API_KEY = os.getenv("GEMINI_VISION_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL   = "claude-3-5-sonnet-20241022"
 
+# Clé TwelveData (Rotation de 4 clés)
+TWELVE_DATA_API_KEYS = [
+    os.getenv("TWELVE_DATA_API_KEY_1", ""),
+    os.getenv("TWELVE_DATA_API_KEY_2", ""),
+    os.getenv("TWELVE_DATA_API_KEY_3", ""),
+    os.getenv("TWELVE_DATA_API_KEY_4", ""),
+]
+# Rétrocompatibilité
+TWELVE_DATA_API_KEY = TWELVE_DATA_API_KEYS[0] if TWELVE_DATA_API_KEYS else ""
+
 # 
 # 2. CONNEXION METATRADER 5
 # 
@@ -151,15 +161,18 @@ ICT_RULES_DOC = os.path.join(KNOWLEDGE_DIR, "ict_rules.md")
 # 8. TELEGRAM NOTIFICATIONS
 # 
 # Créer un bot via @BotFather → Copier le token ici
-TELEGRAM_BOT_TOKEN = ""         # Ex: "7123456789:AAF..."
-TELEGRAM_CHAT_ID   = ""         # Ex: "123456789" (votre user ID)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 # Seuil de score minimum pour envoyer une alerte Telegram
 TELEGRAM_MIN_SCORE = 70         # Alertes uniquement si score ICT >= 70/100
 
 
 # 
-# 9. CIRCUIT BREAKER — Protection Anti-Perte
+# 9. GESTION DU CAPITAL & CIRCUIT BREAKER
 # 
+ACCOUNT_BALANCE = 500.0   # capital réel paper trading
+RISK_PERCENT    = 1.0     # risque par trade en %
+
 # Arrêt automatique du trading si la perte journalière dépasse ce seuil
 CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT = 3.0    # -3% du capital = STOP total
 CIRCUIT_BREAKER_MAX_TRADES_PER_DAY = 5      # Max 5 trades/jour/paire

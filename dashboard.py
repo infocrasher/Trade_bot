@@ -8,7 +8,7 @@
 """
 
 import sys, os, json, time, threading, queue, uuid, re, atexit, signal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, jsonify, request, Response
 import logging
 from logging.handlers import RotatingFileHandler
@@ -24,6 +24,8 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, PROJECT_ROOT)
 
 import config
+from agents.post_mortem import run_post_mortem
+from agents.telegram_notifier import notifier
 
 # ── Logger fichier — garde tout l'historique ──────────────────────
 os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
@@ -57,6 +59,16 @@ file_logger.addHandler(session_bot_handler)
 # ── Logger séparé pour les événements trades ──────────────────────
 trade_logger = logging.getLogger("ict_trades")
 trade_logger.setLevel(logging.INFO)
+
+# ── Circuit Breaker Init ──────────────────────────────────────────
+try:
+    from data.trade_manager import CircuitBreaker
+    _circuit_breaker = CircuitBreaker()
+    _CB_AVAILABLE = True
+except Exception as e:
+    file_logger.error(f"Erreur init CircuitBreaker : {e}")
+    _CB_AVAILABLE = False
+    _circuit_breaker = None
 
 # Handler principal (logs/trades.log)
 trade_handler = RotatingFileHandler(
@@ -130,9 +142,9 @@ app = Flask(__name__, template_folder='dashboard/templates', static_folder='dash
 # ── PAIRES DISPONIBLES ───────────────────────────────────────────
 ALL_PAIRS = {
     "forex":   ["EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDJPY", "USDCAD", "USDCHF", "EURGBP"],
-    "metals":  ["XAUUSD", "XAGUSD"],
+    "metals":  ["XAUUSD"],  # XAGUSD retiré — non disponible sur TwelveData Basic
     "crypto":  ["BTCUSD", "ETHUSD"],
-    "energy":  ["USOIL", "UKOIL"],
+    "energy":  []
 }
 
 # ── ÉTAT GLOBAL ──────────────────────────────────────────────────
@@ -205,6 +217,17 @@ COOLDOWN_DURATIONS = {
     "daily": 8 * 3600,      # 8h
     "weekly": 24 * 3600,    # 24h
 }
+
+# ── Intervalles minimum entre deux analyses HTF ──────────────────────────────
+# H4/D1 n'ont pas besoin de tourner à chaque cycle M5 (toutes les 5 min)
+# Ces horizons ont leur propre rythme naturel
+HTF_MIN_INTERVALS = {
+    "daily":  3600,      # H4  — 1 analyse par heure maximum
+    "weekly": 14400,     # D1  — 1 analyse toutes les 4 heures maximum
+}
+# Timestamp du dernier passage par horizon — clé = f"{pair}_{horizon}"
+_htf_last_run = {}
+# ─────────────────────────────────────────────────────────────────────────────
 
 bot_state = {
     "status":             "stopped",
@@ -347,18 +370,20 @@ def init_system_async():
 
         if mt5_conn is None or getattr(mt5_conn, 'simulation_mode', True):
             try:
-                from data.yfinance_provider import YFinanceProvider
-                yf = YFinanceProvider()
-                if yf.connected:
-                    mt5_conn = yf
-                    print(f"[INIT] YFinance connecté — données réelles actives")
-                    log("YFinance connecté — données réelles (délai 15m).", "SUCCESS")
+                import sys, os
+                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+                from data.twelve_data_provider import TwelveDataProvider
+                td = TwelveDataProvider()
+                if td.connected:
+                    mt5_conn = td
+                    print(f"[INIT] TwelveData connecté — données temps réel actives")
+                    log("TwelveData connecté — données temps réel (Twelve Data API).", "SUCCESS")
                 else:
-                    print("[INIT] YFinance initialisé mais non connecté — mode simulation")
-                    log("YFinance hors ligne — mode SIMULATION.", "WARNING")
+                    print("[INIT] TwelveData initialisé mais non connecté — mode simulation")
+                    log("TwelveData hors ligne — mode SIMULATION.", "WARNING")
             except Exception as e:
-                print(f"[INIT] YFinance import/init échoué: {e} — mode simulation")
-                log(f"YFinance erreur: {e} — mode SIMULATION.", "ERROR")
+                print(f"[INIT] TwelveData import/init échoué: {e} — mode simulation")
+                log(f"TwelveData erreur: {e} — mode SIMULATION.", "ERROR")
 
         if mt5_conn is None:
             from data.mt5_connector import MT5Connector
@@ -369,7 +394,7 @@ def init_system_async():
             if hasattr(mt5_conn, "simulation_mode"):
                 bot_state["mt5_status"] = "SIMU" if mt5_conn.simulation_mode else "LIVE"
             else:
-                bot_state["mt5_status"] = "YFINANCE"
+                bot_state["mt5_status"] = "TWELVEDATA"
             bot_state["current_api"] = "Algorithmique (5 Agents)"
 
         # Trade Manager
@@ -462,14 +487,14 @@ KILLZONE_SCHEDULE = [
         "name": "Asia Killzone",
         "start": dtime(21, 0),
         "end":   dtime(23, 0),
-        "pairs": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD", "XAGUSD"],
+        "pairs": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD"],
         "horizons": ["H1", "M5"],
     },
     {
         "name": "London Killzone",
         "start": dtime(3, 0),
         "end":   dtime(6, 0),
-        "pairs": ["EURUSD", "GBPUSD", "EURGBP", "XAUUSD", "XAGUSD", "USDCHF"],
+        "pairs": ["EURUSD", "GBPUSD", "EURGBP", "XAUUSD", "USDCHF"],
         "horizons": ["H1", "M5"],
     },
     {
@@ -503,7 +528,7 @@ KILLZONE_SCHEDULE = [
 ]
 
 # Paires crypto et énergie : actives 24h/24 — analysées toutes les heures
-ALWAYS_ON_PAIRS = ["BTCUSD", "ETHUSD", "USOIL", "UKOIL"]
+ALWAYS_ON_PAIRS = ["BTCUSD", "ETHUSD"]
 ALWAYS_ON_INTERVAL_MINUTES = 60
 
 ALGER_TZ = pytz.timezone("Africa/Algiers")
@@ -874,6 +899,29 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
             active_horizons = sched["horizons"]
             log(f"🟢 {sched['reason']}", "INFO")
 
+            # ── Alignement fermeture bougie M5 ──────────────────────
+            _now = datetime.now()
+            _seconds_past_minute = _now.second
+            _minute_mod5 = _now.minute % 5
+            # Secondes jusqu'à la prochaine minute ronde multiple de 5
+            _wait_secs = (
+                (5 - _minute_mod5) * 60 - _seconds_past_minute
+                if _minute_mod5 != 0 or _seconds_past_minute > 2
+                else 0
+            )
+            if _wait_secs > 240:
+                _wait_secs = 0
+
+            if _wait_secs > 0 and not stop_event.is_set():
+                log(f"⏱️ Alignement bougie M5 — attente {_wait_secs}s "
+                    f"(prochaine clôture: {(_now + timedelta(seconds=_wait_secs)).strftime('%H:%M:%S')})",
+                    "DEBUG")
+                for _ in range(_wait_secs):
+                    if stop_event.is_set() or pause_event.is_set():
+                        break
+                    time.sleep(1)
+            # ── Fin alignement ────────────────────────────────────────
+
             with state_lock:
                 bot_state["status"] = "running"
                 bot_state["cycle_count"] += 1
@@ -915,6 +963,22 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                             del signal_cooldowns[cooldown_key]
                             _save_cooldowns()
 
+                    # ── Gate HTF — éviter les analyses redondantes ───────────────────────────────
+                    # H4 : max 1 fois/heure | D1 : max 1 fois/4h
+                    # Permet au M5/H1 de tourner librement sans attendre H4/D1
+                    if horizon in HTF_MIN_INTERVALS:
+                        _htf_key = f"{pair}_{horizon}"
+                        _last = _htf_last_run.get(_htf_key, 0)
+                        _min_interval = HTF_MIN_INTERVALS[horizon]
+                        if time.time() - _last < _min_interval:
+                            _remaining_min = int((_min_interval - (time.time() - _last)) / 60)
+                            log(f"[{pair}] ⏭️ Skip {horizon} — analysé il y a moins de "
+                                f"{_min_interval//3600}h ({_remaining_min}min restantes)", "DEBUG")
+                            continue
+                        # Marquer le passage
+                        _htf_last_run[_htf_key] = time.time()
+                    # ─────────────────────────────────────────────────────────────────────────────
+
                     profile = HORIZON_PROFILES.get(horizon, HORIZON_PROFILES["scalp"])
                     try:
                         with state_lock: bot_state["current_pair"] = pair
@@ -946,6 +1010,31 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 if df_entry.empty:
                                     rh["error"] = f"Pas de données {entry_tf} pour {p}"
                                     return
+
+                                # ── Agent 2 : Time (gate immédiat — avant A1) ────────────────────
+                                # Fix pipeline : A2 vérifie la Killzone EN PREMIER.
+                                # Si hors KZ, on court-circuite tout le pipeline A1/A3/A4
+                                # et on évite les requêtes API inutiles.
+                                with state_lock: bot_state["current_api"] = "Agent 2 Time"
+                                broadcast("status", {"current_api": bot_state["current_api"]})
+
+                                broker_offset = getattr(config, "BROKER_UTC_OFFSET", 2)
+                                agent2      = TimeSessionAgent(broker_utc_offset=broker_offset)
+                                time_report = agent2.analyze(df_entry)
+
+                                # Bypass Killzone pour les horizons longs (Daily/Weekly)
+                                # ou si Force Analyze est activé
+                                if profile["force_kz"] or getattr(config, "FORCE_ANALYZE", False):
+                                    time_report["can_trade"] = True
+                                    if time_report.get("trade_quality") == "no_trade":
+                                        time_report["trade_quality"] = "medium"
+
+                                # Gate KZ : si hors killzone et pas de bypass → sortie immédiate
+                                if not time_report.get("can_trade", False):
+                                    rh["entry_signal"] = {"signal": "NO_TRADE", "reason": "Out of Killzone or Closed day"}
+                                    rh["diag"] = f"A2 can_trade=False | quality={time_report.get('trade_quality')} | A3 signal=NO_TRADE | reason=Out of Killzone or Closed day"
+                                    return
+                                # ─────────────────────────────────────────────────────────────────
 
                                 # ── Agent 1 : Structure (multi-TF adaptatif) ──
                                 with state_lock: bot_state["current_api"] = f"Agent 1 Structure ({'/'.join(profile['structure_tfs'])})"
@@ -993,27 +1082,14 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     key_levels["PWL"] = md["prev_week_low"]
                                 structure_report["key_levels"] = key_levels
 
-                                # ── Agent 2 : Time ───────────────────
-                                with state_lock: bot_state["current_api"] = "Agent 2 Time"
-                                broadcast("status", {"current_api": bot_state["current_api"]})
-
-                                broker_offset = getattr(config, "BROKER_UTC_OFFSET", 2)
-                                agent2      = TimeSessionAgent(broker_utc_offset=broker_offset)
-                                time_report = agent2.analyze(df_entry)
-
-                                # Bypass Killzone pour les horizons longs (Daily/Weekly)
-                                # ou si Force Analyze est activé
-                                if profile["force_kz"] or getattr(config, "FORCE_ANALYZE", False):
-                                    time_report["can_trade"] = True
-                                    if time_report.get("trade_quality") == "no_trade":
-                                        time_report["trade_quality"] = "medium"
-
                                 # ── Agent 3 : Entry (sur le TF d'entrée du profil) ──
                                 with state_lock: bot_state["current_api"] = f"Agent 3 Entry ({entry_tf})"
                                 broadcast("status", {"current_api": bot_state["current_api"]})
 
                                 agent3       = EntryAgent(symbol=p)
                                 entry_signal = agent3.analyze(structure_report, time_report, df_entry)
+                                entry_signal["_df_h1"] = dfs.get("H1", pd.DataFrame())
+                                entry_signal["entry_tf"] = entry_tf   # P-A4b : timeframe d'analyse pour SOD
 
                                 # ── DIAGNOSTIC DÉTAILLÉ ──────────────
                                 diag_lines = []
@@ -1048,7 +1124,32 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 with state_lock: bot_state["current_api"] = "Agent 5 Decision"
                                 broadcast("status", {"current_api": bot_state["current_api"]})
 
-                                agent5       = OrchestratorAgent()
+                                agent5       = OrchestratorAgent(
+                                    account_balance = getattr(config, "ACCOUNT_BALANCE", 500.0),
+                                    risk_percent    = getattr(config, "RISK_PERCENT", 1.0),
+                                )
+                                
+                                # ── KS4 : injecter le spread dans entry_signal ───────────────────────────────
+                                # TwelveData ne fournit pas le spread bid/ask en temps réel sur le plan Basic.
+                                # On estime le spread depuis la dernière bougie M5 : spread ≈ open - close de
+                                # la bougie la plus récente (approximation grossière mais cohérente pour le gate).
+                                # Si les données sont insuffisantes, on laisse current_spread_pips absent → gate inactif.
+                                try:
+                                    df_m5_ks4 = dfs.get("M5", pd.DataFrame())
+                                    if not df_m5_ks4.empty and len(df_m5_ks4) >= 1:
+                                        last = df_m5_ks4.iloc[-1]
+                                        raw_spread = abs(float(last['high']) - float(last['low']))
+                                        # Convertir en pips selon la paire
+                                        is_jpy_pair = p.endswith("JPY") or p in ("XAUUSD", "BTCUSD", "ETHUSD")
+                                        pip_divisor = 0.01 if is_jpy_pair else 0.0001
+                                        spread_pips = raw_spread / pip_divisor
+                                        # Guard : si spread_pips > 50, c'est le range M5, pas un spread → ignorer
+                                        if spread_pips <= 50:
+                                            entry_signal["current_spread_pips"] = round(spread_pips, 1)
+                                except Exception:
+                                    pass  # gate KS4 inactif si erreur
+                                # ─────────────────────────────────────────────────────────────────────────────
+
                                 decision_obj = agent5.calculate_decision(
                                     structure_report, time_report, entry_signal, macro_report
                                 )
@@ -1058,6 +1159,8 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                 # ── Agent 6 : LLM Validateur (si activé et si EXECUTE et score >= 60) ──
                                 llm_result = None
+                                meta_decision = "NO_TRADE"  # initialisé ici, mis à jour après meta.compare()
+                                meta_score = 0
                                 if llm_validator and llm_validator.enabled and dec.startswith("EXECUTE") and conf >= 0.60:
                                     with state_lock: bot_state["current_api"] = "Agent 6 LLM Validator"
                                     broadcast("status", {"current_api": bot_state["current_api"]})
@@ -1076,11 +1179,16 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                         log(f"[{p}] 🧠 LLM: {verdict} | Score: {llm_score}/100 | Coût: ${cost:.4f}", "INFO")
 
+                                        # Guard : VALIDÉ avec score < 40 = incohérence → traiter comme REJETÉ
+                                        if verdict != "REJETÉ" and llm_score < 40:
+                                            verdict = "REJETÉ"
+                                            log(f"[{p}] ⚠️ LLM score trop bas ({llm_score}/100) malgré verdict VALIDÉ → forcé REJETÉ", "WARNING")
+
                                         if verdict == "REJETÉ":
                                             # LLM dit NON → bloquer complètement le trade
                                             decision_obj["global_confidence"] = 0.0
                                             conf = 0.0
-                                            dec = "NO_TRADE"  # Forcer NO_TRADE pour bloquer toutes les gates suivantes
+                                            dec = "NO_TRADE"
                                             log(f"[{p}] 🚫 LLM a rejeté le signal — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', llm_result.get('raisons', [])))}", "WARNING")
                                         else:
                                             algo_conf = decision_obj.get("global_confidence", 0)
@@ -1095,35 +1203,6 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                 elif llm_validator and llm_validator.enabled and dec.startswith("EXECUTE") and conf < 0.60:
                                     log(f"[{p}] 🧠 LLM skip — score trop bas ({conf:.0%} < 60%)", "DEBUG")
-
-                                # ── Gate LLM méta : si ICT=NO_TRADE mais méta ≥ 60 → LLM valide aussi ──
-                                llm_meta_ran = (llm_result is not None)
-                                if (llm_validator and llm_validator.enabled
-                                        and not llm_meta_ran
-                                        and meta_decision in ("BUY", "SELL")
-                                        and meta_score >= 60):
-                                    with state_lock: bot_state["current_api"] = "Agent 6 LLM Validator"
-                                    broadcast("status", {"current_api": bot_state["current_api"]})
-                                    log(f"[{p}] 🧠 Validation LLM (MetaSignal) en cours...", "INFO")
-                                    try:
-                                        llm_result = llm_validator.validate(
-                                            structure_report, time_report, entry_signal,
-                                            macro_report, decision_obj, p, horizon
-                                        )
-                                        if not llm_result.get("skipped"):
-                                            verdict = llm_result.get("verdict", "SKIP")
-                                            llm_score = llm_result.get("total", 0)
-                                            llm_conf = llm_result.get("confiance_llm", 0.5)
-                                            cost = llm_result.get("cost_usd", 0)
-                                            log(f"[{p}] 🧠 LLM: {verdict} | Score: {llm_score}/100 | Coût: ${cost:.4f}", "INFO")
-                                            if verdict == "REJETÉ":
-                                                meta_decision = "NO_TRADE"
-                                                meta_score = 0
-                                                dec = "NO_TRADE"
-                                                conf = 0.0
-                                                log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ", "WARNING")
-                                    except Exception as llm_err:
-                                        log(f"[{p}] LLM méta erreur: {llm_err}", "DEBUG")
 
                                 # ── Agent Elliott Wave (école 2) ─────
                                 elliott_signal = {"school": "elliott", "pair": p, "signal": "NO_TRADE", "score": 0, "confidence": 0.0, "reasons": [], "warnings": []}
@@ -1205,6 +1284,40 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 meta_alignment = meta_result.get("alignment", "")
                                 if meta_decision != "NO_TRADE" and elliott_signal.get("signal") != "NO_TRADE":
                                     log(f"[{p}] 🔀 Méta: {meta_decision} | Score: {meta_score} | {meta_alignment}", "INFO")
+
+                                # ── Gate LLM méta : ICT=NO_TRADE mais méta ≥ 60 → LLM valide ──
+                                # Placée ICI, après meta.compare(), pour avoir meta_decision réel
+                                if (llm_validator and llm_validator.enabled
+                                        and llm_result is None          # LLM ICT n'a pas déjà tourné
+                                        and meta_decision in ("BUY", "SELL")
+                                        and meta_score >= 60):
+                                    with state_lock: bot_state["current_api"] = "Agent 6 LLM Validator"
+                                    broadcast("status", {"current_api": bot_state["current_api"]})
+                                    log(f"[{p}] 🧠 Validation LLM (MetaSignal) en cours...", "INFO")
+                                    try:
+                                        llm_result = llm_validator.validate(
+                                            structure_report, time_report, entry_signal,
+                                            macro_report, decision_obj, p, horizon
+                                        )
+                                        if not llm_result.get("skipped"):
+                                            verdict = llm_result.get("verdict", "SKIP")
+                                            llm_score = llm_result.get("total", 0)
+                                            llm_conf  = llm_result.get("confiance_llm", 0.5)
+                                            cost      = llm_result.get("cost_usd", 0)
+                                            log(f"[{p}] 🧠 LLM: {verdict} | Score: {llm_score}/100 | Coût: ${cost:.4f}", "INFO")
+                                            # Guard : VALIDÉ avec score < 40 → forcer REJETÉ
+                                            if verdict != "REJETÉ" and llm_score < 40:
+                                                verdict = "REJETÉ"
+                                                log(f"[{p}] ⚠️ LLM méta score trop bas ({llm_score}/100) → forcé REJETÉ", "WARNING")
+
+                                            if verdict == "REJETÉ":
+                                                meta_decision = "NO_TRADE"
+                                                meta_score    = 0
+                                                dec           = "NO_TRADE"
+                                                conf          = 0.0
+                                                log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', []))}", "WARNING")
+                                    except Exception as llm_err:
+                                        log(f"[{p}] LLM méta erreur: {llm_err}", "DEBUG")
 
                                 # ── Narrative ────────────────────────
                                 bias     = structure_report.get("bias", "neutral")
@@ -1299,19 +1412,52 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     log(f"[{p}] ✅ MetaScore {meta_score}/100 ≥ 70 → OUVRIR ({meta_decision})", "DEBUG")
                                     # Injecter les niveaux méta dans decision_obj si ICT n'en a pas
                                     if not decision_obj.get("entry_price"):
-                                        dominant = meta_result.get("dominant_signal", {})
-                                        if dominant.get("entry", 0) and dominant.get("sl", 0) and dominant.get("tp1", 0):
-                                            decision_obj["entry_price"] = dominant["entry"]
-                                            decision_obj["stop_loss"]   = dominant["sl"]
-                                            decision_obj["tp1"]         = dominant["tp1"]
+                                        # meta_result retourne entry/sl/tp1 directement
+                                        meta_entry = meta_result.get("entry", 0)
+                                        meta_sl    = meta_result.get("sl", 0)
+                                        meta_tp1   = meta_result.get("tp1", 0)
+                                        if meta_entry and meta_sl and meta_tp1:
+                                            decision_obj["entry_price"] = meta_entry
+                                            decision_obj["stop_loss"]   = meta_sl
+                                            decision_obj["tp1"]         = meta_tp1
                                             decision_obj["decision"]    = f"EXECUTE_{meta_decision}"
-                                            decision_obj["direction"]   = meta_decision.lower()
-                                            log(f"[{p}] 📌 Niveaux méta utilisés — Entry:{dominant['entry']} SL:{dominant['sl']} TP1:{dominant['tp1']}", "DEBUG")
+                                            decision_obj["direction"]   = meta_decision.lower() if meta_decision else "unknown"
+                                            log(f"[{p}] 📌 Niveaux méta utilisés — Entry:{meta_entry} SL:{meta_sl} TP1:{meta_tp1}", "DEBUG")
                                         else:
                                             dashboard_decision = "RESTER_DEHORS"
                                             log(f"[{p}] ⚠️ MetaScore ≥ 70 mais niveaux méta absents — RESTER_DEHORS", "WARNING")
                                 else:
                                     score = int(conf * 100) if conf <= 1.0 else int(conf)
+                                    # Gate Logger Meta — toutes écoles confondues
+                                    try:
+                                        from agents.gate_logger import log_meta_blocked
+                                        _ict_e = entry_signal.get("entry_price", 0) or 0
+                                        _ict_s = entry_signal.get("stop_loss", 0) or 0
+                                        _ict_t = entry_signal.get("tp1", 0) or 0
+                                        _ell_e = elliott_signal.get("entry", 0) or 0
+                                        _ell_s = elliott_signal.get("sl", 0) or 0
+                                        _ell_t = elliott_signal.get("tp1", 0) or 0
+                                        _entry = _ict_e or _ell_e
+                                        _sl    = _ict_s or _ell_s
+                                        _tp1   = _ict_t or _ell_t
+                                        if _entry and _sl and _tp1:
+                                            log_meta_blocked(
+                                                pair=p,
+                                                horizon=result_horizon,
+                                                final_gate="RESTER_DEHORS",
+                                                ict_signal=entry_signal.get("signal", "NO_TRADE"),
+                                                ict_score=int(conf * 100) if conf <= 1.0 else int(conf),
+                                                ict_reason=entry_signal.get("reason", ""),
+                                                elliott_signal=elliott_signal.get("signal", "NO_TRADE"),
+                                                elliott_score=elliott_signal.get("score", 0),
+                                                meta_score=meta_score,
+                                                meta_direction=meta_decision or "NO_TRADE",
+                                                entry=_entry, sl=_sl, tp1=_tp1,
+                                                a1_bias=structure_report.get("bias"),
+                                                htf_alignment=structure_report.get("htf_alignment"),
+                                            )
+                                    except Exception:
+                                        pass
                                     dashboard_decision = "RESTER_DEHORS"
 
                                 with state_lock:
@@ -1426,6 +1572,17 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                         if _can_open:
                             direction_str = "ACHAT" if "bullish" in decision_obj.get("direction", "").lower() or "BUY" in decision_obj.get("decision", "").upper() else "VENTE"
                             
+                            # ── Circuit Breaker Gate ──────────────────────────────────
+                            if _CB_AVAILABLE and _circuit_breaker:
+                                cb_status = _circuit_breaker.get_status()
+                                if cb_status.get("active", False):
+                                    log(f"[{pair}] 🔴 Circuit Breaker ACTIF — {cb_status.get('reason', '')} "
+                                        f"| Trades aujourd'hui: {cb_status.get('trades_today', 0)}", "WARNING")
+                                    continue  # skip ce symbole, passer au suivant
+                                # Notifier le CB qu'un trade va être ouvert/enregistré
+                                if hasattr(_circuit_breaker, "record_trade_opened"):
+                                    _circuit_breaker.record_trade_opened()
+                            # ── Fin Circuit Breaker Gate ──────────────────────────────
 
                             new_order = make_order(
                                 pair=pair, school="ict", direction=direction_str,
@@ -1602,6 +1759,21 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     log(f"{status_emoji} PAPER TRADE {order['status'].upper()}: {pair} {order['direction']} @ {entry} | SL:{sl} TP1:{tp1} | Prix:{sp} | Horizon:{order['horizon']}", "SUCCESS" if order["status"] == "active" else "INFO")
                                     broadcast("order_update", {"action": "update", "order": order})
                                     _save_paper_trade(order)
+                                    
+                                    # Notification Telegram
+                                    if action == "new" and order.get("score", 0) >= getattr(config, "TELEGRAM_MIN_SCORE", 70):
+                                        try:
+                                            notifier.notify_trade_opened(
+                                                pair=order["pair"],
+                                                direction=order["direction"],
+                                                entry=order["entry"],
+                                                sl=order["sl"],
+                                                tp=order["tp1"],
+                                                score=order["score"],
+                                                reasons=order.get("reasons", [])
+                                            )
+                                        except Exception as _t_err:
+                                            log(f"Erreur notification Telegram: {_t_err}", "DEBUG")
                                 
                             # Logs & Broadcast (Hors lock pour éviter deadlock)
                             if order:
@@ -1645,6 +1817,17 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                         continue
 
             log(f"Prochain cycle dans {sched['next_check_seconds'] // 60} min...", "INFO")
+
+            # Post-Mortem quotidien — tourne à minuit UTC
+            _now_utc = datetime.now(timezone.utc)
+            if _now_utc.hour == 23 and _now_utc.minute < 5:
+                try:
+                    pm_report = run_post_mortem()
+                    log(f"📊 Post-Mortem — ICT regret: {pm_report['ict']['gate_regret_rate']}% | "
+                        f"Elliott regret: {pm_report['elliott']['gate_regret_rate']}% | "
+                        f"Meta regret: {pm_report['meta']['gate_regret_rate']}%", "INFO")
+                except Exception as _pm_err:
+                    log(f"Post-Mortem erreur: {_pm_err}", "DEBUG")
             for _ in range(sched["next_check_seconds"]):
                 if stop_event.is_set(): return
                 time.sleep(1)
@@ -2205,12 +2388,18 @@ def stream():
         initial = {"type": "init", "data": snap}
         yield f"data: {json.dumps(initial)}\n\n"
 
-        while True:
-            try:
-                msg = q.get(timeout=30)
-                yield msg
-            except:
-                yield "data: {\"type\":\"ping\"}\n\n"
+        try:
+            while True:
+                try:
+                    msg = q.get(timeout=30)
+                    yield msg
+                except queue.Empty:
+                    yield "data: {\"type\":\"ping\"}\n\n"
+        except GeneratorExit:
+            return
+        except Exception as e:
+            file_logger.error(f"SSE stream error: {e}")
+            return
 
     return Response(generate(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache",

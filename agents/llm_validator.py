@@ -7,7 +7,6 @@ Ne peut jamais inventer un signal — seulement confirmer ou bloquer.
 import os
 import json
 import time
-from pathlib import Path
 from datetime import datetime
 
 try:
@@ -97,9 +96,6 @@ class LLMValidatorAgent:
         self.last_call_time = 0
         self.min_interval = 10  # Minimum 10 secondes entre les appels
 
-        # Charger l'encyclopédie ICT depuis le disque
-        self.encyclopedia_text = self._load_encyclopedia()
-
         if HAS_ANTHROPIC and self.api_key:
             try:
                 self.client = anthropic.Anthropic(api_key=self.api_key)
@@ -107,24 +103,8 @@ class LLMValidatorAgent:
             except Exception as e:
                 print(f"[LLM Validator] Erreur init Anthropic: {e}")
 
-    def _load_encyclopedia(self):
-        """Charge l'encyclopédie ICT depuis documentation/ict_encyclopedia.md"""
-        try:
-            base_dir = Path(__file__).parent.parent  # remonte à la racine du projet
-            encyclopedia_path = base_dir / "documentation" / "ict_encyclopedia.md"
-            if encyclopedia_path.exists():
-                text = encyclopedia_path.read_text(encoding="utf-8")
-                print(f"[LLM Validator] Encyclopédie ICT chargée : {len(text)} caractères")
-                return text
-            else:
-                print(f"[LLM Validator] ⚠️ Encyclopédie non trouvée à : {encyclopedia_path}")
-                return None
-        except Exception as e:
-            print(f"[LLM Validator] ⚠️ Erreur chargement encyclopédie : {e}")
-            return None
-
     def validate(self, structure_report, time_report, entry_signal,
-                 macro_report, decision_obj, pair, horizon="scalp"):
+                 macro_report, decision_obj, pair, horizon="scalp", force_analyze=False):
         """
         Valide un signal EXECUTE via Claude.
         Retourne un dict avec verdict, score, raisons.
@@ -140,65 +120,22 @@ class LLMValidatorAgent:
         # Construire le message utilisateur avec les données des 5 agents
         user_message = self._build_user_message(
             structure_report, time_report, entry_signal,
-            macro_report, decision_obj, pair, horizon
+            macro_report, decision_obj, pair, horizon,
+            force_analyze=force_analyze
         )
 
         try:
             self.last_call_time = time.time()
-            
-            # Construire le system prompt en 2 blocs
-            # Bloc 1 : encyclopédie complète (mise en cache — chargée une fois)
-            # Bloc 2 : instructions de format JSON (légères, pas besoin de cache)
-            
-            FORMAT_INSTRUCTIONS = """
-═══ FORMAT DE RÉPONSE (JSON strict) ═══
-
-Tu es un auditeur ICT strict. En te basant sur l'encyclopédie ci-dessus,
-valide ou rejette le signal reçu.
-
-Réponds UNIQUEMENT avec ce JSON, rien d'autre :
-{
-  "verdict": "VALIDÉ" ou "REJETÉ",
-  "confiance_llm": 0.0 à 1.0,
-  "score_timing": 0 à 20,
-  "score_structure": 0 à 20,
-  "score_entree": 0 à 20,
-  "score_cible": 0 à 20,
-  "score_smt": 0 à 20,
-  "total": 0 à 100,
-  "raisons": ["raison 1", "raison 2"],
-  "red_flags": ["flag 1"] ou [],
-  "narrative_ict": "En 2-3 phrases: l'histoire du marché qui justifie ou invalide ce trade."
-}
-"""
-
-            # Construire les blocs system
-            if self.encyclopedia_text:
-                system_blocks = [
-                    {
-                        "type": "text",
-                        "text": self.encyclopedia_text,
-                        "cache_control": {"type": "ephemeral"}
-                    },
-                    {
-                        "type": "text",
-                        "text": FORMAT_INSTRUCTIONS
-                    }
-                ]
-            else:
-                # Fallback sur le prompt compressé si encyclopédie non trouvée
-                system_blocks = [
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=800,
+                system=[
                     {
                         "type": "text",
                         "text": ICT_SYSTEM_PROMPT,
                         "cache_control": {"type": "ephemeral"}
                     }
-                ]
-
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=800,
-                system=system_blocks,
+                ],
                 messages=[{"role": "user", "content": user_message}]
             )
 
@@ -262,7 +199,7 @@ Réponds UNIQUEMENT avec ce JSON, rien d'autre :
 
     def _build_user_message(self, structure_report, time_report,
                             entry_signal, macro_report, decision_obj,
-                            pair, horizon):
+                            pair, horizon, force_analyze=False):
         """Construit le message avec toutes les données des 5 agents."""
 
         bias = structure_report.get("bias", "neutral")
@@ -296,7 +233,18 @@ Réponds UNIQUEMENT avec ce JSON, rien d'autre :
         reasons = decision_obj.get("reasons", [])
         warnings = decision_obj.get("warnings", [])
 
-        msg = f"""═══ SIGNAL À VALIDER ═══
+        # Bandeau mode test : le LLM ne doit pas pénaliser le timing
+        test_banner = ""
+        if force_analyze:
+            test_banner = """⚠️ MODE TEST ACTIVÉ — FORCE ANALYZE ON
+Les Killzones et le timing sont IGNORÉS volontairement pour ce cycle.
+Tu dois évaluer UNIQUEMENT la structure, l'entrée, le R:R et la cohérence du setup.
+Ne rejette PAS ce signal à cause du timing ou des Killzones.
+Score timing = 20/20 automatiquement.
+
+"""
+
+        msg = f"""{test_banner}═══ SIGNAL À VALIDER ═══
 
 PAIRE: {pair} | HORIZON: {horizon} | DIRECTION: {signal}
 DÉCISION ALGO: {dec} | CONFIANCE ALGO: {conf:.0%}

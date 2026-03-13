@@ -72,12 +72,12 @@ def _get_provider():
     except ImportError:
         pass
     
-    # 2. YFinance si installé
+    # 2. TwelveData si clé API disponible
     try:
-        from data.yfinance_provider import YFinanceProvider
-        yf = YFinanceProvider()
-        if yf.connected:
-            return yf, "YFINANCE"
+        from data.twelve_data_provider import TwelveDataProvider
+        td = TwelveDataProvider()
+        if td.connected:
+            return td, "TWELVEDATA"
     except ImportError:
         pass
     
@@ -310,6 +310,7 @@ def run_analysis(pair: str, mt5, trade_mgr: TradeManager,
     # ─────────────────────────────────────────────
     agent3 = EntryAgent(symbol=pair)
     entry_signal = agent3.analyze(structure_report, time_report, df_m5)
+    entry_signal["_df_h1"] = dfs.get("H1", pd.DataFrame())
     
     signal = entry_signal.get("signal", "NO_TRADE")
     logger.info(f"  Agent 3 : Signal={signal} | "

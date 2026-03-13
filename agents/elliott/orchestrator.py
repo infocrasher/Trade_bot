@@ -168,8 +168,44 @@ class ElliottOrchestrator:
                     result["reasons"].append(
                         f"Score insuffisant ({final_score} < {self.min_score})"
                     )
+                    # Gate Logger Elliott
+                    try:
+                        from agents.gate_logger import log_elliott_blocked
+                        _e = result.get("entry", 0) or 0
+                        _s = result.get("sl", 0) or 0
+                        _t = result.get("tp1", 0) or 0
+                        if _e or result.get("score", 0) > 0:
+                            log_elliott_blocked(
+                                pair=result.get("pair", ""),
+                                horizon=timeframe,
+                                reason=result["reasons"][-1] if result.get("reasons") else "NO_TRADE",
+                                signal=trade_signal,
+                                score=final_score if 'final_score' in dir() else result.get("score", 0),
+                                entry=_e, sl=_s, tp1=_t,
+                                wave_status=status if 'status' in dir() else None,
+                            )
+                    except Exception:
+                        pass
                 if trade_signal == "NO_TRADE":
                     result["reasons"].append("Pas de signal tradeable dans le comptage actuel")
+                    # Gate Logger Elliott
+                    try:
+                        from agents.gate_logger import log_elliott_blocked
+                        _e = result.get("entry", 0) or 0
+                        _s = result.get("sl", 0) or 0
+                        _t = result.get("tp1", 0) or 0
+                        if _e or result.get("score", 0) > 0:
+                            log_elliott_blocked(
+                                pair=result.get("pair", ""),
+                                horizon=timeframe,
+                                reason=result["reasons"][-1] if result.get("reasons") else "NO_TRADE",
+                                signal=trade_signal,
+                                score=final_score if 'final_score' in dir() else result.get("score", 0),
+                                entry=_e, sl=_s, tp1=_t,
+                                wave_status=status if 'status' in dir() else None,
+                            )
+                    except Exception:
+                        pass
 
             
             # ═══ ÉTAPE 5 : Multi-timeframe confirmation ═══

@@ -33,11 +33,11 @@ MACROS = [
 
 # Filtres journaliers ICT
 DAY_FILTERS = {
-    0: {"name": "Monday", "quality": "setup", "note": "Weekly opening range, fausses directions fréquentes"},
-    1: {"name": "Tuesday", "quality": "prime", "note": "Jour principal pour les moves structurés"},
-    2: {"name": "Wednesday", "quality": "prime", "note": "Continuation ou reversal majeur"},
-    3: {"name": "Thursday", "quality": "prime", "note": "Dernier jour propice aux objectifs hebdo"},
-    4: {"name": "Friday", "quality": "caution", "note": "Distributions, prises de profits, retours fair value"},
+    0: {"name": "Monday", "quality": "setup", "note": "Weekly opening range — Accumulation phase. Fausses directions fréquentes. Seek & Destroy avant 10h. NE PAS trader les breakouts du lundi."},
+    1: {"name": "Tuesday", "quality": "prime", "note": "Manipulation phase — H/L Weekly se forme ici dans 62-73% des cas (stats ICT). Judas Swing probable. Meilleur jour pour capter le vrai move."},
+    2: {"name": "Wednesday", "quality": "prime", "note": "Distribution/Continuation — si le H/L Weekly n'est pas formé mardi, il se forme mercredi matin avant 10h NY dans 20% des cas supplémentaires."},
+    3: {"name": "Thursday", "quality": "prime", "note": "Distribution finale — objectifs hebdo en cours d'atteinte. Trailing stops, pas de nouveaux setups majeurs."},
+    4: {"name": "Friday", "quality": "caution", "note": "Clôture hebdo — retours fair value, prises de profits institutionnelles. Fermer les positions avant 14h NY."},
     5: {"name": "Saturday", "quality": "closed", "note": "Marché fermé"},
     6: {"name": "Sunday", "quality": "closed", "note": "Marché fermé (sauf ouverture dimanche soir)"},
 }
@@ -181,6 +181,30 @@ class TimeSessionAgent:
                  day_info["note"] = "Lundi après 10h: Setup profile"
              
         day_info["can_trade"] = day_info["quality"] in ["prime", "setup"]
+
+        # Contexte AMD Weekly
+        weekday = current_time_ny.weekday()
+        if weekday == 0:
+            day_info["amd_phase"] = "accumulation"
+            day_info["amd_note"]  = "Range formation — attendre le Judas Swing"
+        elif weekday == 1:
+            day_info["amd_phase"] = "manipulation"
+            day_info["amd_note"]  = "Judas Swing probable — H/L Weekly se forme (68% des cas)"
+            day_info["amd_stat"]  = 0.68
+        elif weekday == 2:
+            day_info["amd_phase"] = "distribution"
+            day_info["amd_note"]  = "Continuation ou reversal — H/L Weekly possible (20%)"
+            day_info["amd_stat"]  = 0.20
+        elif weekday == 3:
+            day_info["amd_phase"] = "distribution"
+            day_info["amd_note"]  = "Objectifs hebdo en cours — trailing uniquement"
+        elif weekday == 4:
+            day_info["amd_phase"] = "closing"
+            day_info["amd_note"]  = "Fermer avant 14h NY — retours fair value"
+        else:
+            day_info["amd_phase"] = "closed"
+            day_info["amd_note"]  = "Marché fermé"
+
         return day_info
 
     def get_asian_range(self, df: pd.DataFrame) -> dict:

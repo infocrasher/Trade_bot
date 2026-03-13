@@ -55,18 +55,35 @@ class EntryAgent:
         """Vérifie si deux zones [top, bottom] se chevauchent."""
         return a_top >= b_bottom and b_top >= a_bottom
 
-    def find_confluence_zones(self, ote: dict, order_blocks: list[dict], fvgs: list[dict]) -> list[dict]:
+    def find_confluence_zones(self, ote: dict, order_blocks: list[dict], fvgs: list[dict],
+                               candle_high: float = None, candle_low: float = None) -> list[dict]:
         """
         Cherche OBs et FVGs qui se superposent dans la zone OTE.
+
+        Fix ICT : on ne vérifie plus si le prix instantané est dans l'OTE.
+        On vérifie si la bougie courante (high/low) intersecte la zone OTE,
+        ce qui capture les wicks et les entrées intra-bougie.
+        Si candle_high/candle_low ne sont pas fournis, on accepte toute confluence
+        OB/FVG dans l'OTE (mode setup en attente).
         """
         if not ote:
             return []
-            
+
         direction = ote['direction']
         confluences = []
-        
+
         ote_top = ote['ote_top']
         ote_bottom = ote['ote_bottom']
+
+        # ── Vérification intersection bougie × zone OTE ─────────────────────────
+        # Si on a les données de la bougie courante, on vérifie que la bougie
+        # a visité la zone OTE (high >= ote_bottom ET low <= ote_top).
+        # Sinon (mode setup en attente), on laisse passer.
+        if candle_high is not None and candle_low is not None:
+            candle_touches_ote = (candle_high >= ote_bottom) and (candle_low <= ote_top)
+            if not candle_touches_ote:
+                return []  # La bougie n'a pas touché la zone OTE ce cycle
+        # ────────────────────────────────────────────────────────────────────────
         
         # Filtre selon direction et statut
         if direction == "bullish":
@@ -292,6 +309,20 @@ class EntryAgent:
         
         rr_tp1 = take_profits.get('tp1', {}).get('rr_ratio', 0)
         if rr_tp1 < 2.0:
+            try:
+                from agents.gate_logger import log_ict_blocked
+                log_ict_blocked(
+                    pair=self.symbol, horizon="unknown",
+                    reason=f"R:R ratio too low ({rr_tp1} < 2.0)",
+                    bias=bias if 'bias' in dir() else "unknown",
+                    htf_alignment="unknown",
+                    entry=stop_loss.get("entry_price", 0),
+                    sl=stop_loss.get("stop_loss", 0),
+                    tp1=take_profits.get("tp1", {}).get("price", 0),
+                    rr=rr_tp1,
+                )
+            except Exception:
+                pass
             return {"signal": "NO_TRADE", "reason": f"R:R ratio too low ({rr_tp1} < 2.0)"}
             
         # Determiner SENS
@@ -378,12 +409,42 @@ class EntryAgent:
              return {"signal": "NO_TRADE", "reason": "No valid swing movement matching bias"}
              
         ote = self.calculate_ote_zone(s_start, s_end, bias)
+
+        _ote_top    = ote.get("ote_top")
+        _ote_bottom = ote.get("ote_bottom")
         
         obs = structure_report.get('order_blocks', [])
         fvgs = structure_report.get('fvg', [])
         
-        confluences = self.find_confluence_zones(ote, obs, fvgs)
+        # ── Fix ICT : intersection bougie × OTE ────────────────────────────────
+        # On passe le high/low de la dernière bougie du TF d'entrée pour vérifier
+        # si la bougie a visité la zone OTE (wick compris), pas seulement le close.
+        candle_high = None
+        candle_low  = None
+        if df_entry is not None and len(df_entry) > 0:
+            last_candle = df_entry.iloc[-1]
+            candle_high = float(last_candle["high"])
+            candle_low  = float(last_candle["low"])
+        # ────────────────────────────────────────────────────────────────────────
+
+        confluences = self.find_confluence_zones(ote, obs, fvgs,
+                                                  candle_high=candle_high,
+                                                  candle_low=candle_low)
         if not confluences:
+            try:
+                from agents.gate_logger import log_ict_blocked
+                _price = float(df_entry["close"].iloc[-1]) if df_entry is not None and len(df_entry) > 0 else 0
+                log_ict_blocked(
+                    pair=self.symbol, horizon="unknown",
+                    reason="No Confluence in OTE",
+                    bias=bias,
+                    htf_alignment=structure_report.get("htf_alignment", "unknown"),
+                    entry=_price, sl=0, tp1=0,
+                    ote_top=_ote_top, ote_bottom=_ote_bottom,
+                    candle_high=candle_high, candle_low=candle_low,
+                )
+            except Exception:
+                pass
             return {"signal": "NO_TRADE", "reason": "No Confluence in OTE"}
             
         best_confluence = confluences[0]
@@ -433,6 +494,10 @@ class EntryAgent:
             signal_output['dol_targets'] = dol_targets
             signal_output['sd_targets'] = sd_targets
             
+        signal_output["ote_top"]     = _ote_top if '_ote_top' in dir() else None
+        signal_output["ote_bottom"]  = _ote_bottom if '_ote_bottom' in dir() else None
+        signal_output["candle_high"] = candle_high if 'candle_high' in dir() else None
+        signal_output["candle_low"]  = candle_low if 'candle_low' in dir() else None
         return signal_output
 
     def check_premium_discount(self, current_price: float, swing_high: float, 

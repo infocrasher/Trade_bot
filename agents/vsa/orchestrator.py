@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import pandas as pd
-import yfinance as yf
 
 from .volume_analyzer import VolumeAnalyzer, VSAAnalysis
 from .chart_generator  import ChartGenerator
@@ -23,26 +22,20 @@ from .scorer           import VSAScorer, VSAScore
 
 logger = logging.getLogger(__name__)
 
-
-# ─────────────────────────────────────────────
-# MAPPING SYMBOLES → TICKERS YFINANCE
-# ─────────────────────────────────────────────
-
-SYMBOL_MAP = {
-    'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'AUDUSD': 'AUDUSD=X',
-    'NZDUSD': 'NZDUSD=X', 'USDJPY': 'USDJPY=X', 'USDCAD': 'USDCAD=X',
-    'USDCHF': 'USDCHF=X', 'EURGBP': 'EURGBP=X',
-    'XAUUSD': 'GC=F',     'XAGUSD': 'SI=F',
-    'BTCUSD': 'BTC-USD',  'ETHUSD': 'ETH-USD',
-    'USOIL':  'CL=F',     'UKOIL':  'BZ=F',
+# Mapping timeframe VSA → timeframe TwelveDataProvider
+TF_MAP = {
+    'scalp':    'M5',
+    'intraday': 'H1',
+    'daily':    'D1',
+    'weekly':   'W1',
 }
 
-# Mapping timeframe → paramètres yfinance
-TF_MAP = {
-    'scalp':   ('5m',  '5d'),
-    'intraday':('1h',  '60d'),
-    'daily':   ('1d',  '1y'),
-    'weekly':  ('1wk', '5y'),
+# Nombre de bougies par timeframe
+TF_BARS = {
+    'scalp':    288,
+    'intraday': 200,
+    'daily':    200,
+    'weekly':   100,
 }
 
 
@@ -68,6 +61,13 @@ class VSAOrchestrator:
         self.gemini_analyzer = GeminiVSAAnalyzer(api_key=gemini_api_key)
         self.scorer          = VSAScorer()
         self.enable_charts   = enable_charts
+
+        # Data provider
+        try:
+            from data.twelve_data_provider import TwelveDataProvider
+            self._data_provider = TwelveDataProvider()
+        except Exception:
+            self._data_provider = None
 
         mode = "OBSERVATION" if self.OBSERVATION_MODE else "ACTIF"
         logger.info(f"[VSAOrchestrator] Initialisé — mode {mode} | "
@@ -225,38 +225,31 @@ class VSAOrchestrator:
     # ──────────────────────────────────────────
 
     def _fetch_data(self, symbol: str, timeframe: str) -> Optional[pd.DataFrame]:
-        """Télécharge les données OHLCV via yfinance."""
-        ticker = SYMBOL_MAP.get(symbol, symbol)
-        tf_params = TF_MAP.get(timeframe, ('1d', '1y'))
-        interval, period = tf_params
+        """Télécharge les données OHLCV via TwelveDataProvider."""
+        td_tf   = TF_MAP.get(timeframe, 'D1')
+        n_bars  = TF_BARS.get(timeframe, 200)
 
-        try:
-            df = yf.download(
-                ticker,
-                period=period,
-                interval=interval,
-                auto_adjust=True,
-                progress=False,
-            )
+        if self._data_provider and self._data_provider.connected:
+            try:
+                df = self._data_provider.get_ohlcv(symbol, td_tf, n_bars)
+                if df.empty:
+                    logger.warning(f"[VSAOrch] TwelveData — aucune donnée {symbol}/{timeframe}")
+                    return None
 
-            if df.empty:
+                # Normaliser les noms de colonnes en majuscules (compatibilité VolumeAnalyzer)
+                df.columns = [c.capitalize() for c in df.columns]
+                if 'Volume' not in df.columns and 'Tick_volume' in df.columns:
+                    df.rename(columns={'Tick_volume': 'Volume'}, inplace=True)
+
+                df.dropna(inplace=True)
+                df = df[df['Volume'] > 0]
+                return df
+
+            except Exception as e:
+                logger.error(f"[VSAOrch] TwelveData erreur {symbol}/{timeframe} : {e}")
                 return None
-
-            # Normaliser colonnes
-            df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
-            df.dropna(inplace=True)
-
-            # Supprimer les bougies avec volume = 0 (weekend, jours fériés)
-            df = df[df['Volume'] > 0]
-
-            # Flatten MultiIndex si présent (yfinance v0.2+)
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-
-            return df
-
-        except Exception as e:
-            logger.error(f"[VSAOrch] yfinance erreur {symbol}/{timeframe} : {e}")
+        else:
+            logger.warning(f"[VSAOrch] TwelveData non connecté — {symbol}/{timeframe} ignoré")
             return None
 
     # ──────────────────────────────────────────

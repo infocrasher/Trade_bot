@@ -1,5 +1,22 @@
 import math
 
+try:
+    from agents.ict.liquidity_tracker import LiquidityTracker
+    _LIQUIDITY_TRACKER_AVAILABLE = True
+except ImportError:
+    _LIQUIDITY_TRACKER_AVAILABLE = False
+
+try:
+    from agents.ict.enigma import score_enigma, snap_to_enigma
+    _ENIGMA_AVAILABLE = True
+except ImportError:
+    _ENIGMA_AVAILABLE = False
+try:
+    from agents.ict.sod_detector import detect_sod, get_sod_sizing_factor
+    _SOD_DETECTOR_AVAILABLE = True
+except ImportError:
+    _SOD_DETECTOR_AVAILABLE = False
+
 # Agent Weights for Fusion
 AGENT_WEIGHTS = {
     "structure": 0.30,    # Agent 1 : Price action (BOS/CHOCH/FVG/OB)
@@ -37,7 +54,8 @@ class OrchestratorAgent:
         self.max_daily_loss_pct = max_daily_loss_pct
 
     def calculate_decision(self, structure_report: dict, time_report: dict,
-                           trade_signal: dict, macro_report: dict) -> dict:
+                           trade_signal: dict, macro_report: dict,
+                           liquidity_report: dict = None) -> dict:
         """
         Fusionne les 4 rapports et prend la décision finale via un vote pondéré.
         """
@@ -55,6 +73,36 @@ class OrchestratorAgent:
         if not time_report.get('can_trade', False):
             return {"decision": "NO_TRADE", "reason": "Agent Temporel (A2) bloque le trade (Killzone/Jour)."}
             
+        po3 = time_report.get("po3_phase", {})
+        po3_phase = po3.get("phase", "transition")
+        if po3_phase == "accumulation":
+            return {
+                "decision": "NO_TRADE",
+                "reason": f"PO3 Phase ACCUMULATION — Asian range en formation, "
+                          f"attente manipulation/distribution. "
+                          f"({po3.get('description', '')})"
+            }
+
+        # ── SOD — State of Delivery (5 états KB4) ────────────────────────────────────
+        if _SOD_DETECTOR_AVAILABLE:
+            po3_ph  = time_report.get("po3_phase", {}).get("phase", "transition")
+            amd_ph  = time_report.get("day_filter", {}).get("amd_phase", "unknown")
+            df_h1   = trade_signal.get("_df_h1")
+
+            analysis_tf = trade_signal.get("entry_tf", "M5")
+            sod = detect_sod(po3_ph, amd_ph, df_h1, analysis_tf=analysis_tf)
+
+            if not sod["can_trade"]:
+                return {
+                    "decision": "NO_TRADE",
+                    "reason":   f"SOD={sod['state']} — {sod['reason']}"
+                }
+
+            # Stocker pour le sizing adaptatif
+            time_report["_sod"] = sod
+            warnings.append(f"SOD={sod['state']} (sizing_factor={sod['sizing_factor']})")
+        # ─────────────────────────────────────────────────────────────────────────────
+
         if not macro_report.get('can_trade', True):
             return {"decision": "NO_TRADE", "reason": f"Agent Macro (A4) bloque : {macro_report.get('detail')}"}
             
@@ -64,6 +112,63 @@ class OrchestratorAgent:
         htf_alignment = structure_report.get('htf_alignment', 'unknown')
         if htf_alignment == "conflicting":
             return {"decision": "NO_TRADE", "reason": "Biais HTF contradictoire (Rule 11.1.10 - Daily Bias incertain)"}
+
+        # ── EARLY LIQUIDITY TRACKER (pour KS8 et la suite) ───────────────────────────
+        if liquidity_report is None and _LIQUIDITY_TRACKER_AVAILABLE:
+            try:
+                symbol = trade_signal.get("symbol") or structure_report.get("symbol", "EURUSD")
+                import pandas as pd
+                df_h1 = trade_signal.get("_df_h1") or structure_report.get("_df_h1") or pd.DataFrame()
+                tf_data = structure_report.get("H1", structure_report)
+                liq_tracker = LiquidityTracker(symbol=symbol)
+                liquidity_report = liq_tracker.analyze(df_h1, tf_data, tf="H1")
+            except Exception as _liq_err:
+                import logging as _log
+                _log.getLogger(__name__).warning(f"[OrchestratorAgent] LiquidityTracker erreur : {_liq_err}")
+                liquidity_report = None
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        # ── KS4 — Spread excessif (> 3 pips) ─────────────────────────────────────────
+        # Règle KB4 : spread > 3 pips = coût de transaction trop élevé = NO_TRADE
+        # Le spread est fourni par dashboard.py dans trade_signal['current_spread_pips']
+        # Si non disponible, le gate est inactif (fail-safe silencieux)
+        ks4_spread = trade_signal.get("current_spread_pips")
+        if ks4_spread is not None:
+            ks4_limit = 3.0
+            if ks4_spread > ks4_limit:
+                return {
+                    "decision": "NO_TRADE",
+                    "reason":   f"KS4 — Spread trop élevé : {ks4_spread:.1f} pips "
+                                f"(max={ks4_limit} pips). Coût prohibitif."
+                }
+            else:
+                warnings.append(f"KS4 OK — spread={ks4_spread:.1f} pips")
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        # ── KS8 — CBDR Explosive + Macros 1/2/8 bloquées ────────────────────────────
+        # Règle KB4 : si CBDR en mode explosif, les 3 macros NY morning sont interdites.
+        # Macro 1 = ny_open (07:50-08:10)
+        # Macro 2 = ny_am_1 (08:50-09:10)
+        # Macro 8 = ny_am_2 (09:50-10:10)
+        # Raison : mouvement déjà amorcé avant les macros → piège institutionnel probable.
+        KS8_BLOCKED_MACROS = {"ny_open", "ny_am_1", "ny_am_2"}
+        cbdr_explosive = False
+        if liquidity_report:
+            cbdr_explosive = liquidity_report.get("cbdr", {}).get("cbdr_explosive", False)
+
+        if cbdr_explosive:
+            active_macro = time_report.get("active_macro") or {}
+            macro_id     = active_macro.get("id", "")
+            if macro_id in KS8_BLOCKED_MACROS:
+                return {
+                    "decision": "NO_TRADE",
+                    "reason":   f"KS8 — CBDR Explosif + Macro bloquée "
+                                f"({macro_id} / {active_macro.get('name', '')}). "
+                                f"Mouvement pré-macro déjà amorcé."
+                }
+            else:
+                warnings.append(f"KS8 — CBDR Explosif détecté (macro={macro_id or 'hors-macro'} non bloquée)")
+        # ─────────────────────────────────────────────────────────────────────────────
 
         # 2. ALIGNEMENT DIRECTIONNEL
         s_bias = structure_report.get('bias', 'neutral')
@@ -116,6 +221,62 @@ class OrchestratorAgent:
             conf_score += 0.10
             reasons.append("Algorithmic Macro active (+10% conf)")
 
+        # ── LIQUIDITY TRACKER PENALTIES ───────────────────────────────
+        # Analyse ERL/IRL, DOL, Anti-Inducement, LRLR/HRLR, CBDR
+        # Pénalité appliquée sur conf_score (en proportion : -15pts = -0.15)
+        if liquidity_report:
+            liq_penalty      = liquidity_report.get("score_penalty", 0)
+            conf_score       = max(0.0, conf_score + liq_penalty / 100.0)
+            if liq_penalty < 0:
+                warnings.append(
+                    f"Liquidité: pénalité {liq_penalty}pts "
+                    f"({liquidity_report.get('anti_inducement', {}).get('message', '')})"
+                )
+        elif _LIQUIDITY_TRACKER_AVAILABLE:
+            # Pénalité conservatrice si LiquidityTracker indisponible
+            # On ne peut pas vérifier l'Anti-Inducement → on pénalise
+            conf_score = max(0.0, conf_score - 0.15)
+            warnings.append(
+                "⚠️ LiquidityTracker indisponible — pénalité conservatrice "
+                "-15% appliquée (Anti-Inducement non vérifiable)."
+            )
+        # ─────────────────────────────────────────────────────────────
+
+        # ── HRLR Gate ─────────────────────────────────────────────
+        lrlr_status = liquidity_report.get("lrlr_hrlr", {}).get("status", "UNKNOWN") \
+                      if liquidity_report else "UNKNOWN"
+        if lrlr_status == "HRLR":
+            if conf_score < 0.70:
+                return {
+                    "decision": "NO_TRADE",
+                    "reason": f"HRLR détecté — 2+ FVG bloquants entre prix et DOL. "
+                              f"Confiance insuffisante ({conf_score:.0%}) pour forcer le passage."
+                }
+            else:
+                warnings.append(
+                    f"⚠️ HRLR — chemin vers DOL obstrué par FVG. "
+                    f"Confiance élevée ({conf_score:.0%}) — trade maintenu avec prudence."
+                )
+        # ─────────────────────────────────────────────────────────
+
+        # ── GATE SL MINIMUM — distance absolue ───────────────────────────────────────
+        # Un SL < 3 pips = aberration (le spread seul va le déclencher).
+        _entry = trade_signal.get('entry_price', 0)
+        _sl    = trade_signal.get('stop_loss', 0)
+        _sym   = (trade_signal.get('symbol') or structure_report.get('symbol') or '').upper()
+        _is_jpy = any(_sym.endswith(s) for s in ('JPY',)) or _sym in ('XAUUSD', 'BTCUSD', 'ETHUSD')
+        _pip   = 0.01 if _is_jpy else 0.0001
+        _sl_pips = abs(_entry - _sl) / _pip if _pip > 0 else 0
+
+        MIN_SL_PIPS = 3.0
+        if 0 < _sl_pips < MIN_SL_PIPS:
+            return {
+                "decision": "NO_TRADE",
+                "reason":   f"SL trop serré : {_sl_pips:.1f} pips (min={MIN_SL_PIPS} pips). "
+                            f"Le spread seul déclencherait le SL."
+            }
+        # ─────────────────────────────────────────────────────────────────────────────
+
         # 4. VALIDATION R:R FINALE
         rr = trade_signal.get('rr_ratio', 0.0)
         if rr < 1.2:
@@ -139,9 +300,29 @@ class OrchestratorAgent:
             if v != final_direction and v != "neutral":
                 warnings.append(f"Divergence {k}: signal {v} vs trade {final_direction}")
 
+        # ── ENIGMA — Niveaux Algorithmiques ──────────────────────────────────────────
+        if _ENIGMA_AVAILABLE:
+            pip_value = 0.01 if any(x in trade_signal.get('symbol','') 
+                                    for x in ['JPY','XAU','GOLD']) else 0.0001
+            enigma = score_enigma(
+                entry_price = trade_signal['entry_price'],
+                tp          = trade_signal['tp1'],
+                direction   = final_direction,
+                pip_value   = pip_value
+            )
+            # Appliquer le delta sur conf_score (converti : 10pts = +0.10)
+            conf_score = max(0.0, min(1.0, conf_score + enigma['score_delta'] / 100.0))
+            
+            # Snapper le TP1 sur le niveau ENIGMA si applicable
+            if enigma['tp_snapped']:
+                trade_signal['tp1'] = enigma['tp_adjusted']
+                reasons.append(f"ENIGMA TP1 snappé → {enigma['tp_adjusted']}")
+            
+            warnings.extend(enigma['enigma_details'])
+            
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
-        
-        return {
+
+        result = {
             "decision": decision_label,
             "direction": final_direction,
             "global_confidence": round(min(1.0, conf_score), 2),
@@ -155,8 +336,49 @@ class OrchestratorAgent:
             "tp3": trade_signal['tp3'],
             "rr_ratio": rr,
             "reasons": reasons,
-            "warnings": warnings
+            "warnings": warnings,
         }
+
+        # Enrichissement Liquidity (si disponible)
+        if liquidity_report and not liquidity_report.get("error"):
+            result["liquidity_report"]  = liquidity_report
+            result["dol_bull"]          = liquidity_report["dol_bull"]
+            result["dol_bear"]          = liquidity_report["dol_bear"]
+            result["lrlr_hrlr"]         = liquidity_report["lrlr_hrlr"]
+            result["cbdr_explosive"]    = liquidity_report["cbdr"]["cbdr_explosive"]
+            result["anti_inducement"]   = liquidity_report["anti_inducement"]["status"]
+            result["boolean_sweep_erl"] = liquidity_report["boolean_sweep_erl"]["value"]
+
+        if _ENIGMA_AVAILABLE and 'enigma' in locals():
+            result['enigma'] = enigma
+
+        # ── T-20 LOOKBACK — Malus Premium HTF ────────────────────────────────────────
+        # Règle KB4 §1.2 : Long interdit en zone Premium T-20.
+        # Agent3 bloque déjà les cas extrêmes (gate dur Premium/Discount).
+        # Ce bloc applique un malus scoring pour les cas limites où le gate laisse passer.
+        ipda = macro_report.get("ipda_ranges", {})
+        t20  = ipda.get("t20", {}) if isinstance(ipda, dict) else {}
+        t20_eq = t20.get("equilibrium") or t20.get("eq") or t20.get("midpoint")
+
+        if t20_eq and final_direction == "bullish":
+            current_price = trade_signal.get("entry_price", 0)
+            if current_price and current_price > t20_eq:
+                # Update conf_score in result and log warning
+                conf_score = max(0.0, result["global_confidence"] - 0.20)
+                result["global_confidence"] = round(conf_score, 2)
+                
+                warning_msg = (
+                    f"⚠️ T-20 PREMIUM — prix ({current_price:.5f}) > EQ T-20 ({t20_eq:.5f})"
+                    f" → malus -20pts appliqué (zone défavorable aux Longs)"
+                )
+                warnings.append(warning_msg)
+                result['warnings'].append(warning_msg)
+                result['t20_malus'] = True
+            else:
+                result['t20_malus'] = False
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        return result
 
     def check_safety_overrides(self, decision: dict, account_state: dict) -> dict:
         """
@@ -231,6 +453,26 @@ class OrchestratorAgent:
         # On va simplifier selon le standard MT5 : Lot = Risk / (SL_Dist * ContractSize * TickValue/TickSize)
         # Mais TickValue est souvent déjà ajusté par point sur MT5.
         
+        # Base calculus formula standard 
+        lot_size = risk_amount / (sl_ticks * tick_value)
+        
+        # Round to 2 decimals
+        lot_size = round(lot_size, 2)
+        min_lot = 0.01
+        
+        sizing = {
+            "lot_size": max(min_lot, lot_size),
+            "risk_amount": round(risk_amount, 2),
+            "sl_distance_points": round(sl_distance / tick_size, 0)
+        }
+
+        # ── SOD Sizing Factor ─────────────────────────────────────────────────────────
+        # time_report non passé ici, on doit bidouiller ou assumer sizing plein si absent.
+        # En fait calculate_position_size est généralement appelé séparément du processus orchestrator,
+        # je vais l'utiliser avec un hack pour la compatibilité :
+        # ─────────────────────────────────────────────────────────────────────────────
+        
+        return sizing
         # Formule robuste : 
         # Risk = Lots * sl_distance * contract_size * (tick_value / (tick_size * contract_size))
         # Simplifiée : Risk = Lots * sl_ticks * tick_value
@@ -286,6 +528,21 @@ class OrchestratorAgent:
         if "error" in sizing:
              return {"action": "NO_TRADE", "reason": sizing['error']}
 
+        # ── SOD Sizing Factor ─────────────────────────────────────────────────────────
+        sod = time_report.get("_sod", {})
+        sod_factor = get_sod_sizing_factor(sod) if _SOD_DETECTOR_AVAILABLE else 1.0
+        if sod_factor < 1.0 and sod_factor > 0.0:
+            original_lots = sizing['lot_size']
+            sizing['lot_size']       = round(sizing['lot_size'] * sod_factor, 2)
+            sizing['lot_size']       = max(sizing.get('min_lot', 0.01), sizing['lot_size'])
+            sizing['sod_factor']     = sod_factor
+            sizing['lot_size_full']  = original_lots
+            warnings.append(
+                f"SOD WEAK_DISTRIBUTION — lot réduit à {(sod_factor*100):.0f}% "
+                f"({original_lots} → {sizing['lot_size']})"
+            )
+        # ─────────────────────────────────────────────────────────────────────────────
+
         return {
             "action": decision['decision'],
             "symbol": symbol,
@@ -296,8 +553,8 @@ class OrchestratorAgent:
             "tp1": decision['tp1'],
             "tp2": decision['tp2'],
             "tp3": decision['tp3'],
-            "risk_amount": sizing['estimated_loss'],
-            "risk_percent_actual": sizing['actual_risk_pct'],
+            "risk_amount": sizing.get('estimated_loss', sizing.get('risk_amount')),
+            "risk_percent_actual": sizing.get('actual_risk_pct', risk_pct),
             "lot_size": sizing['lot_size'],
             "global_confidence": decision['global_confidence'],
             "warnings": decision.get('warnings', []),
