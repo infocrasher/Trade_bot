@@ -1095,12 +1095,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 try:
                                     from agents.ict.ote_tracker import get_waiting_setup, invalidate_setup
                                     _current_bias = structure_report.get("bias", "neutral")
-                                    _waiting = get_waiting_setup(p, result_horizon, _current_bias)
+                                    _waiting = get_waiting_setup(p, horizon, _current_bias)
                                     if _waiting:
                                         # Le bias a changé → invalider le setup
                                         _saved_bias = _waiting.get("bias", "neutral")
                                         if _saved_bias != _current_bias:
-                                            invalidate_setup(p, result_horizon, _saved_bias, reason="Bias changed")
+                                            invalidate_setup(p, horizon, _saved_bias, reason="Bias changed")
                                             log(f"[{p}] OTE setup INVALIDATED — bias changé ({_saved_bias}→{_current_bias})", "DEBUG")
                                         else:
                                             # Réinjecter les OBs/FVGs sauvegardés si structure actuelle en manque
@@ -1788,6 +1788,16 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     log(f"{status_emoji} PAPER TRADE {order['status'].upper()}: {pair} {order['direction']} @ {entry} | SL:{sl} TP1:{tp1} | Prix:{sp} | Horizon:{order['horizon']}", "SUCCESS" if order["status"] == "active" else "INFO")
                                     broadcast("order_update", {"action": "update", "order": order})
                                     _save_paper_trade(order)
+
+                                    # ── OTE Tracker : nettoyer le setup après exécution du trade ──
+                                    if action == "new":
+                                        try:
+                                            from agents.ict.ote_tracker import clear_triggered
+                                            _bias = "bullish" if order.get("direction", "") in ("BUY", "ACHAT") else "bearish"
+                                            clear_triggered(pair, order.get("horizon", "unknown"), _bias)
+                                            log(f"[{pair}] OTE setup nettoyé après trade {order.get('direction')}", "DEBUG")
+                                        except Exception as _ote_clear_ex:
+                                            log(f"[{pair}] OTE clear_triggered erreur: {_ote_clear_ex}", "DEBUG")
                                     
                                     # Notification Telegram
                                     if action == "new" and order.get("score", 0) >= getattr(config, "TELEGRAM_MIN_SCORE", 70):
