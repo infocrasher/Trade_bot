@@ -1054,6 +1054,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     return
 
                                 structure_report = agent1.analyze_multi_tf(mtf_data)
+                                structure_report["horizon"] = horizon  # OTE Tracker: clé de setup
                                 
                                 # Extraire le biais depuis le TF principal du profil
                                 bias_data = structure_report.get(bias_tf, {})
@@ -1086,7 +1087,31 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 with state_lock: bot_state["current_api"] = f"Agent 3 Entry ({entry_tf})"
                                 broadcast("status", {"current_api": bot_state["current_api"]})
 
-                                agent3       = EntryAgent(symbol=p)
+                                agent3 = EntryAgent(symbol=p)
+
+                                # ── OTE Tracker : vérifier si un setup WAITING existe déjà ──
+                                # Si oui, on réinjecte ses OBs/FVGs sauvegardés dans structure_report
+                                # pour que agent3 puisse réévaluer avec les données persistées.
+                                try:
+                                    from agents.ict.ote_tracker import get_waiting_setup, invalidate_setup
+                                    _current_bias = structure_report.get("bias", "neutral")
+                                    _waiting = get_waiting_setup(p, result_horizon, _current_bias)
+                                    if _waiting:
+                                        # Le bias a changé → invalider le setup
+                                        _saved_bias = _waiting.get("bias", "neutral")
+                                        if _saved_bias != _current_bias:
+                                            invalidate_setup(p, result_horizon, _saved_bias, reason="Bias changed")
+                                            log(f"[{p}] OTE setup INVALIDATED — bias changé ({_saved_bias}→{_current_bias})", "DEBUG")
+                                        else:
+                                            # Réinjecter les OBs/FVGs sauvegardés si structure actuelle en manque
+                                            if not structure_report.get("order_blocks"):
+                                                structure_report["order_blocks"] = _waiting.get("obs", [])
+                                            if not structure_report.get("fvg"):
+                                                structure_report["fvg"] = _waiting.get("fvgs", [])
+                                            log(f"[{p}] OTE setup WAITING récupéré ({_waiting.get('cycles_waited',0)} cycles)", "DEBUG")
+                                except Exception as _ote_ex:
+                                    log(f"[{p}] OTE Tracker erreur: {_ote_ex}", "DEBUG")
+
                                 entry_signal = agent3.analyze(structure_report, time_report, df_entry)
                                 entry_signal["_df_h1"] = dfs.get("H1", pd.DataFrame())
                                 entry_signal["entry_tf"] = entry_tf   # P-A4b : timeframe d'analyse pour SOD
@@ -1443,7 +1468,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                         if _entry and _sl and _tp1:
                                             log_meta_blocked(
                                                 pair=p,
-                                                horizon=result_horizon,
+                                                horizon=horizon,
                                                 final_gate="RESTER_DEHORS",
                                                 ict_signal=entry_signal.get("signal", "NO_TRADE"),
                                                 ict_score=int(conf * 100) if conf <= 1.0 else int(conf),
@@ -1523,9 +1548,13 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 bot_state["last_reports"][pair] = error_report
                             continue
 
-                        ict_raw      = result_holder["ict_raw"]
-                        ict_analyzed = result_holder["ict_analyzed"]
-                        final        = result_holder["final"]
+                        if "ict_raw" not in result_holder or "final" not in result_holder:
+                            log(f"Erreur {pair} [{horizon}]: résultat incomplet (clés manquantes)", "ERROR")
+                            continue
+
+                        ict_raw      = result_holder.get("ict_raw", "")
+                        ict_analyzed = result_holder.get("ict_analyzed", {"approved": False, "confidence_score": 0})
+                        final        = result_holder.get("final", {})
                         score        = final.get("global_score", 0)
                         decision     = final.get("final_decision", "RESTER_DEHORS")
 

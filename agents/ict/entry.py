@@ -431,12 +431,30 @@ class EntryAgent:
                                                   candle_high=candle_high,
                                                   candle_low=candle_low)
         if not confluences:
+            # ── State Machine OTE : sauvegarder le setup au lieu de l'abandonner ──
+            try:
+                from agents.ict.ote_tracker import save_setup, get_waiting_setup, tick_cycle
+                horizon = structure_report.get("horizon", "unknown")
+                existing = get_waiting_setup(self.symbol, horizon, bias)
+                if existing:
+                    cycles = tick_cycle(self.symbol, horizon, bias)
+                else:
+                    save_setup(
+                        pair=self.symbol, horizon=horizon, bias=bias,
+                        ote_top=_ote_top, ote_bottom=_ote_bottom,
+                        s_start=s_start, s_end=s_end,
+                        obs=obs, fvgs=fvgs,
+                    )
+                    cycles = 0
+            except Exception:
+                pass
+            # Gate log
             try:
                 from agents.gate_logger import log_ict_blocked
                 _price = float(df_entry["close"].iloc[-1]) if df_entry is not None and len(df_entry) > 0 else 0
                 log_ict_blocked(
                     pair=self.symbol, horizon="unknown",
-                    reason="No Confluence in OTE",
+                    reason="No Confluence in OTE — setup saved (WAITING)",
                     bias=bias,
                     htf_alignment=structure_report.get("htf_alignment", "unknown"),
                     entry=_price, sl=0, tp1=0,
@@ -445,7 +463,7 @@ class EntryAgent:
                 )
             except Exception:
                 pass
-            return {"signal": "NO_TRADE", "reason": "No Confluence in OTE"}
+            return {"signal": "NO_TRADE", "reason": "No Confluence in OTE — setup saved (WAITING)"}
             
         best_confluence = confluences[0]
         

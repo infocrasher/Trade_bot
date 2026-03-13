@@ -331,8 +331,8 @@ class ElliottOrchestrator:
         """Construit la liste des raisons pour le signal."""
         reasons = []
         
-        status = position.get("status", "unknown")
-        direction = position.get("direction", "unknown")
+        status = position.get("status", "unknown") or "unknown"
+        direction = position.get("direction", "unknown") or "unknown"
         
         if "w3_start" in status:
             reasons.append(f"Début de vague 3 {direction} détecté (signal fort)")
@@ -344,7 +344,7 @@ class ElliottOrchestrator:
             reasons.append(f"Correction terminée → reprise de tendance")
         
         # Ajouter le score et les détails
-        reasons.append(f"Score Elliott: {best.score}/100")
+        reasons.append(f"Score Elliott: {int(best.score) if best.score is not None else 0}/100")
         
         # Guidelines
         g = best.details.get("guidelines", {})
@@ -355,6 +355,9 @@ class ElliottOrchestrator:
         if g.get("alternation_depth"):
             reasons.append("Alternance V2/V4 correcte")
         
+        # Guard : éliminer tout None qui pourrait casser un join() en aval
+        reasons = [r for r in reasons if r is not None]
+
         return reasons
     
     def _check_mtf_alignment(self, dataframes: Dict[str, pd.DataFrame],
