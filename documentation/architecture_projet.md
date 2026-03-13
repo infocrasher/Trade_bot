@@ -7,98 +7,137 @@ Ce document décrit l'architecture complète du projet de trading algorithmique,
 ```text
 Trading_Bot_Project/
 │
-├── config.py                 # Configuration globale (paires, risques, intervalles)
-├── dashboard.py              # Point d'entrée principal : Serveur Flask, UI, et boucle de trading (Paper Monitor)
-├── main.py                   # (Alternative CLI) Point d'entrée pour exécution sans interface web
-├── requirements.txt          # Dépendances Python (pandas, numpy, flask, anthropic, etc.)
+├── config.py                 # Configuration globale (paires, risques, intervalles, API keys via .env)
+├── dashboard.py              # Point d'entrée principal : Serveur Flask, UI, et boucle de trading
+├── main.py                   # (Alternative CLI) Point d'entrée sans interface web
+├── requirements.txt          # Dépendances Python
+├── .env                      # Clés API sensibles (JAMAIS committé sur Git)
 │
 ├── agents/                   # Intelligence Artificielle et Trading Logics
 │   ├── ict/                  # École de trading ICT (Inner Circle Trader)
 │   │   ├── structure.py      # A1 : Analyse de structure HTF (Order Blocks, FVGs, Sweeps)
-│   │   ├── ob_scorer.py      # (Helper A1) Évalue la qualité d'un Order Block sur 5 critères stricts (A++)
-│   │   ├── time.py           # A2 : Analyse temporelle (Killzones, Macros algorithmiques)
-│   │   ├── entry.py          # A3 : Points d'entrée (OTE, Confirmations M5, SL/TP dynamiques)
-│   │   ├── macro.py          # A4 : Contexte Macro (DXY, COT, IPDA Ranges)
-│   │   ├── enigma.py         # (Helper A5) Niveaux algorithmiques institutionnels (.00, .20, .50, .80)
-│   │   ├── sod_detector.py   # (Helper A5) State of Delivery à 5 états (STRONG, WEAK, ACC, MANIP)
-│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (Fusion des analyses A1+A2+A3+A4+ENIGMA+SOD)
+│   │   ├── ob_scorer.py      # (Helper A1) Évalue la qualité d'un OB sur 5 critères (A++)
+│   │   ├── time_session.py   # A2 : Analyse temporelle (Killzones, Macros, PO3, AMD Weekly)
+│   │   ├── entry.py          # A3 : Points d'entrée (OTE 62-79%, confluences, R:R ≥ 2.0)
+│   │   ├── macro.py          # A4 : Contexte Macro (DXY, COT, IPDA Ranges, T-20)
+│   │   ├── enigma.py         # (Helper A5) Niveaux algorithmiques (.00, .20, .50, .80)
+│   │   ├── sod_detector.py   # (Helper A5) State of Delivery 5 états (STRONG/WEAK/ACC/MANIP)
+│   │   ├── liquidity_tracker.py # LRLR/HRLR — compte les obstacles entre prix et cible
+│   │   ├── ote_tracker.py    # State Machine OTE (WAITING/TRIGGERED/INVALIDATED) — persistant
+│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (fusion A1+A2+A3+A4, scoring KB4)
 │   │
-│   ├── elliott/              # École de trading Elliott Waves (Vagues d'Elliott)
-│   │   ├── wave_counter.py   # Compteur de vagues et reconnaissance de patterns (Impulsion/Correction)
-│   │   ├── scorer.py         # Calcul du score basé sur les règles de Fibonacci, Alternance, Momentum
+│   ├── elliott/              # École de trading Elliott Waves
+│   │   ├── wave_counter.py   # Compteur de vagues (Impulsion/Correction)
+│   │   ├── scorer.py         # Score basé sur Fibonacci, Alternance, Momentum
 │   │   └── orchestrator.py   # Validation et filtrage des signaux Elliott
 │   │
-│   ├── agent_llm_validator.py # A6 : Wrapper pour l'API Claude (Validation finale des setups)
-│   ├── llm_validator.py       # Configuration et logique métier de facturation pour Claude Haiku
-│   └── meta_orchestrator.py   # Fusion inter-écoles (Confrontation des signaux ICT vs Elliott)
+│   ├── vsa/                  # Volume Spread Analysis (optionnel)
+│   │
+│   ├── gate_logger.py        # Logs des refus par école (ICT/Elliott/Meta) → data/gate_logs/
+│   ├── post_mortem.py        # Analyse quotidienne des setups bloqués (Gate Regret Rate)
+│   ├── telegram_notifier.py  # Alertes Telegram en temps réel (via TakeOptionBot)
+│   ├── agent_llm_validator.py # A6 : Validation LLM Claude Haiku avec Prompt Caching
+│   ├── llm_validator.py      # Logique métier et facturation Claude
+│   └── meta_orchestrator.py  # Fusion ICT vs Elliott, décision finale OUVRIR/RESTER_DEHORS
+│
+├── data/                     # Données persistantes (hors logs)
+│   ├── gate_logs/            # JSON par date : ict_blocked, elliott_blocked, meta_blocked
+│   │   └── post_mortem_YYYY-MM-DD.json  # Rapport quotidien (Gate Regret %)
+│   ├── ote_setups.json       # State machine OTE — setups WAITING en cours
+│   └── circuit_breaker_state.json  # État du Circuit Breaker (pertes consécutives)
 │
 ├── documentation/            # Documentation métier et technique
-│   ├── architecture_projet.md # Ce fichier
-│   ├── ict_encyclopedia.md   # Base de connaissances rigoureuse des concepts ICT (Règles, Killzones, Setup Grail)
-│   ├── rapport_audit.md      # Rapport détaillé sur l'état du code, forces, et faiblesses
+│   ├── architecture_projet.md  # Ce fichier
 │   ├── Task.md               # Suivi des tâches (Checklist globale)
-│   └── bot_functionalities.md# Liste détaillée des fonctionnalités du dashboard et du bot
+│   ├── a_retenir.md          # Analyse KB4 vs notre bot — concepts manquants et priorités
+│   └── avis_ia/              # Avis des différents LLMs sur le bot (ChatGPT, Gemini, Grok...)
 │
-├── logs/                     # Fichiers de journalisation (Rotatifs)
-│   ├── bot.log               # Événements système, erreurs, et analyses détaillées (DEBUG)
-│   ├── trades.log            # Historique condensé des décisions de trading (INFO)
-│   └── sessions/             # Logs découpés dynamiquement par session d'exécution
-│       └── SESSION__YYYY-MM-DD_HH-MM-SS/
-│           ├── bot.log       # Débogage limité à cette session précise
-│           └── trades.log    # Décisions de trading de cette session
+├── logs/                     # Fichiers de journalisation rotatifs
+│   ├── bot.log               # Événements système (DEBUG)
+│   ├── trades.log            # Décisions de trading (INFO)
+│   └── sessions/SESSION__YYYY-MM-DD_HH-MM-SS/
 │
-├── paper_trading/            # Environnement de simulation
-│   └── paper_trades.json     # Base de données locale persistant les positions ouvertes, PnL, et historiques
-│
-└── templates/                # (Optionnel si Flask Server-Side Rendered) Fichiers HTML pour le Dashboard
+└── paper_trading/            # Environnement de simulation (exclu de Git)
+    └── paper_trades.json
 ```
 
 ---
 
 ## ⚙️ Flux de Décision Algorithmique (Pipeline)
 
-Le bot analyse les graphiques selon l'approche "Multi-Agents" pour garantir une précision maximale. L'architecture est profondément calquée sur la stricte **Encyclopédie ICT**.
-
-1. **Extraction de Données (MT5)**
-   ↳ Le bot télécharge l'historique complet (M5 à Daily) via `MetaTrader5` pour chaque paire définie dans `config.py`.
-
-2. **Évaluation Multi-Timeframes (ICT Agents)**
-   - **A1 — Structure :** Biais directionnel (Daily/H4), détection des Order Blocks (notés sur 5 critères stricts) et FVGs.
-   - **A2 — Temporalité :** Vérifie si on est dans une *Killzone* ou une *Macro* algorithmique valide. Si hors fenêtre → `NO_TRADE`.
-   - **A3 — Zones d'Entrée :** Cherche une *Optimal Trade Entry* (OTE 62-79%). Applique **strictement R:R ≥ 2.0**.
-   - **A4 — Contexte Macro :** Vérifie la corrélation DXY (Dollar Index) et la saisonnalité institutionnelle.
-
-3. **Orchestrateur Local (ICT)**
-   ↳ Fusionne A1+A2+A3+A4. Si le système valide un Signal "EXECUTE" avec la condition stricte **HTF Concordant**, il calcule un score de confiance `/100`.
-   ↳ Applique les bonus/malus finaux tels que l'éloignement de la liquidité ou la concordance avec les **Niveaux ENIGMA** (Snap TP).
-   ↳ Bloque le trade si le spread dynamique est excessif (**KS4**) ou si les configurations Macro vs CBDR sont piégeuses (**KS8**).
-
-4. **Évaluation Alternative (Elliott Waves)**
-   ↳ Parallèlement, le module Elliott compte les vagues (1-2-3-4-5, A-B-C) et émet un signal indépendant.
-
-5. **Méta-Orchestrateur**
-   ↳ Confronte le Signal ICT et le Signal Elliott. Un consensus renforce le setup.
-
-6. **Agent Validateur LLM (Claude Haiku - Le Superviseur)**
-   ↳ Si le Signal ICT est `EXECUTE` avec un score **≥ 70/100**, la narrative complète du trade, le contexte Macro, la Structure, et le Timing sont envoyés au LLM. 
-   - Le LLM lit le setup et le confronte à l'encyclopédie ICT.
-   - Si le LLM détecte un "*Red Flag*" majeur → Pénalise de 15% (Le score retombe sous les 70/100, le bot décide de `RESTER_DEHORS`).
-   - S'il valide → le bot passe à l'action.
-
-7. **Paper Monitor (Exécution et Gestion de Position)**
-   - **Ouverture :** Création d'un trade formel simulé dans `paper_trades.json`.
-   - **Suivi (Monitor) :** Calcul en temps réel du PnL flottant, vérification si Target (TP1, TP2, TP3) ou Stop-Loss (SL) est touché.
-   - **Trailing :** Gère le déplacement au *Break-Even* si le ratio atteint 1:1, et ferme partiellement des lots (Partial Profits).
+```
+Données MT5 / TwelveData
+        ↓
+   A1 — Structure (HTF/LTF)
+        ↓
+   A2 — Timing (Killzone + Macro)
+        ↓
+   A3 — Entry (OTE + OTE Tracker)  ←── setup WAITING récupéré si prix pas encore dans zone
+        ↓
+   A4 — Macro (IPDA, T-20, DXY)
+        ↓
+   A5 — Orchestrateur ICT (KB4 Scoring)
+        │    Gates : KS4 (spread), KS8 (CBDR), SOD, SL min, R:R, ENIGMA malus...
+        ↓
+Elliott Wave Orchestrateur (parallèle)
+        ↓
+   Meta-Orchestrateur
+        │    Consensus ICT+Elliott → Score fusion
+        ↓
+   LLM Validateur (Claude Haiku) ← si score ≥ 70/100
+        ↓
+   Décision finale
+        │
+        ├── OUVRIR → Paper Trade créé + clear_triggered() + Alerte Telegram
+        └── RESTER_DEHORS → log_meta_blocked() + Gate Log JSON
+```
 
 ---
 
-## 🔒 Principes de Conception Sensibles (Sécurité / Stabilité)
+## 🔔 Système de Logging & Observabilité
 
-1. **Pas de base de données relationnelle complexe :** 
-   Le bot tourne de manière autonome via `paper_trades.json`, très léger en I/O.
-2. **Rotating Logs :**
-   Les logs (`bot.log` et `trades.log`) limitent eux-mêmes leur taille (max 10MB) pour empêcher un blocage de l'espace disque sur le VPS.
-3. **Optimisation Tarifaire de l'API :**
-   Intégration drastique du **Prompt Caching d'Anthropic**. En combinant le modèle *Haiku* et le cache du système, le coût LLM a été réduit de plus de 90% (~$0.001 par appel), le rendant hautement soutenable pour un monitoring continu.
-4. **Isolations Horaires Horizontales :**
-   Chaque "horizon" (Scalp, Intraday, Daily, Weekly) de chaque devise possède ses propres règles (ex. `max_distance_pips`). Les rejets d'une paire génèrent un verrouillage logique (Cooldown) empêchant le spam d'API et l'overtrading.
+### Gate Logger (`agents/gate_logger.py`)
+Chaque refus d'entrée est enregistré dans `data/gate_logs/` :
+- `ict_blocked_YYYY-MM-DD.json` — rejets Agent ICT (OTE, R:R, confluence)
+- `elliott_blocked_YYYY-MM-DD.json` — rejets Elliott (score, vague ambiguë)
+- `meta_blocked_YYYY-MM-DD.json` — rejets du Meta-Orchestrateur (désaccord, score insuffisant)
+
+### Post-Mortem (`agents/post_mortem.py`)
+Lance chaque soir à 23h00 UTC via le scheduler de `dashboard.py`.
+Compare Entry/SL/TP1 des setups bloqués avec le prix réel via `yfinance`.
+Calcule le **Gate Regret Rate** (% de trades bloqués qui auraient atteint TP1).
+```bash
+python3 agents/post_mortem.py  # Lancement manuel
+```
+
+### Alertes Telegram
+- Bot : **TakeOptionBot**
+- Config dans `.env` : `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- Seuil : uniquement signaux ≥ 70/100 (configurable dans `config.py`)
+
+---
+
+## 🧠 OTE Tracker — State Machine
+
+Gère les setups en attente (prix pas encore dans la zone OTE) entre les cycles M5.
+
+| Fonction | Déclencheur |
+|---|---|
+| `save_setup()` | Pas de confluence en OTE → sauvegarde en WAITING |
+| `tick_cycle()` | Chaque cycle M5 sur un setup WAITING |
+| `invalidate_setup()` | Bias changé ou timeout 24h (288 cycles) |
+| `get_waiting_setup()` | Avant chaque appel agent3 → réinjection OBs/FVGs |
+| `clear_triggered()` | Après création d'un trade (action == "new") |
+
+Stockage persistant : `data/ote_setups.json`
+
+---
+
+## 🔒 Principes de Conception (Sécurité / Stabilité)
+
+1. **Clés API dans `.env` uniquement** — jamais hardcodées dans `config.py` ou commitées sur Git.
+2. **Pas de DB relationnelle** — tout est en JSON léger pour une portabilité maximale.
+3. **Rotating Logs** — `bot.log` et `trades.log` limités à 10MB (30 fichiers max).
+4. **Optimisation LLM** — Prompt Caching Anthropic, modèle Haiku → -90% de coût (~$0.001/appel).
+5. **Circuit Breaker** — Arrêt automatique à -3% capital/jour, max 5 trades/jour/paire, 4h cooldown.
+6. **OTE Tracker** — Expiration automatique à 288 cycles (24h en M5) pour éviter les setups périmés.
