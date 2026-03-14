@@ -118,3 +118,27 @@ def log_meta_blocked(
             "pnl_pips":       None,
         }
     )
+
+def log_pure_pa_blocked(
+    pair: str, horizon: str, reason: str,
+    entry: float = None, sl: float = None, tp: float = None,
+    rr: float = None,
+) -> None:
+    """Loggue un setup bloqué par le profil Pure PA."""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    _write(
+        os.path.join(GATE_LOG_DIR, f"pure_pa_blocked_{today}.json"),
+        {
+            "timestamp":    datetime.utcnow().isoformat(),
+            "profile_id":   "pure_pa",
+            "pair":         pair,
+            "horizon":      horizon,
+            "gate_reason":  reason,
+            "entry":        round(entry, 6) if entry else None,
+            "sl":           round(sl, 6) if sl else None,
+            "tp":           round(tp, 6) if tp else None,
+            "rr":           round(rr, 2) if rr else None,
+            "would_have_won": None,
+            "pnl_pips":     None,
+        }
+    )

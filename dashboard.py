@@ -60,15 +60,18 @@ file_logger.addHandler(session_bot_handler)
 trade_logger = logging.getLogger("ict_trades")
 trade_logger.setLevel(logging.INFO)
 
-# ── Circuit Breaker Init ──────────────────────────────────────────
+# ── Circuit Breaker Init — isolé PAR PROFIL ──────────────────────
+# Chaque profil a son propre CB : un déclenchement sur ICT ne bloque pas Pure PA
 try:
     from data.trade_manager import CircuitBreaker
-    _circuit_breaker = CircuitBreaker()
+    _circuit_breaker            = CircuitBreaker()  # ICT Strict
+    _circuit_breaker_pure_pa    = CircuitBreaker()  # Pure PA
     _CB_AVAILABLE = True
 except Exception as e:
     file_logger.error(f"Erreur init CircuitBreaker : {e}")
     _CB_AVAILABLE = False
-    _circuit_breaker = None
+    _circuit_breaker         = None
+    _circuit_breaker_pure_pa = None
 
 # Handler principal (logs/trades.log)
 trade_handler = RotatingFileHandler(
@@ -89,6 +92,13 @@ trade_logger.addHandler(session_trade_handler)
 # ── Agents algorithmiques (Architecture multi-écoles) ─────────────
 # École ICT (principale)
 from agents.ict import StructureAgent, TimeSessionAgent, EntryAgent, MacroBiasAgent, OrchestratorAgent
+# École Pure PA (Étape 4 — profil 2 en parallèle)
+try:
+    from agents.pure_pa.orchestrator import PurePAOrchestrator
+    _PURE_PA_AVAILABLE = True
+except ImportError:
+    _PURE_PA_AVAILABLE = False
+    PurePAOrchestrator = None
 # Écoles supplémentaires (placeholders — en cours d'implémentation)
 from agents.elliott import ElliottOrchestrator
 from agents.fondamental import FondamentalOrchestrator
@@ -158,6 +168,72 @@ SETTINGS_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "paper_trading", "settings_override.json"
 )
+
+PROFILES_SETTINGS_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "data", "profiles", "settings.json"
+)
+
+DEFAULT_PROFILES_SETTINGS = {
+    # Scoring
+    "score_min_exec": 65,
+    "score_min_half": 65,
+    "telegram_threshold": 70,
+    
+    # Gates ICT
+    "gate_rr_active": True,
+    "gate_rr_value": 2.0,
+    "gate_ob_active": True,
+    "gate_ob_value": 3,
+    "gate_spread_ks4_active": True,
+    "gate_spread_ks4_value": 3.0,
+    "gate_sl_min_active": True,
+    "gate_sl_min_value": 3.0,
+    "gate_t20_malus_active": True,
+    "gate_enigma_mandatory_active": False,
+    "gate_sod_active": True,
+    "gate_htf_strict_active": True,
+    "gate_htf_strict_mode": "D1+H4+H1",
+    
+    # Temporel
+    "time_killzones_mandatory": True,
+    "time_seek_destroy_monday": True,
+    
+    # Pure PA
+    "pa_mss_mandatory": True,
+    "pa_fvg_mandatory": True,
+    
+    # Sizing
+    "size_risk_pct": 1.0,
+    "size_sod_active": True,
+    
+    # Meta
+    "profile_version": "v1.0"
+}
+
+profiles_settings = DEFAULT_PROFILES_SETTINGS.copy()
+
+def _load_profiles_settings():
+    global profiles_settings
+    try:
+        os.makedirs(os.path.dirname(PROFILES_SETTINGS_FILE), exist_ok=True)
+        if os.path.exists(PROFILES_SETTINGS_FILE):
+            with open(PROFILES_SETTINGS_FILE, "r") as f:
+                loaded = json.load(f)
+            # Fusion avec les valeurs par défaut
+            profiles_settings.update(loaded)
+        else:
+            _save_profiles_settings()
+    except Exception as e:
+        print(f"[Profiles] Erreur chargement settings.json: {e}")
+
+def _save_profiles_settings():
+    try:
+        os.makedirs(os.path.dirname(PROFILES_SETTINGS_FILE), exist_ok=True)
+        with open(PROFILES_SETTINGS_FILE, "w") as f:
+            json.dump(profiles_settings, f, indent=4)
+    except Exception as e:
+        print(f"[Profiles] Erreur sauvegarde settings.json: {e}")
 
 def _load_settings_override():
     """Charge les overrides de settings depuis le disque et les applique."""
@@ -861,6 +937,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
             threading.Thread(target=paper_monitor, daemon=True).start()
             log("📝 Paper Trading Monitor V2 activé — check adaptatif par horizon", "INFO")
             _load_settings_override()
+            _load_profiles_settings()
             _load_cooldowns()
             log(f"[Cooldown] {len(signal_cooldowns)} cooldown(s) actif(s) rechargés", "INFO")
 
@@ -1485,6 +1562,36 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                         pass
                                     dashboard_decision = "RESTER_DEHORS"
 
+                                # ── Pure PA Profile — Parallèle et Indépendant ──────────────────
+                                # Tourne quelle que soit la décision ICT.
+                                # Utilise les MÊMES données de marché (dfs) — 0 appel API supplémentaire.
+                                pure_pa_result = None
+                                if _PURE_PA_AVAILABLE:
+                                    try:
+                                        with state_lock: bot_state["current_api"] = "Pure PA Profile"
+                                        broadcast("status", {"current_api": bot_state["current_api"]})
+                                        pa_agent = PurePAOrchestrator(symbol=p, timeframe=entry_tf)
+                                        df_pa = dfs.get(entry_tf, pd.DataFrame())
+                                        if not df_pa.empty:
+                                            pure_pa_result = pa_agent.evaluate(df_pa, time_report=time_report)
+                                            pa_action = pure_pa_result.get("action", "NO_TRADE")
+                                            if pa_action == "new":
+                                                log(f"[{p}] 🎯 Pure PA: {pure_pa_result.get('direction','?').upper()} | R:R {pure_pa_result.get('rationale','')[:50]}", "INFO")
+                                            else:
+                                                log(f"[{p}] 🎯 Pure PA: NO_TRADE — {pure_pa_result.get('rationale','')[:60]}", "DEBUG")
+                                    except Exception as pa_err:
+                                        log(f"[{p}] Pure PA erreur (non bloquant): {pa_err}", "DEBUG")
+
+                                # ── Convergence State — ICT + Pure PA sur la même paire ───────
+                                ict_direction = ("buy" if dec == "EXECUTE_BUY" else ("sell" if dec == "EXECUTE_SELL" else None))
+                                pa_direction  = pure_pa_result.get("direction") if pure_pa_result and pure_pa_result.get("action") == "new" else None
+                                convergence_state = "independent"
+                                if ict_direction and pa_direction and ict_direction == pa_direction:
+                                    convergence_state = "aligned"
+                                    log(f"[{p}] ✨ CONVERGENCE ICT+PurePA — tous deux {ict_direction.upper()}", "INFO")
+
+                                profile_version = profiles_settings.get("profile_version", "v1.0")
+
                                 with state_lock:
                                     bot_state["current_api"] = f"Algo ({profile['label']})"
 
@@ -1492,16 +1599,22 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     "ict_raw":      narrative,
                                     "ict_analyzed": {"approved": dec != "NO_TRADE", "confidence_score": score},
                                     "final": {
-                                        "global_score":   score,
-                                        "vsa_score":      meta_result.get("vsa_score", 0),
-                                        "elliott_score":  meta_result.get("elliott_score", 0),
-                                        "final_decision": dashboard_decision,
-                                        "raw":            narrative,
-                                        "rationale":      decision_obj.get("reason", ""),
-                                        "should_trade":   dec.startswith("EXECUTE"),
+                                        "global_score":      score,
+                                        "vsa_score":         meta_result.get("vsa_score", 0),
+                                        "elliott_score":     meta_result.get("elliott_score", 0),
+                                        "final_decision":    dashboard_decision,
+                                        "raw":               narrative,
+                                        "rationale":         decision_obj.get("reason", ""),
+                                        "should_trade":      dec.startswith("EXECUTE"),
+                                        # Tags multi-profils (Étape 4)
+                                        "profile_id":        "ict_strict",
+                                        "profile_version":   profile_version,
+                                        "active_gates":      decision_obj.get("active_gates", []),
+                                        "convergence_state": convergence_state,
                                     },
-                                    "market_data":  md,
-                                    "decision_obj": decision_obj,
+                                    "market_data":    md,
+                                    "decision_obj":   decision_obj,
+                                    "pure_pa_result": pure_pa_result,  # Pure PA disponible dans le résultat
                                 })
                             except Exception as ex:
                                 import traceback
@@ -1847,6 +1960,67 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 else:
                                     log(f"{pair}: Score {order['score']} insuffisant pour EXÉCUTION (seuil {bot_state['min_score']})", "INFO")
 
+                        # ── Pure PA — Trade Paper Indépendant ────────────────────────────
+                        # Son propre circuit breaker, ses propres tags, totalement isolé d'ICT.
+                        pure_pa_result = result_holder.get("pure_pa_result")
+                        if paper_mode and pure_pa_result and pure_pa_result.get("action") == "new":
+                            try:
+                                # Circuit Breaker Pure PA (indépendant d'ICT)
+                                pa_cb_blocked = False
+                                if _CB_AVAILABLE and _circuit_breaker_pure_pa:
+                                    pa_cb_status = _circuit_breaker_pure_pa.get_status()
+                                    if pa_cb_status.get("active", False):
+                                        log(f"[{pair}] 🔴 Pure PA CB ACTIF — {pa_cb_status.get('reason', '')}",  "WARNING")
+                                        pa_cb_blocked = True
+                                    elif hasattr(_circuit_breaker_pure_pa, "record_trade_opened"):
+                                        _circuit_breaker_pure_pa.record_trade_opened()
+
+                                if not pa_cb_blocked:
+                                    pa_dir_raw = pure_pa_result.get("direction", "neutral")
+                                    pa_dir_str = "ACHAT" if pa_dir_raw == "buy" else "VENTE"
+                                    pa_sl = pure_pa_result.get("sl", 0)
+                                    pa_tp = pure_pa_result.get("tp", 0)
+                                    pa_entry = pure_pa_result.get("entry", 0)
+
+                                    if pa_entry and pa_sl and pa_tp:
+                                        # Vérifier qu'aucun trade Pure PA n'est déjà actif sur cette paire
+                                        with state_lock:
+                                            pa_already_active = any(
+                                                o.get("pair") == pair and
+                                                o.get("profile_id") == "pure_pa" and
+                                                o.get("status") in ("active", "pending")
+                                                for o in bot_state["orders"]
+                                            )
+
+                                        if not pa_already_active:
+                                            pa_convergence = result_holder.get("final", {}).get("convergence_state", "independent")
+                                            pa_order = make_order(
+                                                pair=pair, school="pure_pa", direction=pa_dir_str,
+                                                entry=pa_entry, sl=pa_sl,
+                                                tp1=pa_tp, tp2=0,
+                                                score=100, narrative=pure_pa_result.get("rationale", "Pure PA signal"),
+                                                checklist=[], status="pending",
+                                                timeframe=profile["entry_tf"],
+                                            )
+                                            pa_order["profile_id"]      = "pure_pa"
+                                            pa_order["profile_version"]  = profiles_settings.get("profile_version", "v1.0")
+                                            pa_order["active_gates"]     = pure_pa_result.get("active_gates", [])
+                                            pa_order["convergence_state"] = pa_convergence
+                                            pa_order["ttl_seconds"]      = pure_pa_result.get("ttl_seconds", 1800)
+                                            pa_order["signal_time"]      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                            pa_order["last_checked"]     = 0
+                                            pa_order["activated_at"]     = None
+                                            pa_order["horizon"]          = "scalp"
+
+                                            with state_lock:
+                                                bot_state["orders"].append(pa_order)
+                                            _save_paper_trade(pa_order)
+                                            broadcast("order_update", {"action": "new", "order": pa_order})
+                                            log(f"📝 PAPER TRADE PURE PA {pair} {pa_dir_str} @ {pa_entry} | SL:{pa_sl} TP:{pa_tp} | Convergence:{pa_convergence}", "SUCCESS")
+                            except Exception as _pa_trade_err:
+                                log(f"[{pair}] Pure PA trade paper erreur (non bloquant): {_pa_trade_err}", "DEBUG")
+                        # ── Fin Pure PA Trade Paper ───────────────────────────────────────
+
                         _sync_mt5_history()
                         _clean_old_orders()
                         time.sleep(1)
@@ -2187,7 +2361,9 @@ def page_performance():
 
 @app.route("/api/performance_stats")
 def api_performance_stats():
-    """Calcule et retourne les statistiques complètes depuis tous les paper trades."""
+    """Calcule et retourne les statistiques complètes depuis tous les paper trades.
+    Étape 5 — enrichi avec métriques par profil (by_profile) et alertes expectancy.
+    """
     paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
     all_trades = []
 
@@ -2206,96 +2382,180 @@ def api_performance_stats():
     closed = [t for t in all_trades if t.get("status") == "closed"]
     active = [t for t in all_trades if t.get("status") in ("active", "pending")]
 
+    # ── Helper : calcul métriques pour un sous-ensemble de trades ────────────
+    def _compute_stats(trades_subset):
+        if not trades_subset:
+            return {
+                "closed_trades": 0, "winners": 0, "losers": 0,
+                "win_rate": 0, "total_pnl_pips": 0, "total_pnl_money": 0,
+                "avg_pnl_pips": 0, "best_trade": None, "worst_trade": None,
+                "profit_factor": 0, "expectancy": 0, "max_drawdown": 0,
+                "rr_avg": 0, "equity_curve": [], "by_pair": {},
+                "by_direction": {"BUY": 0, "SELL": 0}, "by_reason": {},
+                "recent_trades": [],
+            }
+        winners = [t for t in trades_subset if t.get("pnl_pips", 0) > 0]
+        losers  = [t for t in trades_subset if t.get("pnl_pips", 0) <= 0]
+        n = len(trades_subset)
+        win_rate = round(len(winners) / n * 100, 1)
+        total_pnl_pips  = round(sum(t.get("pnl_pips", 0) for t in trades_subset), 1)
+        total_pnl_money = round(sum(t.get("pnl_money", 0) for t in trades_subset), 2)
+        avg_pnl_pips    = round(total_pnl_pips / n, 1)
+
+        # Expectancy
+        avg_win  = (sum(t.get("pnl_pips", 0) for t in winners) / len(winners)) if winners else 0
+        avg_loss = (sum(t.get("pnl_pips", 0) for t in losers)  / len(losers))  if losers  else 0
+        wr = len(winners) / n
+        lr = len(losers)  / n
+        expectancy = round((wr * avg_win) + (lr * avg_loss), 2)
+
+        # Profit Factor
+        gross_gain = sum(t.get("pnl_pips", 0) for t in winners)
+        gross_loss = abs(sum(t.get("pnl_pips", 0) for t in losers))
+        profit_factor = round(gross_gain / gross_loss, 2) if gross_loss > 0 else 0
+
+        # Max Drawdown
+        cumul, peak, max_dd = 0, 0, 0
+        for t in sorted(trades_subset, key=lambda x: x.get("closed_at", "")):
+            cumul = round(cumul + t.get("pnl_pips", 0), 1)
+            if cumul > peak:
+                peak = cumul
+            dd = peak - cumul
+            if dd > max_dd:
+                max_dd = dd
+        max_drawdown = round(max_dd, 1)
+
+        # R:R moyen
+        rr_values = [t.get("rr_ratio", t.get("real_rr", 0)) for t in trades_subset if t.get("rr_ratio", t.get("real_rr", 0))]
+        rr_avg = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0
+
+        best  = max(trades_subset, key=lambda t: t.get("pnl_pips", 0))
+        worst = min(trades_subset, key=lambda t: t.get("pnl_pips", 0))
+
+        by_pair = {}
+        for t in trades_subset:
+            p = t.get("pair", "?")
+            if p not in by_pair:
+                by_pair[p] = {"trades": 0, "wins": 0, "pnl_pips": 0, "pnl_money": 0}
+            by_pair[p]["trades"] += 1
+            by_pair[p]["pnl_pips"]  = round(by_pair[p]["pnl_pips"]  + t.get("pnl_pips", 0), 1)
+            by_pair[p]["pnl_money"] = round(by_pair[p]["pnl_money"] + t.get("pnl_money", 0), 2)
+            if t.get("pnl_pips", 0) > 0:
+                by_pair[p]["wins"] += 1
+        for p in by_pair:
+            by_pair[p]["win_rate"] = round(by_pair[p]["wins"] / by_pair[p]["trades"] * 100, 1)
+
+        by_direction = {
+            "BUY":  len([t for t in trades_subset if t.get("direction") == "BUY"]),
+            "SELL": len([t for t in trades_subset if t.get("direction") == "SELL"]),
+        }
+        by_reason = {}
+        for t in trades_subset:
+            r = t.get("close_reason", "?")
+            by_reason[r] = by_reason.get(r, 0) + 1
+
+        equity_curve = []
+        cumul_eq = 0
+        for t in sorted(trades_subset, key=lambda x: x.get("closed_at", "")):
+            cumul_eq = round(cumul_eq + t.get("pnl_pips", 0), 1)
+            equity_curve.append({
+                "date": t.get("closed_at", "")[:10],
+                "cumul_pips": cumul_eq,
+                "pair": t.get("pair"),
+                "pnl": t.get("pnl_pips", 0),
+            })
+
+        recent = sorted(trades_subset, key=lambda x: x.get("closed_at", ""), reverse=True)[:20]
+
+        return {
+            "closed_trades": n, "winners": len(winners), "losers": len(losers),
+            "win_rate": win_rate, "total_pnl_pips": total_pnl_pips,
+            "total_pnl_money": total_pnl_money, "avg_pnl_pips": avg_pnl_pips,
+            "best_trade": best, "worst_trade": worst,
+            "profit_factor": profit_factor, "expectancy": expectancy,
+            "max_drawdown": max_drawdown, "rr_avg": rr_avg,
+            "equity_curve": equity_curve, "by_pair": by_pair,
+            "by_direction": by_direction, "by_reason": by_reason,
+            "recent_trades": recent,
+        }
+    # ── Fin helper ─────────────────────────────────────────────────────────
+
     if not closed:
         return jsonify({
-            "total_trades": 0,
-            "closed_trades": 0,
-            "active_trades": len(active),
-            "win_rate": 0,
-            "total_pnl_pips": 0,
-            "total_pnl_money": 0,
-            "avg_pnl_pips": 0,
-            "best_trade": None,
-            "worst_trade": None,
-            "by_pair": {},
-            "by_direction": {"BUY": 0, "SELL": 0},
-            "by_reason": {},
-            "recent_trades": [],
-            "equity_curve": [],
+            "total_trades": 0, "closed_trades": 0, "active_trades": len(active),
+            "win_rate": 0, "total_pnl_pips": 0, "total_pnl_money": 0,
+            "avg_pnl_pips": 0, "profit_factor": 0, "expectancy": 0,
+            "max_drawdown": 0, "rr_avg": 0, "best_trade": None, "worst_trade": None,
+            "by_pair": {}, "by_direction": {"BUY": 0, "SELL": 0},
+            "by_reason": {}, "recent_trades": [], "equity_curve": [],
+            "by_profile": {}, "expectancy_alerts": [],
         })
 
-    # Stats globales
-    winners = [t for t in closed if t.get("pnl_pips", 0) > 0]
-    losers  = [t for t in closed if t.get("pnl_pips", 0) <= 0]
-    win_rate = round(len(winners) / len(closed) * 100, 1) if closed else 0
-    total_pnl_pips  = round(sum(t.get("pnl_pips", 0) for t in closed), 1)
-    total_pnl_money = round(sum(t.get("pnl_money", 0) for t in closed), 2)
-    avg_pnl_pips    = round(total_pnl_pips / len(closed), 1) if closed else 0
+    # ── Stats globales (tous profils) ─────────────────────────────────────
+    global_stats = _compute_stats(closed)
 
-    # Meilleur et pire trade
-    best  = max(closed, key=lambda t: t.get("pnl_pips", 0))
-    worst = min(closed, key=lambda t: t.get("pnl_pips", 0))
+    # ── Stats par profil ──────────────────────────────────────────────────
+    PROFILES = ["ict_strict", "pure_pa", "legacy"]
+    by_profile = {}
+    for pid in PROFILES:
+        if pid == "legacy":
+            subset = [t for t in closed if not t.get("profile_id")]
+        else:
+            subset = [t for t in closed if t.get("profile_id") == pid]
+        if subset:
+            by_profile[pid] = _compute_stats(subset)
 
-    # Stats par paire
-    by_pair = {}
-    for t in closed:
-        p = t.get("pair", "?")
-        if p not in by_pair:
-            by_pair[p] = {"trades": 0, "wins": 0, "pnl_pips": 0, "pnl_money": 0}
-        by_pair[p]["trades"] += 1
-        by_pair[p]["pnl_pips"]  = round(by_pair[p]["pnl_pips"]  + t.get("pnl_pips", 0), 1)
-        by_pair[p]["pnl_money"] = round(by_pair[p]["pnl_money"] + t.get("pnl_money", 0), 2)
-        if t.get("pnl_pips", 0) > 0:
-            by_pair[p]["wins"] += 1
-    for p in by_pair:
-        by_pair[p]["win_rate"] = round(
-            by_pair[p]["wins"] / by_pair[p]["trades"] * 100, 1
-        )
-
-    # Stats par direction
-    by_direction = {
-        "BUY":  len([t for t in closed if t.get("direction") == "BUY"]),
-        "SELL": len([t for t in closed if t.get("direction") == "SELL"]),
-    }
-
-    # Stats par raison de fermeture
-    by_reason = {}
-    for t in closed:
-        r = t.get("close_reason", "?")
-        by_reason[r] = by_reason.get(r, 0) + 1
-
-    # Courbe equity (PnL cumulé dans le temps)
-    equity_curve = []
-    cumul = 0
-    for t in sorted(closed, key=lambda x: x.get("closed_at", "")):
-        cumul = round(cumul + t.get("pnl_pips", 0), 1)
-        equity_curve.append({
-            "date": t.get("closed_at", "")[:10],
-            "cumul_pips": cumul,
-            "pair": t.get("pair"),
-            "pnl": t.get("pnl_pips", 0),
-        })
-
-    # 20 derniers trades fermés
-    recent = sorted(closed, key=lambda x: x.get("closed_at", ""), reverse=True)[:20]
+    # ── Alertes expectancy négative sur 20 derniers trades par profil ─────
+    expectancy_alerts = []
+    all_profile_ids = list(set(t.get("profile_id", "legacy") or "legacy" for t in closed))
+    for pid in all_profile_ids:
+        if pid == "legacy":
+            recent20 = sorted(
+                [t for t in closed if not t.get("profile_id")],
+                key=lambda x: x.get("closed_at", ""), reverse=True
+            )[:20]
+        else:
+            recent20 = sorted(
+                [t for t in closed if t.get("profile_id") == pid],
+                key=lambda x: x.get("closed_at", ""), reverse=True
+            )[:20]
+        if len(recent20) >= 5:  # Minimum 5 trades pour déclencher l'alerte
+            w20 = [t for t in recent20 if t.get("pnl_pips", 0) > 0]
+            l20 = [t for t in recent20 if t.get("pnl_pips", 0) <= 0]
+            aw = (sum(t.get("pnl_pips", 0) for t in w20) / len(w20)) if w20 else 0
+            al = (sum(t.get("pnl_pips", 0) for t in l20) / len(l20)) if l20 else 0
+            exp20 = round((len(w20) / len(recent20)) * aw + (len(l20) / len(recent20)) * al, 2)
+            if exp20 < 0:
+                expectancy_alerts.append({
+                    "profile_id": pid,
+                    "expectancy_20": exp20,
+                    "trades_count": len(recent20),
+                    "message": f"⚠️ Expectancy négative sur 20 derniers trades : {exp20:+.1f} pips/trade",
+                })
 
     return jsonify({
-        "total_trades":    len(all_trades),
-        "closed_trades":   len(closed),
-        "active_trades":   len(active),
-        "winners":         len(winners),
-        "losers":          len(losers),
-        "win_rate":        win_rate,
-        "total_pnl_pips":  total_pnl_pips,
-        "total_pnl_money": total_pnl_money,
-        "avg_pnl_pips":    avg_pnl_pips,
-        "best_trade":      best,
-        "worst_trade":     worst,
-        "by_pair":         by_pair,
-        "by_direction":    by_direction,
-        "by_reason":       by_reason,
-        "recent_trades":   recent,
-        "equity_curve":    equity_curve,
+        "total_trades":        len(all_trades),
+        "closed_trades":       global_stats["closed_trades"],
+        "active_trades":       len(active),
+        "winners":             global_stats["winners"],
+        "losers":              global_stats["losers"],
+        "win_rate":            global_stats["win_rate"],
+        "total_pnl_pips":      global_stats["total_pnl_pips"],
+        "total_pnl_money":     global_stats["total_pnl_money"],
+        "avg_pnl_pips":        global_stats["avg_pnl_pips"],
+        "profit_factor":       global_stats["profit_factor"],
+        "expectancy":          global_stats["expectancy"],
+        "max_drawdown":        global_stats["max_drawdown"],
+        "rr_avg":              global_stats["rr_avg"],
+        "best_trade":          global_stats["best_trade"],
+        "worst_trade":         global_stats["worst_trade"],
+        "by_pair":             global_stats["by_pair"],
+        "by_direction":        global_stats["by_direction"],
+        "by_reason":           global_stats["by_reason"],
+        "recent_trades":       global_stats["recent_trades"],
+        "equity_curve":        global_stats["equity_curve"],
+        "by_profile":          by_profile,
+        "expectancy_alerts":   expectancy_alerts,
     })
 
 @app.route("/analysis/<order_id>")
@@ -2367,6 +2627,8 @@ def api_get_settings():
              "enabled": kz.get("enabled", True)}
             for kz in KILLZONE_SCHEDULE
         ] if 'KILLZONE_SCHEDULE' in globals() else [],
+        # Profiles Settings
+        "profiles_settings": profiles_settings,
     })
 
 @app.route("/api/settings", methods=["POST"])
@@ -2398,8 +2660,23 @@ def api_save_settings():
                 with state_lock:
                     bot_state["min_score"] = value
 
-    # Sauvegarder sur disque
-    _save_settings_override(applied)
+    # Modification des Profiles Settings
+    if "profiles_settings" in data:
+        new_ps = data["profiles_settings"]
+        # Contrainte métier absolue : on ne peut pas désactiver MSS ET FVG
+        pa_mss = new_ps.get("pa_mss_mandatory", True)
+        pa_fvg = new_ps.get("pa_fvg_mandatory", True)
+        if not pa_mss and not pa_fvg:
+            return jsonify({"success": False, "error": "MSS et FVG ne peuvent pas être désactivés ensemble"}), 400
+        
+        profiles_settings.update(new_ps)
+        _save_profiles_settings()
+        applied["profiles_settings"] = True
+
+    # Sauvegarder sur disque les autres paramètres (config global)
+    if applied and any(k != "profiles_settings" for k in applied):
+        _save_settings_override({k: v for k, v in applied.items() if k != "profiles_settings"})
+        
     log(f"[Settings] {len(applied)} paramètre(s) mis à jour", "SUCCESS")
     return jsonify({"success": True, "applied": applied})
 
