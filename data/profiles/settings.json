@@ -1,0 +1,29 @@
+{
+    "score_min_exec": 65,
+    "score_min_half": 65,
+    "telegram_threshold": 70,
+    "gate_rr_active": true,
+    "gate_rr_value": 2.0,
+    "gate_ob_active": true,
+    "gate_ob_value": 3,
+    "gate_spread_ks4_active": true,
+    "gate_spread_ks4_value": 3.0,
+    "gate_sl_min_active": true,
+    "gate_sl_min_value": 3.0,
+    "gate_t20_malus_active": true,
+    "gate_enigma_mandatory_active": false,
+    "gate_sod_active": true,
+    "gate_htf_strict_active": true,
+    "gate_htf_strict_mode": "D1+H4+H1",
+    "time_killzones_mandatory": true,
+    "time_seek_destroy_monday": true,
+    "pa_mss_mandatory": true,
+    "pa_fvg_mandatory": true,
+    "size_risk_pct": 1.0,
+    "size_sod_active": true,
+    "profile_version": "v1.0",
+    "pure_pa": {
+        "min_rr": 1.0,
+        "use_killzones": false
+    }
+}

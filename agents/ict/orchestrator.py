@@ -83,9 +83,24 @@ class OrchestratorAgent:
                           f"({po3.get('description', '')})"
             }
 
+        if not macro_report.get('can_trade', True):
+            return {"decision": "NO_TRADE", "reason": f"Agent Macro (A4) bloque : {macro_report.get('detail')}"}
+            
+        if macro_report.get('macro_bias') == "no_trade":
+            return {"decision": "NO_TRADE", "reason": "Biais Macro est trop instable (no_trade)."}
+            
+        htf_alignment = structure_report.get('htf_alignment', 'unknown')
+        if htf_alignment == "conflicting":
+            return {"decision": "NO_TRADE", "reason": "Biais HTF contradictoire (Rule 11.1.10 - Daily Bias incertain)"}
+
         # ── SOD — State of Delivery (5 états KB4) ────────────────────────────────────
         if _SOD_DETECTOR_AVAILABLE:
-            po3_ph  = time_report.get("po3_phase", {}).get("phase", "transition")
+            po3_dict = time_report.get("po3_phase", {})
+            po3_ph   = po3_dict.get("phase")
+            # Tolérance backward-compatibility pour anciens tests / logs
+            if not po3_ph:
+                po3_ph = "distribution"
+                
             amd_ph  = time_report.get("day_filter", {}).get("amd_phase", "unknown")
             df_h1   = trade_signal.get("_df_h1")
 
@@ -102,16 +117,6 @@ class OrchestratorAgent:
             time_report["_sod"] = sod
             warnings.append(f"SOD={sod['state']} (sizing_factor={sod['sizing_factor']})")
         # ─────────────────────────────────────────────────────────────────────────────
-
-        if not macro_report.get('can_trade', True):
-            return {"decision": "NO_TRADE", "reason": f"Agent Macro (A4) bloque : {macro_report.get('detail')}"}
-            
-        if macro_report.get('macro_bias') == "no_trade":
-            return {"decision": "NO_TRADE", "reason": "Biais Macro est trop instable (no_trade)."}
-            
-        htf_alignment = structure_report.get('htf_alignment', 'unknown')
-        if htf_alignment == "conflicting":
-            return {"decision": "NO_TRADE", "reason": "Biais HTF contradictoire (Rule 11.1.10 - Daily Bias incertain)"}
 
         # ── EARLY LIQUIDITY TRACKER (pour KS8 et la suite) ───────────────────────────
         if liquidity_report is None and _LIQUIDITY_TRACKER_AVAILABLE:
@@ -189,13 +194,11 @@ class OrchestratorAgent:
         # Comptage des votes alignés avec final_direction
         aligned_count = sum(1 for v in alignment.values() if v == final_direction)
         
-        if aligned_count < 2:
+        if aligned_count < 3:
             return {
                 "decision": "NO_TRADE", 
-                "reason": f"Manque de consensus : seul {aligned_count}/4 agents sont alignés sur {final_direction}."
+                "reason": f"Manque de consensus : seul {aligned_count}/4 agents sont alignés sur {final_direction} (minimum 3 requis)."
             }
-        elif aligned_count < 3:
-            warnings.append(f"Consensus partiel : {aligned_count}/4 alignés (seuil abaissé)")
             
         reasons.append(f"{aligned_count}/4 agents alignés {final_direction}")
 
@@ -466,13 +469,6 @@ class OrchestratorAgent:
             "sl_distance_points": round(sl_distance / tick_size, 0)
         }
 
-        # ── SOD Sizing Factor ─────────────────────────────────────────────────────────
-        # time_report non passé ici, on doit bidouiller ou assumer sizing plein si absent.
-        # En fait calculate_position_size est généralement appelé séparément du processus orchestrator,
-        # je vais l'utiliser avec un hack pour la compatibilité :
-        # ─────────────────────────────────────────────────────────────────────────────
-        
-        return sizing
         # Formule robuste : 
         # Risk = Lots * sl_distance * contract_size * (tick_value / (tick_size * contract_size))
         # Simplifiée : Risk = Lots * sl_ticks * tick_value

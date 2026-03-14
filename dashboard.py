@@ -1500,14 +1500,18 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     narrative += f"NO TRADE: {decision_obj.get('reason', 'Pas de setup valide')}"
 
                                 # ── Décision finale : MetaScore prime sur ICT seul ──
-                                # Si ICT EXECUTE + conf ≥ 70% → score ICT
-                                # Si Méta BUY/SELL ≥ 70 (Elliott ou multi-école) → score méta
-                                # LLM REJETÉ force dec=NO_TRADE → aucun OUVRIR possible
-                                if dec.startswith("EXECUTE") and conf >= 0.70:
-                                    score = int(conf * 100) if conf <= 1.0 else int(conf)
+                                dashboard_decision = "RESTER_DEHORS"
+                                score = 0
+                                
+                                # S'assurer que dec et conf sont valides
+                                dec_str = str(dec) if dec else "NO_TRADE"
+                                conf_val = float(conf) if conf is not None else 0.0
+
+                                if dec_str.startswith("EXECUTE") and conf_val >= 0.70:
+                                    score = int(conf_val * 100) if conf_val <= 1.0 else int(conf_val)
                                     dashboard_decision = "OUVRIR"
                                     log(f"[{p}] ✅ ICT EXECUTE ≥ 70% → OUVRIR ({score}/100)", "DEBUG")
-                                elif meta_decision in ("BUY", "SELL") and meta_score >= 70 and dec == "NO_TRADE":
+                                elif meta_decision in ("BUY", "SELL") and meta_score >= 70 and dec_str == "NO_TRADE":
                                     # ICT dit NO_TRADE mais méta (Elliott) donne un signal fort
                                     score = meta_score
                                     dashboard_decision = "OUVRIR"
@@ -1515,9 +1519,9 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     # Injecter les niveaux méta dans decision_obj si ICT n'en a pas
                                     if not decision_obj.get("entry_price"):
                                         # meta_result retourne entry/sl/tp1 directement
-                                        meta_entry = meta_result.get("entry", 0)
-                                        meta_sl    = meta_result.get("sl", 0)
-                                        meta_tp1   = meta_result.get("tp1", 0)
+                                        meta_entry = meta_result.get("entry") or 0
+                                        meta_sl    = meta_result.get("sl") or 0
+                                        meta_tp1   = meta_result.get("tp1") or 0
                                         if meta_entry and meta_sl and meta_tp1:
                                             decision_obj["entry_price"] = meta_entry
                                             decision_obj["stop_loss"]   = meta_sl
@@ -1529,16 +1533,17 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                             dashboard_decision = "RESTER_DEHORS"
                                             log(f"[{p}] ⚠️ MetaScore ≥ 70 mais niveaux méta absents — RESTER_DEHORS", "WARNING")
                                 else:
-                                    score = int(conf * 100) if conf <= 1.0 else int(conf)
+                                    score = int(conf_val * 100) if conf_val <= 1.0 else int(conf_val)
+                                    dashboard_decision = "RESTER_DEHORS"
                                     # Gate Logger Meta — toutes écoles confondues
                                     try:
                                         from agents.gate_logger import log_meta_blocked
-                                        _ict_e = entry_signal.get("entry_price", 0) or 0
-                                        _ict_s = entry_signal.get("stop_loss", 0) or 0
-                                        _ict_t = entry_signal.get("tp1", 0) or 0
-                                        _ell_e = elliott_signal.get("entry", 0) or 0
-                                        _ell_s = elliott_signal.get("sl", 0) or 0
-                                        _ell_t = elliott_signal.get("tp1", 0) or 0
+                                        _ict_e = (entry_signal or {}).get("entry_price") or 0
+                                        _ict_s = (entry_signal or {}).get("stop_loss") or 0
+                                        _ict_t = (entry_signal or {}).get("tp1") or 0
+                                        _ell_e = (elliott_signal or {}).get("entry") or 0
+                                        _ell_s = (elliott_signal or {}).get("sl") or 0
+                                        _ell_t = (elliott_signal or {}).get("tp1") or 0
                                         _entry = _ict_e or _ell_e
                                         _sl    = _ict_s or _ell_s
                                         _tp1   = _ict_t or _ell_t
@@ -1547,20 +1552,19 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 pair=p,
                                                 horizon=horizon,
                                                 final_gate="RESTER_DEHORS",
-                                                ict_signal=entry_signal.get("signal", "NO_TRADE"),
-                                                ict_score=int(conf * 100) if conf <= 1.0 else int(conf),
-                                                ict_reason=entry_signal.get("reason", ""),
-                                                elliott_signal=elliott_signal.get("signal", "NO_TRADE"),
-                                                elliott_score=elliott_signal.get("score", 0),
+                                                ict_signal=(entry_signal or {}).get("signal", "NO_TRADE"),
+                                                ict_score=score,
+                                                ict_reason=(entry_signal or {}).get("reason", ""),
+                                                elliott_signal=(elliott_signal or {}).get("signal", "NO_TRADE"),
+                                                elliott_score=(elliott_signal or {}).get("score", 0),
                                                 meta_score=meta_score,
                                                 meta_direction=meta_decision or "NO_TRADE",
                                                 entry=_entry, sl=_sl, tp1=_tp1,
-                                                a1_bias=structure_report.get("bias"),
-                                                htf_alignment=structure_report.get("htf_alignment"),
+                                                a1_bias=(structure_report or {}).get("bias"),
+                                                htf_alignment=(structure_report or {}).get("htf_alignment"),
                                             )
                                     except Exception:
                                         pass
-                                    dashboard_decision = "RESTER_DEHORS"
 
                                 # ── Pure PA Profile — Parallèle et Indépendant ──────────────────
                                 # Tourne quelle que soit la décision ICT.

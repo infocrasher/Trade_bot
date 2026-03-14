@@ -99,15 +99,14 @@ class MetaOrchestrator:
                 if profile_signals:
                     activated, meta_score, details = self._mce.scorer.should_activate(profile_signals)
 
-                    # Dériver la direction dominante
-                    long_weight  = sum(d.get("perf_weight", 0) for d in details.values() if details[list(details.keys())[0]]["direction"] == "LONG") if details else 0
+                    # Dériver la direction dominante (poids net)
                     net_dir = sum(
                         (1 if s.direction == Direction.LONG else -1) * s.confidence
                         for s in profile_signals
                     )
-                    direction = "BUY" if net_dir > 0 else "SELL"
+                    direction = "BUY" if net_dir >= 0 else "SELL"
 
-                    # Trouver le signal dominant (plus fort poids)
+                    # Trouver le signal dominant (plus fort poids configuré)
                     dominant_school = max(active_signals, key=lambda s: self.WEIGHTS.get(s.get("school", ""), 0.1))
 
                     return {

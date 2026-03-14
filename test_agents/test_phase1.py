@@ -162,7 +162,7 @@ def run_tests():
 
     s_rep_conf = {"bias": "bullish", "htf_alignment": "conflicting", "htf_confidence_modifier": 0.0}
     dec3 = a5.calculate_decision(s_rep_conf, t_rep, ts_sig, m_rep)
-    tr.assert_true(dec3['decision'] == "NO_TRADE" and "HTF conflict" in dec3['reason'], "P18 : Blocage par HTF Conflicting")
+    tr.assert_true(dec3['decision'] == "NO_TRADE" and "Biais HTF contradictoire" in dec3['reason'], "P18 : Blocage par HTF Conflicting")
 
     t_rep_macro = {"can_trade": True, "trade_quality": "high", "active_macro": {"id": "ny_am_1"}}
     dec4 = a5.calculate_decision(s_rep, t_rep, ts_sig, m_rep)

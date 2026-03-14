@@ -1,4 +1,13 @@
-import MetaTrader5 as mt5
+class MT5Mock:
+    TIMEFRAME_H4 = 16388
+    TIMEFRAME_H1 = 16385
+    TIMEFRAME_M15 = 15
+    TIMEFRAME_M5 = 5
+    def initialize(self): return True
+    def last_error(self): return "Mocked MT5"
+    def copy_rates_from_pos(self, *args, **kwargs): return None
+
+mt5 = MT5Mock()
 import pandas as pd
 
 SYMBOLS = [

@@ -1,9 +1,9 @@
 """
 Test Elliott Wave Agent — Données synthétiques
 """
+import os
 import sys
-sys.path.insert(0, '/home/claude/elliott')
-
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import pandas as pd
 from wave_counter import detect_pivots, count_waves, detect_current_wave_position, WaveDirection

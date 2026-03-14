@@ -65,14 +65,10 @@ MT5_PATH      = ""          # Laisser vide = dtection automatique
 # 3. PAIRES DE TRADING (Activer = True)
 # 
 TRADING_PAIRS = [
-    "EURUSD",
-    "GBPUSD",
-    "AUDUSD",
-    "NZDUSD",
-    "USDJPY",
-    "USDCAD",
-    "USDCHF",
-    "BTCUSD",
+    "EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", 
+    "USDJPY", "USDCAD", "USDCHF", "EURGBP",
+    "XAUUSD", "BTCUSD", "ETHUSD", "EURJPY", 
+    "GBPJPY", "AUDJPY"
 ]
 
 
@@ -136,7 +132,7 @@ SESSIONS = {
 }
 
 # Force analyze (bypass le filtre Killzone pour tester 24/7)
-FORCE_ANALYZE = False
+FORCE_ANALYZE = True
 
 # Macros algorithmiques (fentres de 20 minutes prcises)
 ALGO_MACROS = [
