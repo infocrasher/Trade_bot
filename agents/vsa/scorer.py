@@ -81,7 +81,12 @@ class VSAScorer:
     """
 
     # Seuils d'action (Sec.25 enrichi)
-    THRESHOLD_EXECUTE = 65   # >= 65/100 → signal actif en observation mode
+    try:
+        from config import PAPER_TRADING
+        THRESHOLD_EXECUTE = 55 if PAPER_TRADING else 65
+    except ImportError:
+        THRESHOLD_EXECUTE = 65   # >= 65/100 → signal actif en observation mode
+        
     THRESHOLD_OBSERVE = 40   # >= 40/100 → loggé mais pas tradé
     # < 40 → ignoré silencieusement
 

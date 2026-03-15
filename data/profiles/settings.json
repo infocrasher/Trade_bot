@@ -25,5 +25,9 @@
     "pure_pa": {
         "min_rr": 1.0,
         "use_killzones": false
+    },
+    "vsa_weight": 0.15,
+    "vsa": {
+        "weight": 0.15
     }
 }

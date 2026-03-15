@@ -26,9 +26,9 @@ class MetaOrchestrator:
 
     # Poids par école (utilisés en fallback si MetaConvergenceEngine absent)
     WEIGHTS = {
-        "ict":      0.70,
+        "ict":      0.55,
         "elliott":  0.30,
-        "vsa":      0.00,
+        "vsa":      0.15,
     }
 
     # Seuil d'activation MetaConvergenceEngine — phase paper_trading
