@@ -1542,8 +1542,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:21:21.589566+00:00",
-    "updated_at": "2026-03-13T11:42:16.741889+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T02:28:05.143676+00:00",
+    "cycles_waited": 8
   },
   "BTCUSD_weekly_bearish": {
     "pair": "BTCUSD",
@@ -2189,8 +2189,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:22:21.179295+00:00",
-    "updated_at": "2026-03-13T11:29:19.903494+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T02:28:35.665181+00:00",
+    "cycles_waited": 4
   },
   "ETHUSD_scalp_bullish": {
     "pair": "ETHUSD",
@@ -3770,8 +3770,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:24:08.479577+00:00",
-    "updated_at": "2026-03-13T11:51:10.756882+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T02:16:04.459420+00:00",
+    "cycles_waited": 8
   },
   "ETHUSD_weekly_bearish": {
     "pair": "ETHUSD",
@@ -4367,8 +4367,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:25:00.718034+00:00",
-    "updated_at": "2026-03-13T11:21:04.920849+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T02:17:03.682035+00:00",
+    "cycles_waited": 4
   },
   "EURUSD_intraday_bullish": {
     "pair": "EURUSD",
@@ -5461,8 +5461,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:26:45.321735+00:00",
-    "updated_at": "2026-03-13T11:56:22.847361+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T02:25:37.581109+00:00",
+    "cycles_waited": 8
   },
   "EURUSD_weekly_bearish": {
     "pair": "EURUSD",
@@ -6048,8 +6048,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:27:41.439710+00:00",
-    "updated_at": "2026-03-13T11:26:19.009969+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T02:26:15.806252+00:00",
+    "cycles_waited": 4
   },
   "GBPUSD_scalp_bearish": {
     "pair": "GBPUSD",
@@ -7729,8 +7729,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:29:25.809845+00:00",
-    "updated_at": "2026-03-13T11:53:10.637990+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T02:23:25.757285+00:00",
+    "cycles_waited": 8
   },
   "GBPUSD_weekly_bearish": {
     "pair": "GBPUSD",
@@ -8386,8 +8386,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:30:18.000333+00:00",
-    "updated_at": "2026-03-13T11:23:05.723950+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T02:24:04.417618+00:00",
+    "cycles_waited": 4
   },
   "AUDUSD_scalp_bearish": {
     "pair": "AUDUSD",
@@ -17275,8 +17275,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:42:57.701546+00:00",
-    "updated_at": "2026-03-13T09:47:04.953457+00:00",
-    "cycles_waited": 5
+    "updated_at": "2026-03-15T02:21:04.129267+00:00",
+    "cycles_waited": 6
   },
   "USDCHF_weekly_bullish": {
     "pair": "USDCHF",
@@ -17822,8 +17822,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:43:24.761345+00:00",
-    "updated_at": "2026-03-13T07:33:46.522970+00:00",
-    "cycles_waited": 2
+    "updated_at": "2026-03-15T02:21:27.773789+00:00",
+    "cycles_waited": 3
   },
   "EURGBP_scalp_bullish": {
     "pair": "EURGBP",
@@ -18983,8 +18983,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:45:40.673545+00:00",
-    "updated_at": "2026-03-13T09:48:39.408136+00:00",
-    "cycles_waited": 5
+    "updated_at": "2026-03-15T02:30:16.510166+00:00",
+    "cycles_waited": 6
   },
   "EURGBP_weekly_bearish": {
     "pair": "EURGBP",
@@ -19410,8 +19410,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:46:12.753402+00:00",
-    "updated_at": "2026-03-13T07:36:14.587171+00:00",
-    "cycles_waited": 2
+    "updated_at": "2026-03-15T02:31:03.109994+00:00",
+    "cycles_waited": 3
   },
   "XAUUSD_scalp_bearish": {
     "pair": "XAUUSD",
@@ -20604,8 +20604,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:48:10.324901+00:00",
-    "updated_at": "2026-03-13T10:53:17.253696+00:00",
-    "cycles_waited": 6
+    "updated_at": "2026-03-15T02:18:16.956399+00:00",
+    "cycles_waited": 7
   },
   "XAUUSD_weekly_bullish": {
     "pair": "XAUUSD",
@@ -21331,8 +21331,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:48:45.431627+00:00",
-    "updated_at": "2026-03-13T07:26:51.736609+00:00",
-    "cycles_waited": 2
+    "updated_at": "2026-03-15T02:19:15.145029+00:00",
+    "cycles_waited": 3
   },
   "NZDUSD_intraday_bearish": {
     "pair": "NZDUSD",

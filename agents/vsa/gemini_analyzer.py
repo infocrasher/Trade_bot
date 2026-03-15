@@ -74,7 +74,6 @@ class GeminiVSAAnalyzer:
         genai.configure(api_key=key)
         self.model = genai.GenerativeModel(
             model_name=self.MODEL_NAME,
-            system_instruction=VSA_SYSTEM_PROMPT,
         )
         self.enabled = True
         logger.info(f"[GeminiVSA] Initialisé avec {self.MODEL_NAME}")
@@ -92,6 +91,18 @@ class GeminiVSAAnalyzer:
         if not self.enabled or image_b64 is None:
             return self._empty_response()
 
+        # --- GUARD 1: Score Algo Nul ---
+        # Si rien n'est détecté mathématiquement, on ne sollicite pas l'IA
+        nb_zones = len(analysis.demand_zones) + len(analysis.supply_zones)
+        if analysis.raw_score == 0 and analysis.last_bar_result.signal.value == "NEUTRAL" and nb_zones == 0:
+            logger.debug(f"[GeminiVSA] Guard triggered: {analysis.symbol} neutral, skipping call")
+            return self._empty_response()
+
+        # --- GUARD 2: Poids VSA ---
+        # Si le poids VSA est à 0 dans la config, on ne sollicite pas l'IA
+        if not self._is_vsa_active():
+            return self._empty_response()
+
         prompt = self._build_prompt(analysis)
 
         for attempt in range(self.MAX_RETRIES + 1):
@@ -102,7 +113,8 @@ class GeminiVSAAnalyzer:
                 img = PIL.Image.open(io.BytesIO(img_bytes))
 
                 response = self.model.generate_content(
-                    [prompt, img],
+                    [VSA_SYSTEM_PROMPT, prompt, img],
+                    generation_config={"response_mime_type": "application/json"},
                     safety_settings={
                         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -216,3 +228,30 @@ Retourne le JSON d'évaluation visuelle (50 pts).
             'commentaire'            : 'Analyse visuelle désactivée',
             '_source'                : 'disabled',
         }
+
+    def _is_vsa_active(self) -> bool:
+        """
+        Vérifie si le profil VSA a un poids > 0 dans settings.json
+        ou dans AGENT_WEIGHTS de config.py.
+        """
+        try:
+            # 1. Vérifier settings.json (data/profiles/settings.json)
+            # On cherche AGENT_WEIGHTS ou un flag spécifique
+            settings_path = os.path.join("data", "profiles", "settings.json")
+            if os.path.exists(settings_path):
+                with open(settings_path, "r") as f:
+                    s = json.load(f)
+                    # Si un poids VSA est défini explicitement dans le JSON
+                    w = s.get("AGENT_WEIGHTS", {}).get("vsa", s.get("vsa_weight", 1))
+                    if w == 0:
+                        return False
+
+            # 2. Fallback sur config.py
+            from config import AGENT_WEIGHTS
+            if AGENT_WEIGHTS.get("vsa", 1) == 0:
+                return False
+
+            return True
+        except Exception:
+            # En cas d'erreur (import, read), on active par défaut pour ne pas bloquer
+            return True
