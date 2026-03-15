@@ -28,7 +28,7 @@ class PurePAOrchestrator:
     def load_settings(self) -> dict:
         default_settings = {
             "pure_pa": {
-                "min_rr": 1.5,
+                "min_rr": 1.0,
                 "use_killzones": False
             }
         }
@@ -42,7 +42,7 @@ class PurePAOrchestrator:
                 pass
         return default_settings["pure_pa"]
 
-    def _no_trade(self, reason: str, entry: float = None, sl: float = None, tp: float = None, rr: float = None) -> dict:
+    def _no_trade(self, reason: str, entry: float = 0.0, sl: float = 0.0, tp: float = 0.0, rr: float = 0.0) -> dict:
         log_pure_pa_blocked(
             pair=self.symbol,
             horizon=self.timeframe,
@@ -55,9 +55,9 @@ class PurePAOrchestrator:
         return {
             "action": "NO_TRADE",
             "direction": "neutral",
-            "entry": 0.0,
-            "sl": 0.0,
-            "tp": 0.0,
+            "entry": entry,
+            "sl": sl,
+            "tp": tp,
             "score": 0.0,
             "profile_id": self.profile_id,
             "ttl_seconds": 0,
@@ -65,9 +65,19 @@ class PurePAOrchestrator:
             "rationale": reason
         }
 
+    def _calc_atr(self, df, period: int = 14) -> float:
+        if len(df) < period + 1:
+            return float((df["high"] - df["low"]).mean())
+        tr = pd.concat([
+            df["high"] - df["low"],
+            (df["high"] - df["close"].shift()).abs(),
+            (df["low"]  - df["close"].shift()).abs(),
+        ], axis=1).max(axis=1)
+        return float(tr.tail(period).mean())
+
     def evaluate(self, df, time_report: dict = None) -> dict:
         settings = self.load_settings()
-        min_rr = settings.get("min_rr", 1.5)
+        min_rr = settings.get("min_rr", 1.0)
         use_kz = settings.get("use_killzones", False)
         
         active_gates = []
@@ -115,11 +125,21 @@ class PurePAOrchestrator:
             
         target_fvg = fresh_fvgs[-1]  # Le plus récent
         
-        # 4. R:R Calculation
+        # 4. R:R Calculation & ATR Margin (Correction 2)
+        atr = self._calc_atr(df, 14)
+        
         # Entry dans le FVG
         entry = target_fvg["top"] if is_bullish else target_fvg["bottom"]
-        # SL en dessous (ou au-dessus) du FVG
-        sl = target_fvg["bottom"] if is_bullish else target_fvg["top"]
+        # SL initial en dessous (ou au-dessus) du FVG
+        sl_initial = target_fvg["bottom"] if is_bullish else target_fvg["top"]
+        
+        # Appliquer la marge minimale de 1x ATR
+        dist_initial = abs(entry - sl_initial)
+        sl = sl_initial
+        
+        if dist_initial < atr:
+            sl = entry - atr if is_bullish else entry + atr
+            # log(f"[{self.symbol}] SL ajusté pour marge ATR (dist initial {dist_initial:.5f} < ATR {atr:.5f})", "DEBUG")
         
         # Buffer de sécurité pour éviter div/0
         if abs(entry - sl) < 1e-6:
@@ -132,22 +152,27 @@ class PurePAOrchestrator:
             if highs:
                 tp = min(highs)
             else:
-                tp = entry + (entry - sl) * min_rr * 1.5
+                tp = entry + (entry - sl) * max(min_rr, 1.5)
         else:
             lows = [s["price"] for s in swings if s["type"] == "swing_low" and s["price"] < entry]
             if lows:
                 tp = max(lows)
             else:
-                tp = entry - (sl - entry) * min_rr * 1.5
+                tp = entry - (sl - entry) * max(min_rr, 1.5)
                 
-        risk = entry - sl if is_bullish else sl - entry
-        reward = tp - entry if is_bullish else entry - tp
+        risk = abs(entry - sl)
+        reward = abs(tp - entry)
         rr = reward / risk if risk > 0 else 0
         
         active_gates.append(f"rr_{min_rr}")
+        if dist_initial < atr:
+            active_gates.append("atr_sl_margin")
         
         if rr < min_rr:
-            return self._no_trade(f"R:R insuffisant ({rr:.2f} < {min_rr})", entry, sl, tp, rr)
+            reason = f"R:R insuffisant ({rr:.2f} < {min_rr})"
+            if dist_initial < atr:
+                reason = f"SL trop serré — marge ATR insuffisante (R:R {rr:.2f} < {min_rr})"
+            return self._no_trade(reason, entry, sl, tp, rr)
             
         # 5. ALL GOOD!
         return {

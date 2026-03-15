@@ -1,15 +1,9 @@
-"""
-Test Elliott Wave Agent — Données synthétiques
-"""
-import os
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import pandas as pd
-from wave_counter import detect_pivots, count_waves, detect_current_wave_position, WaveDirection
-from rules_validator import validate_absolute_rules, check_guidelines
-from scorer import score_wave_count
-from orchestrator import run_elliott_analysis
+from agents.elliott.wave_counter import detect_pivots, count_waves, detect_current_wave_position, WaveDirection
+from agents.elliott.rules_validator import validate_absolute_rules, check_guidelines
+from agents.elliott.scorer import score_wave_count
+from agents.elliott.orchestrator import run_elliott_analysis
 
 
 def generate_impulse_data(n_bars=200, direction="bullish"):

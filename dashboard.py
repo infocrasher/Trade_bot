@@ -351,7 +351,8 @@ def get_pip_size_safe(pair):
 
 def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, checklist,
                pending_conditions=None, status="pending", volume=0.10,
-               pnl_pips=0.0, pnl_money=0.0, timeframe="M15"):
+               pnl_pips=0.0, pnl_money=0.0, timeframe="M15",
+               profile_id=None, active_gates=None, convergence_state=None, ttl_seconds=None):
     pip_size = get_pip_size_safe(pair)
     montant  = round(volume * abs(entry - sl) / pip_size * 10, 2) if entry and sl and pip_size > 0 else 0.0
     return {
@@ -378,6 +379,10 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
         "narrative":        narrative or "",
         "pending_conditions": pending_conditions or [],
         "raw_plan":         "",
+        "profile_id":       profile_id or school,
+        "active_gates":     active_gates or [],
+        "convergence_state": convergence_state or "independent",
+        "ttl_seconds":      ttl_seconds or 1800
     }
 
 
@@ -1730,6 +1735,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     _circuit_breaker.record_trade_opened()
                             # ── Fin Circuit Breaker Gate ──────────────────────────────
 
+                            # Correction 3 : Blocage R:R Aberrant sur M5
+                            _rr_check = round(abs(float(decision_obj.get("tp1", 0)) - float(decision_obj.get("entry_price", 0))) / abs(float(decision_obj.get("entry_price", 0)) - float(decision_obj.get("stop_loss", 0))), 2) if decision_obj.get("entry_price", 0) and decision_obj.get("stop_loss", 0) and abs(float(decision_obj.get("entry_price", 0)) - float(decision_obj.get("stop_loss", 0))) > 0 else 0
+                            if profile["entry_tf"] == "M5" and _rr_check > 8:
+                                log(f"[{pair}] 🚫 ICT R:R aberrant ({_rr_check} > 8) sur M5 — Bloqué (Correction 3)", "WARNING")
+                                continue
+
                             new_order = make_order(
                                 pair=pair, school="ict", direction=direction_str,
                                 entry=decision_obj.get("entry_price", 0),
@@ -1739,6 +1750,10 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 score=score, narrative=ict_raw,
                                 checklist=_build_algo_checklist(decision_obj=decision_obj),
                                 status="pending", timeframe=profile["entry_tf"],
+                                profile_id="ict_strict",
+                                active_gates=decision_obj.get("active_gates", []),
+                                convergence_state=convergence_state,
+                                ttl_seconds=1800
                             )
 
                             action = None
@@ -1998,6 +2013,13 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                         if not pa_already_active:
                                             pa_convergence = result_holder.get("final", {}).get("convergence_state", "independent")
+                                            
+                                            # Correction 3 : Blocage R:R Aberrant sur M5 (Pure PA)
+                                            _pa_rr_check = round(abs(pa_tp - pa_entry) / abs(pa_entry - pa_sl), 2) if pa_entry and pa_sl and abs(pa_entry - pa_sl) > 0 else 0
+                                            if profile["entry_tf"] == "M5" and _pa_rr_check > 8:
+                                                log(f"[{pair}] 🚫 Pure PA R:R aberrant ({_pa_rr_check} > 8) sur M5 — Bloqué (Correction 3)", "WARNING")
+                                                continue
+
                                             pa_order = make_order(
                                                 pair=pair, school="pure_pa", direction=pa_dir_str,
                                                 entry=pa_entry, sl=pa_sl,
@@ -2005,16 +2027,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 score=100, narrative=pure_pa_result.get("rationale", "Pure PA signal"),
                                                 checklist=[], status="pending",
                                                 timeframe=profile["entry_tf"],
+                                                profile_id="pure_pa",
+                                                active_gates=pure_pa_result.get("active_gates", []),
+                                                convergence_state=pa_convergence,
+                                                ttl_seconds=pure_pa_result.get("ttl_seconds", 1800)
                                             )
-                                            pa_order["profile_id"]      = "pure_pa"
-                                            pa_order["profile_version"]  = profiles_settings.get("profile_version", "v1.0")
-                                            pa_order["active_gates"]     = pure_pa_result.get("active_gates", [])
-                                            pa_order["convergence_state"] = pa_convergence
-                                            pa_order["ttl_seconds"]      = pure_pa_result.get("ttl_seconds", 1800)
-                                            pa_order["signal_time"]      = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                            pa_order["last_checked"]     = 0
-                                            pa_order["activated_at"]     = None
-                                            pa_order["horizon"]          = "scalp"
+                                            pa_order["horizon"] = "scalp"
 
                                             with state_lock:
                                                 bot_state["orders"].append(pa_order)
@@ -2108,8 +2126,12 @@ def _save_paper_trade(order):
         "status": "active",
         "closed_at": None,
         "close_price": None,
-        "pnl_pips": 0,
-        "pnl_money": 0,
+        "pnl_money": 0.0,
+        "pnl_pips": 0.0,
+        "profile_id": order.get("profile_id", "legacy"),
+        "active_gates": order.get("active_gates", []),
+        "convergence_state": order.get("convergence_state", "independent"),
+        "ttl_seconds": order.get("ttl_seconds", 1800),
         "close_reason": None,
         "narrative": order.get("narrative", ""),
         "checklist": order.get("checklist", []),

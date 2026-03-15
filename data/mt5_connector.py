@@ -46,6 +46,10 @@ class MT5Connector:
         else:
             self.connected = True
             self._log("Mode Simulation : Données fictives pour les tests", "INFO")
+            # Ajout temporaire pour deboguer la source de l'appel sur Mac
+            import traceback
+            stack = "".join(traceback.format_stack())
+            self._log(f"DEBUG STACK TRACE:\n{stack}", "INFO")
 
     def _log(self, message, level="INFO"):
         """Affiche un log dans la console et tente de l'envoyer au dashboard."""
