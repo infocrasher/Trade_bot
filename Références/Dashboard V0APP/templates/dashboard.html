@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AlgoTrader{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- SUMMARY CARDS -->
+<div class="cards-row">
+  <div class="card card-sm">
+    <div class="card-label">Open Trades</div>
+    <div class="card-value neutral">7</div>
+    <div class="card-sub">3 long &middot; 4 short</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Today PnL</div>
+    <div class="card-value positive">+2.34R</div>
+    <div class="card-sub">+$1,872 unrealised</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Active Profiles</div>
+    <div class="card-value neutral">4</div>
+    <div class="card-sub">ICT &middot; PA &middot; Elliott &middot; VSA</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Win Rate (L20)</div>
+    <div class="card-value positive">68.4%</div>
+    <div class="card-sub">13 wins of last 20</div>
+  </div>
+</div>
+
+<!-- MAIN GRID: trades table + signals panel -->
+<div class="dashboard-grid">
+
+  <!-- LEFT: Active Trades -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">Active Trades</span>
+      <span class="section-badge">7 open</span>
+    </div>
+    <div class="table-wrapper">
+      <table id="active-trades-table">
+        <thead>
+          <tr>
+            <th data-col="pair">Pair<span class="sort-icon"></span></th>
+            <th data-col="profile">Profile<span class="sort-icon"></span></th>
+            <th data-col="dir">Dir<span class="sort-icon"></span></th>
+            <th data-col="entry">Entry<span class="sort-icon"></span></th>
+            <th data-col="pnl">PnL (R)<span class="sort-icon"></span></th>
+            <th data-col="sl">SL<span class="sort-icon"></span></th>
+            <th data-col="tp">TP<span class="sort-icon"></span></th>
+            <th data-col="conv">Convergence<span class="sort-icon"></span></th>
+            <th data-col="time">Time Open<span class="sort-icon"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-primary">EURUSD</td>
+            <td><span class="badge badge-ict">ICT Strict</span></td>
+            <td><span class="badge badge-long">LONG</span></td>
+            <td class="td-mono">1.08742</td>
+            <td class="pnl-pos">+1.82R</td>
+            <td class="td-mono">1.08510</td>
+            <td class="td-mono">1.09140</td>
+            <td><span class="badge badge-aligned">Aligned</span></td>
+            <td class="td-mono">4h 22m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">XAUUSD</td>
+            <td><span class="badge badge-pa">Pure PA</span></td>
+            <td><span class="badge badge-short">SHORT</span></td>
+            <td class="td-mono">2341.50</td>
+            <td class="pnl-pos">+0.54R</td>
+            <td class="td-mono">2356.00</td>
+            <td class="td-mono">2315.00</td>
+            <td><span class="badge badge-aligned">Aligned</span></td>
+            <td class="td-mono">1h 08m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">GBPJPY</td>
+            <td><span class="badge badge-elliott">Elliott</span></td>
+            <td><span class="badge badge-long">LONG</span></td>
+            <td class="td-mono">191.240</td>
+            <td class="pnl-neg">-0.22R</td>
+            <td class="td-mono">190.600</td>
+            <td class="td-mono">193.100</td>
+            <td><span class="badge badge-independent">Independent</span></td>
+            <td class="td-mono">2h 45m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">USDJPY</td>
+            <td><span class="badge badge-ict">ICT Strict</span></td>
+            <td><span class="badge badge-short">SHORT</span></td>
+            <td class="td-mono">149.820</td>
+            <td class="pnl-pos">+1.10R</td>
+            <td class="td-mono">150.280</td>
+            <td class="td-mono">148.500</td>
+            <td><span class="badge badge-aligned">Aligned</span></td>
+            <td class="td-mono">6h 01m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">BTCUSD</td>
+            <td><span class="badge badge-vsa">VSA</span></td>
+            <td><span class="badge badge-long">LONG</span></td>
+            <td class="td-mono">67,420</td>
+            <td class="pnl-neg">-0.31R</td>
+            <td class="td-mono">66,800</td>
+            <td class="td-mono">69,500</td>
+            <td><span class="badge badge-independent">Independent</span></td>
+            <td class="td-mono">0h 34m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">AUDUSD</td>
+            <td><span class="badge badge-legacy">Legacy</span></td>
+            <td><span class="badge badge-short">SHORT</span></td>
+            <td class="td-mono">0.65318</td>
+            <td class="pnl-pos">+0.67R</td>
+            <td class="td-mono">0.65820</td>
+            <td class="td-mono">0.64400</td>
+            <td><span class="badge badge-aligned">Aligned</span></td>
+            <td class="td-mono">3h 17m</td>
+          </tr>
+          <tr>
+            <td class="td-primary">EURGBP</td>
+            <td><span class="badge badge-pa">Pure PA</span></td>
+            <td><span class="badge badge-short">SHORT</span></td>
+            <td class="td-mono">0.85624</td>
+            <td class="pnl-neg">-0.08R</td>
+            <td class="td-mono">0.86010</td>
+            <td class="td-mono">0.84900</td>
+            <td><span class="badge badge-independent">Independent</span></td>
+            <td class="td-mono">0h 52m</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Recent Signals -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">Recent Signals</span>
+      <span class="section-badge">Last 10</span>
+    </div>
+    <div class="table-wrapper">
+      <div class="signals-list">
+
+        <div class="signal-item">
+          <span class="signal-pair">EURUSD</span>
+          <span class="badge badge-ict" style="font-size:10px;padding:2px 7px;">ICT</span>
+          <span class="badge badge-long" style="font-size:10px;padding:2px 7px;">L</span>
+          <span class="signal-score">82</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">09:32</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">XAUUSD</span>
+          <span class="badge badge-pa" style="font-size:10px;padding:2px 7px;">PA</span>
+          <span class="badge badge-short" style="font-size:10px;padding:2px 7px;">S</span>
+          <span class="signal-score">71</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">09:18</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">GBPUSD</span>
+          <span class="badge badge-ict" style="font-size:10px;padding:2px 7px;">ICT</span>
+          <span class="badge badge-long" style="font-size:10px;padding:2px 7px;">L</span>
+          <span class="signal-score">63</span>
+          <span class="badge badge-soft-approved">soft</span>
+          <span class="signal-time">08:55</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">USDJPY</span>
+          <span class="badge badge-ict" style="font-size:10px;padding:2px 7px;">ICT</span>
+          <span class="badge badge-short" style="font-size:10px;padding:2px 7px;">S</span>
+          <span class="signal-score">88</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">08:41</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">NZDUSD</span>
+          <span class="badge badge-elliott" style="font-size:10px;padding:2px 7px;">Elliott</span>
+          <span class="badge badge-short" style="font-size:10px;padding:2px 7px;">S</span>
+          <span class="signal-score">48</span>
+          <span class="badge badge-rejected">rejected</span>
+          <span class="signal-time">08:14</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">BTCUSD</span>
+          <span class="badge badge-vsa" style="font-size:10px;padding:2px 7px;">VSA</span>
+          <span class="badge badge-long" style="font-size:10px;padding:2px 7px;">L</span>
+          <span class="signal-score">74</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">07:58</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">AUDUSD</span>
+          <span class="badge badge-legacy" style="font-size:10px;padding:2px 7px;">Legacy</span>
+          <span class="badge badge-short" style="font-size:10px;padding:2px 7px;">S</span>
+          <span class="signal-score">69</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">07:22</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">GBPJPY</span>
+          <span class="badge badge-elliott" style="font-size:10px;padding:2px 7px;">Elliott</span>
+          <span class="badge badge-long" style="font-size:10px;padding:2px 7px;">L</span>
+          <span class="signal-score">77</span>
+          <span class="badge badge-approved">approved</span>
+          <span class="signal-time">07:05</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">EURGBP</span>
+          <span class="badge badge-pa" style="font-size:10px;padding:2px 7px;">PA</span>
+          <span class="badge badge-short" style="font-size:10px;padding:2px 7px;">S</span>
+          <span class="signal-score">55</span>
+          <span class="badge badge-soft-approved">soft</span>
+          <span class="signal-time">06:44</span>
+        </div>
+
+        <div class="signal-item">
+          <span class="signal-pair">CADJPY</span>
+          <span class="badge badge-ict" style="font-size:10px;padding:2px 7px;">ICT</span>
+          <span class="badge badge-long" style="font-size:10px;padding:2px 7px;">L</span>
+          <span class="signal-score">41</span>
+          <span class="badge badge-rejected">rejected</span>
+          <span class="signal-time">06:10</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /dashboard-grid -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  initTableSort('active-trades-table');
+</script>
+{% endblock %}

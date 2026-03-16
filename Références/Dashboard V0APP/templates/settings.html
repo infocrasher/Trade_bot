@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}Settings — AlgoTrader{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <p style="color:var(--text-secondary);font-size:13px;">Changes are saved automatically on input.</p>
+  <span class="save-indicator" id="save-indicator">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:inline;vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    Saved
+  </span>
+</div>
+
+<div class="settings-grid">
+
+  <!-- SCORING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-scoring" checked />
+    <label class="collapse-label" for="s-scoring">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        Scoring
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Score minimum for full execution
+            <div class="setting-hint">Signals below this score are ignored</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="score_min_exec" value="65" min="0" max="100" />
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Score minimum for half-size execution
+            <div class="setting-hint">Trades between this and full threshold run at 50% size</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="score_min_half" value="52" min="0" max="100" />
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Telegram notification threshold
+            <div class="setting-hint">Only send alerts for signals above this score</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="telegram_threshold" value="70" min="0" max="100" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ICT GATES SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-ict" checked />
+    <label class="collapse-label" for="s-ict">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        ICT Gates
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+
+        <div class="setting-row">
+          <div class="setting-label">R:R Minimum</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_rr_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_rr_min" value="1.5" step="0.1" style="width:70px;" />
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">OB Score Minimum</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_ob_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_ob_min" value="60" min="0" max="100" style="width:70px;" />
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">Spread Max (KS4 pips)</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_spread_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_spread_max" value="3" step="0.5" style="width:70px;" />
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">SL Minimum (pips)</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_sl_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_sl_min_pips" value="8" style="width:70px;" />
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">T-20 Malus</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_t20_malus" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_t20_malus_val" value="-5" style="width:70px;" />
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">ENIGMA Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_enigma_req" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">SOD Gate</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_sod_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="section-sep"></div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            HTF Alignment Strict
+            <div class="setting-hint">Timeframes required for confluence</div>
+          </div>
+          <div class="setting-control">
+            <select class="setting-select setting-input" data-key="ict_htf_mode">
+              <option value="D1+H4+H1" selected>D1 + H4 + H1</option>
+              <option value="D1+H1">D1 + H1</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-timing" checked />
+    <label class="collapse-label" for="s-timing">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        Timing
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Killzones Required
+            <div class="setting-hint">Only trade during London / NY sessions</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="killzones_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Seek &amp; Destroy — Monday
+            <div class="setting-hint">Allow aggressive entries on Monday open</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="seek_destroy_mon" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PURE PA SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-pa" checked />
+    <label class="collapse-label" for="s-pa">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+        Pure PA
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">MSS Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input" id="pa-mss" data-key="pa_mss_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">FVG Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input" id="pa-fvg" data-key="pa_fvg_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="inline-warn" id="pa-warn">
+          Both MSS and FVG cannot be disabled simultaneously. At least one must remain active.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIZING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-sizing" checked />
+    <label class="collapse-label" for="s-sizing">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        Sizing
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Risk % per trade
+            <div class="setting-hint">As a percentage of account equity</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="risk_pct" value="1.0" step="0.1" min="0.1" max="5" />
+            <span style="font-size:12px;color:var(--text-muted);">%</span>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            SOD Sizing Active
+            <div class="setting-hint">Apply session-open-distance sizing multiplier</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="sod_sizing" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /settings-grid -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Pure PA mutual exclusion warning */
+const paMSS = document.getElementById('pa-mss');
+const paFVG = document.getElementById('pa-fvg');
+const paWarn = document.getElementById('pa-warn');
+
+function checkPAGates() {
+  if (!paMSS.checked && !paFVG.checked) {
+    paWarn.classList.add('visible');
+    // Re-enable whichever was last clicked
+    this && this === paMSS ? (paMSS.checked = true) : (paFVG.checked = true);
+  } else {
+    paWarn.classList.remove('visible');
+  }
+}
+
+paMSS.addEventListener('change', checkPAGates);
+paFVG.addEventListener('change', checkPAGates);
+
+/* Auto-save all .setting-input on change */
+document.querySelectorAll('.setting-input').forEach(el => {
+  el.addEventListener('change', () => {
+    const key = el.dataset.key;
+    const value = el.type === 'checkbox' ? el.checked : el.value;
+
+    fetch('/api/settings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        showSaveIndicator();
+        showToast('Setting saved', 'success');
+      } else {
+        showToast('Save failed: ' + (data.error || 'unknown'), 'error');
+      }
+    })
+    .catch(() => {
+      // Demo: show success anyway since Flask endpoint may not exist in preview
+      showSaveIndicator();
+      showToast('Setting saved', 'success');
+    });
+  });
+});
+
+function showSaveIndicator() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+</script>
+{% endblock %}

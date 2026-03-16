@@ -1542,8 +1542,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:21:21.589566+00:00",
-    "updated_at": "2026-03-15T02:28:05.143676+00:00",
-    "cycles_waited": 8
+    "updated_at": "2026-03-15T21:31:30.764052+00:00",
+    "cycles_waited": 17
   },
   "BTCUSD_weekly_bearish": {
     "pair": "BTCUSD",
@@ -2189,8 +2189,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:22:21.179295+00:00",
-    "updated_at": "2026-03-15T02:28:35.665181+00:00",
-    "cycles_waited": 4
+    "updated_at": "2026-03-15T20:29:27.263268+00:00",
+    "cycles_waited": 8
   },
   "ETHUSD_scalp_bullish": {
     "pair": "ETHUSD",
@@ -3770,8 +3770,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:24:08.479577+00:00",
-    "updated_at": "2026-03-15T02:16:04.459420+00:00",
-    "cycles_waited": 8
+    "updated_at": "2026-03-15T21:28:05.324371+00:00",
+    "cycles_waited": 17
   },
   "ETHUSD_weekly_bearish": {
     "pair": "ETHUSD",
@@ -4367,8 +4367,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:25:00.718034+00:00",
-    "updated_at": "2026-03-15T02:17:03.682035+00:00",
-    "cycles_waited": 4
+    "updated_at": "2026-03-15T20:24:46.495934+00:00",
+    "cycles_waited": 8
   },
   "EURUSD_intraday_bullish": {
     "pair": "EURUSD",
@@ -5461,8 +5461,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:26:45.321735+00:00",
-    "updated_at": "2026-03-15T02:25:37.581109+00:00",
-    "cycles_waited": 8
+    "updated_at": "2026-03-15T11:28:06.399129+00:00",
+    "cycles_waited": 16
   },
   "EURUSD_weekly_bearish": {
     "pair": "EURUSD",
@@ -6048,8 +6048,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:27:41.439710+00:00",
-    "updated_at": "2026-03-15T02:26:15.806252+00:00",
-    "cycles_waited": 4
+    "updated_at": "2026-03-15T11:57:06.588363+00:00",
+    "cycles_waited": 8
   },
   "GBPUSD_scalp_bearish": {
     "pair": "GBPUSD",
@@ -7729,8 +7729,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:29:25.809845+00:00",
-    "updated_at": "2026-03-15T02:23:25.757285+00:00",
-    "cycles_waited": 8
+    "updated_at": "2026-03-15T12:04:03.057511+00:00",
+    "cycles_waited": 15
   },
   "GBPUSD_weekly_bearish": {
     "pair": "GBPUSD",
@@ -8386,8 +8386,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:30:18.000333+00:00",
-    "updated_at": "2026-03-15T02:24:04.417618+00:00",
-    "cycles_waited": 4
+    "updated_at": "2026-03-15T12:04:12.051804+00:00",
+    "cycles_waited": 7
   },
   "AUDUSD_scalp_bearish": {
     "pair": "AUDUSD",
@@ -13019,8 +13019,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:37:47.580739+00:00",
-    "updated_at": "2026-03-13T11:55:05.385042+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T21:26:04.364927+00:00",
+    "cycles_waited": 14
   },
   "USDJPY_weekly_bullish": {
     "pair": "USDJPY",
@@ -13636,8 +13636,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:38:09.644501+00:00",
-    "updated_at": "2026-03-13T11:25:02.334441+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T20:22:41.727642+00:00",
+    "cycles_waited": 6
   },
   "USDCAD_scalp_bullish": {
     "pair": "USDCAD",
@@ -15027,8 +15027,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:40:19.110607+00:00",
-    "updated_at": "2026-03-13T11:58:19.578684+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T11:33:11.131788+00:00",
+    "cycles_waited": 12
   },
   "USDCAD_weekly_bearish": {
     "pair": "USDCAD",
@@ -15594,8 +15594,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:40:56.192424+00:00",
-    "updated_at": "2026-03-13T11:41:04.271729+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T11:16:13.373711+00:00",
+    "cycles_waited": 5
   },
   "USDCHF_scalp_bullish": {
     "pair": "USDCHF",
@@ -17275,8 +17275,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:42:57.701546+00:00",
-    "updated_at": "2026-03-15T02:21:04.129267+00:00",
-    "cycles_waited": 6
+    "updated_at": "2026-03-15T09:38:45.953604+00:00",
+    "cycles_waited": 11
   },
   "USDCHF_weekly_bullish": {
     "pair": "USDCHF",
@@ -17822,8 +17822,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:43:24.761345+00:00",
-    "updated_at": "2026-03-15T02:21:27.773789+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T08:06:11.066608+00:00",
+    "cycles_waited": 5
   },
   "EURGBP_scalp_bullish": {
     "pair": "EURGBP",
@@ -18983,8 +18983,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:45:40.673545+00:00",
-    "updated_at": "2026-03-15T02:30:16.510166+00:00",
-    "cycles_waited": 6
+    "updated_at": "2026-03-15T09:35:36.549255+00:00",
+    "cycles_waited": 11
   },
   "EURGBP_weekly_bearish": {
     "pair": "EURGBP",
@@ -19410,8 +19410,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:46:12.753402+00:00",
-    "updated_at": "2026-03-15T02:31:03.109994+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T08:03:14.003754+00:00",
+    "cycles_waited": 5
   },
   "XAUUSD_scalp_bearish": {
     "pair": "XAUUSD",
@@ -20604,8 +20604,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:48:10.324901+00:00",
-    "updated_at": "2026-03-15T02:18:16.956399+00:00",
-    "cycles_waited": 7
+    "updated_at": "2026-03-15T21:30:02.892516+00:00",
+    "cycles_waited": 15
   },
   "XAUUSD_weekly_bullish": {
     "pair": "XAUUSD",
@@ -21331,8 +21331,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T02:48:45.431627+00:00",
-    "updated_at": "2026-03-15T02:19:15.145029+00:00",
-    "cycles_waited": 3
+    "updated_at": "2026-03-15T20:27:06.224410+00:00",
+    "cycles_waited": 6
   },
   "NZDUSD_intraday_bearish": {
     "pair": "NZDUSD",
@@ -23666,8 +23666,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T03:46:40.028501+00:00",
-    "updated_at": "2026-03-13T09:35:02.894796+00:00",
-    "cycles_waited": 4
+    "updated_at": "2026-03-15T21:35:29.293411+00:00",
+    "cycles_waited": 9
   },
   "NZDUSD_weekly_bearish": {
     "pair": "NZDUSD",
@@ -24273,8 +24273,8 @@
     ],
     "state": "WAITING",
     "created_at": "2026-03-13T04:45:43.399169+00:00",
-    "updated_at": "2026-03-13T07:17:32.114270+00:00",
-    "cycles_waited": 1
+    "updated_at": "2026-03-15T20:34:12.211152+00:00",
+    "cycles_waited": 3
   },
   "AUDUSD_daily_bullish": {
     "pair": "AUDUSD",
@@ -25609,5 +25609,1359 @@
     "created_at": "2026-03-13T07:31:33.425117+00:00",
     "updated_at": "2026-03-13T07:31:33.425132+00:00",
     "cycles_waited": 0
+  },
+  "AUDUSD_daily_bearish": {
+    "pair": "AUDUSD",
+    "horizon": "daily",
+    "bias": "bearish",
+    "ote_top": 0.70951688,
+    "ote_bottom": 0.70406,
+    "s_start": 0.7136,
+    "s_end": 0.69452,
+    "obs": [
+      {
+        "index": 9,
+        "type": "bearish_ob",
+        "top": 0.65146583,
+        "bottom": 0.65091455,
+        "has_fvg_confluence": true,
+        "displacement_index": 11,
+        "status": "mitigated",
+        "time": "2025-08-16 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 27,
+        "type": "bullish_ob",
+        "top": 0.65590972,
+        "bottom": 0.65487885,
+        "has_fvg_confluence": true,
+        "displacement_index": 28,
+        "status": "mitigated",
+        "time": "2025-09-06 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 54,
+        "type": "bearish_ob",
+        "top": 0.65902197,
+        "bottom": 0.65595275,
+        "has_fvg_confluence": true,
+        "displacement_index": 56,
+        "status": "mitigated",
+        "time": "2025-10-08 00:00",
+        "ob_score": 2,
+        "ob_grade": "WEAK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": false
+      },
+      {
+        "index": 99,
+        "type": "bullish_ob",
+        "top": 0.65518,
+        "bottom": 0.6547,
+        "has_fvg_confluence": true,
+        "displacement_index": 102,
+        "status": "unmitigated",
+        "time": "2025-11-29 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 117,
+        "type": "bullish_ob",
+        "top": 0.66205,
+        "bottom": 0.66081,
+        "has_fvg_confluence": true,
+        "displacement_index": 119,
+        "status": "unmitigated",
+        "time": "2025-12-20 00:00",
+        "ob_score": 4,
+        "ob_grade": "A",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 143,
+        "type": "bullish_ob",
+        "top": 0.67037,
+        "bottom": 0.66681,
+        "has_fvg_confluence": true,
+        "displacement_index": 147,
+        "status": "unmitigated",
+        "time": "2026-01-18 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 164,
+        "type": "bullish_ob",
+        "top": 0.7014,
+        "bottom": 0.70107,
+        "has_fvg_confluence": true,
+        "displacement_index": 165,
+        "status": "unmitigated",
+        "time": "2026-02-08 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      }
+    ],
+    "fvgs": [
+      {
+        "index": 2,
+        "displacement_index": 1,
+        "type": "bullish_fvg",
+        "top": 0.65135974,
+        "bottom": 0.6510374,
+        "midpoint": 0.65119857,
+        "status": "filled",
+        "time": "2025-08-08 00:00"
+      },
+      {
+        "index": 11,
+        "displacement_index": 10,
+        "type": "bearish_fvg",
+        "top": 0.65091455,
+        "bottom": 0.64998376,
+        "midpoint": 0.650449155,
+        "status": "filled",
+        "time": "2025-08-19 00:00"
+      },
+      {
+        "index": 12,
+        "displacement_index": 11,
+        "type": "bearish_fvg",
+        "top": 0.64842433,
+        "bottom": 0.64616179,
+        "midpoint": 0.64729306,
+        "status": "filled",
+        "time": "2025-08-20 00:00"
+      },
+      {
+        "index": 13,
+        "displacement_index": 12,
+        "type": "bearish_fvg",
+        "top": 0.64520288,
+        "bottom": 0.64383209,
+        "midpoint": 0.644517485,
+        "status": "filled",
+        "time": "2025-08-21 00:00"
+      },
+      {
+        "index": 15,
+        "displacement_index": 14,
+        "type": "bullish_fvg",
+        "top": 0.64901352,
+        "bottom": 0.64383209,
+        "midpoint": 0.646422805,
+        "status": "filled",
+        "time": "2025-08-23 00:00"
+      },
+      {
+        "index": 19,
+        "displacement_index": 18,
+        "type": "bullish_fvg",
+        "top": 0.65049112,
+        "bottom": 0.65019506,
+        "midpoint": 0.65034309,
+        "status": "filled",
+        "time": "2025-08-28 00:00"
+      },
+      {
+        "index": 20,
+        "displacement_index": 19,
+        "type": "bullish_fvg",
+        "top": 0.6526137,
+        "bottom": 0.65150827,
+        "midpoint": 0.652060985,
+        "status": "filled",
+        "time": "2025-08-29 00:00"
+      },
+      {
+        "index": 21,
+        "displacement_index": 20,
+        "type": "bullish_fvg",
+        "top": 0.65427899,
+        "bottom": 0.65393674,
+        "midpoint": 0.6541078650000001,
+        "status": "filled",
+        "time": "2025-08-30 00:00"
+      },
+      {
+        "index": 29,
+        "displacement_index": 28,
+        "type": "bullish_fvg",
+        "top": 0.65845788,
+        "bottom": 0.65590972,
+        "midpoint": 0.6571838000000001,
+        "status": "filled",
+        "time": "2025-09-09 00:00"
+      },
+      {
+        "index": 35,
+        "displacement_index": 34,
+        "type": "bullish_fvg",
+        "top": 0.66626692,
+        "bottom": 0.66520321,
+        "midpoint": 0.665735065,
+        "status": "filled",
+        "time": "2025-09-16 00:00"
+      },
+      {
+        "index": 37,
+        "displacement_index": 36,
+        "type": "bearish_fvg",
+        "top": 0.66626692,
+        "bottom": 0.66617817,
+        "midpoint": 0.666222545,
+        "status": "filled",
+        "time": "2025-09-18 00:00"
+      },
+      {
+        "index": 38,
+        "displacement_index": 37,
+        "type": "bearish_fvg",
+        "top": 0.66471684,
+        "bottom": 0.66207623,
+        "midpoint": 0.663396535,
+        "status": "filled",
+        "time": "2025-09-19 00:00"
+      },
+      {
+        "index": 39,
+        "displacement_index": 38,
+        "type": "bearish_fvg",
+        "top": 0.6612007,
+        "bottom": 0.6596306,
+        "midpoint": 0.66041565,
+        "status": "filled",
+        "time": "2025-09-20 00:00"
+      },
+      {
+        "index": 44,
+        "displacement_index": 43,
+        "type": "bearish_fvg",
+        "top": 0.65789473,
+        "bottom": 0.65535092,
+        "midpoint": 0.6566228249999999,
+        "status": "filled",
+        "time": "2025-09-26 00:00"
+      },
+      {
+        "index": 47,
+        "displacement_index": 46,
+        "type": "bullish_fvg",
+        "top": 0.65746218,
+        "bottom": 0.65513629,
+        "midpoint": 0.656299235,
+        "status": "filled",
+        "time": "2025-09-30 00:00"
+      },
+      {
+        "index": 48,
+        "displacement_index": 47,
+        "type": "bullish_fvg",
+        "top": 0.65919578,
+        "bottom": 0.65832782,
+        "midpoint": 0.6587618,
+        "status": "filled",
+        "time": "2025-10-01 00:00"
+      },
+      {
+        "index": 57,
+        "displacement_index": 56,
+        "type": "bearish_fvg",
+        "top": 0.65432179,
+        "bottom": 0.64876091,
+        "midpoint": 0.65154135,
+        "status": "filled",
+        "time": "2025-10-11 00:00"
+      },
+      {
+        "index": 70,
+        "displacement_index": 69,
+        "type": "bullish_fvg",
+        "top": 0.65312517,
+        "bottom": 0.65291196,
+        "midpoint": 0.653018565,
+        "status": "filled",
+        "time": "2025-10-27 00:00"
+      },
+      {
+        "index": 71,
+        "displacement_index": 70,
+        "type": "bullish_fvg",
+        "top": 0.65475023,
+        "bottom": 0.65155065,
+        "midpoint": 0.65315044,
+        "status": "filled",
+        "time": "2025-10-28 00:00"
+      },
+      {
+        "index": 72,
+        "displacement_index": 71,
+        "type": "bullish_fvg",
+        "top": 0.65625411,
+        "bottom": 0.65612495,
+        "midpoint": 0.65618953,
+        "status": "filled",
+        "time": "2025-10-29 00:00"
+      },
+      {
+        "index": 74,
+        "displacement_index": 73,
+        "type": "bearish_fvg",
+        "top": 0.65625411,
+        "bottom": 0.65621102,
+        "midpoint": 0.656232565,
+        "status": "filled",
+        "time": "2025-10-31 00:00"
+      },
+      {
+        "index": 77,
+        "displacement_index": 76,
+        "type": "bearish_fvg",
+        "top": 0.65445024,
+        "bottom": 0.6542362,
+        "midpoint": 0.65434322,
+        "status": "filled",
+        "time": "2025-11-04 00:00"
+      },
+      {
+        "index": 78,
+        "displacement_index": 77,
+        "type": "bearish_fvg",
+        "top": 0.65201801,
+        "bottom": 0.65146583,
+        "midpoint": 0.6517419200000001,
+        "status": "filled",
+        "time": "2025-11-05 00:00"
+      },
+      {
+        "index": 82,
+        "displacement_index": 81,
+        "type": "bullish_fvg",
+        "top": 0.64989924,
+        "bottom": 0.64985704,
+        "midpoint": 0.64987814,
+        "status": "filled",
+        "time": "2025-11-10 00:00"
+      },
+      {
+        "index": 83,
+        "displacement_index": 82,
+        "type": "bullish_fvg",
+        "top": 0.65172052,
+        "bottom": 0.65011048,
+        "midpoint": 0.6509155,
+        "status": "filled",
+        "time": "2025-11-11 00:00"
+      },
+      {
+        "index": 89,
+        "displacement_index": 88,
+        "type": "bearish_fvg",
+        "top": 0.65342,
+        "bottom": 0.65183,
+        "midpoint": 0.652625,
+        "status": "filled",
+        "time": "2025-11-18 00:00"
+      },
+      {
+        "index": 97,
+        "displacement_index": 96,
+        "type": "bullish_fvg",
+        "top": 0.65145,
+        "bottom": 0.64752,
+        "midpoint": 0.649485,
+        "status": "open",
+        "time": "2025-11-27 00:00"
+      },
+      {
+        "index": 98,
+        "displacement_index": 97,
+        "type": "bullish_fvg",
+        "top": 0.65204,
+        "bottom": 0.65201,
+        "midpoint": 0.652025,
+        "status": "open",
+        "time": "2025-11-28 00:00"
+      },
+      {
+        "index": 99,
+        "displacement_index": 98,
+        "type": "bullish_fvg",
+        "top": 0.6547,
+        "bottom": 0.65398,
+        "midpoint": 0.6543399999999999,
+        "status": "filled",
+        "time": "2025-11-29 00:00"
+      },
+      {
+        "index": 103,
+        "displacement_index": 102,
+        "type": "bullish_fvg",
+        "top": 0.65978,
+        "bottom": 0.65706,
+        "midpoint": 0.65842,
+        "status": "partially_filled",
+        "time": "2025-12-04 00:00"
+      },
+      {
+        "index": 104,
+        "displacement_index": 103,
+        "type": "bullish_fvg",
+        "top": 0.66057,
+        "bottom": 0.66013,
+        "midpoint": 0.66035,
+        "status": "filled",
+        "time": "2025-12-05 00:00"
+      },
+      {
+        "index": 105,
+        "displacement_index": 104,
+        "type": "bullish_fvg",
+        "top": 0.66364,
+        "bottom": 0.66238,
+        "midpoint": 0.66301,
+        "status": "filled",
+        "time": "2025-12-06 00:00"
+      },
+      {
+        "index": 119,
+        "displacement_index": 118,
+        "type": "bullish_fvg",
+        "top": 0.66534,
+        "bottom": 0.66205,
+        "midpoint": 0.663695,
+        "status": "open",
+        "time": "2025-12-23 00:00"
+      },
+      {
+        "index": 120,
+        "displacement_index": 119,
+        "type": "bullish_fvg",
+        "top": 0.66946,
+        "bottom": 0.66607,
+        "midpoint": 0.667765,
+        "status": "filled",
+        "time": "2025-12-24 00:00"
+      },
+      {
+        "index": 121,
+        "displacement_index": 120,
+        "type": "bullish_fvg",
+        "top": 0.67004,
+        "bottom": 0.67001,
+        "midpoint": 0.670025,
+        "status": "filled",
+        "time": "2025-12-25 00:00"
+      },
+      {
+        "index": 127,
+        "displacement_index": 126,
+        "type": "bearish_fvg",
+        "top": 0.66884,
+        "bottom": 0.66789,
+        "midpoint": 0.668365,
+        "status": "filled",
+        "time": "2026-01-01 00:00"
+      },
+      {
+        "index": 129,
+        "displacement_index": 128,
+        "type": "bullish_fvg",
+        "top": 0.66873,
+        "bottom": 0.66789,
+        "midpoint": 0.66831,
+        "status": "filled",
+        "time": "2026-01-03 00:00"
+      },
+      {
+        "index": 131,
+        "displacement_index": 130,
+        "type": "bullish_fvg",
+        "top": 0.67036,
+        "bottom": 0.66981,
+        "midpoint": 0.670085,
+        "status": "filled",
+        "time": "2026-01-06 00:00"
+      },
+      {
+        "index": 134,
+        "displacement_index": 133,
+        "type": "bearish_fvg",
+        "top": 0.67129,
+        "bottom": 0.67041,
+        "midpoint": 0.67085,
+        "status": "filled",
+        "time": "2026-01-09 00:00"
+      },
+      {
+        "index": 145,
+        "displacement_index": 144,
+        "type": "bullish_fvg",
+        "top": 0.67071,
+        "bottom": 0.67037,
+        "midpoint": 0.67054,
+        "status": "open",
+        "time": "2026-01-20 00:00"
+      },
+      {
+        "index": 146,
+        "displacement_index": 145,
+        "type": "bullish_fvg",
+        "top": 0.67276,
+        "bottom": 0.67172,
+        "midpoint": 0.67224,
+        "status": "open",
+        "time": "2026-01-21 00:00"
+      },
+      {
+        "index": 147,
+        "displacement_index": 146,
+        "type": "bullish_fvg",
+        "top": 0.67536,
+        "bottom": 0.67471,
+        "midpoint": 0.675035,
+        "status": "open",
+        "time": "2026-01-22 00:00"
+      },
+      {
+        "index": 148,
+        "displacement_index": 147,
+        "type": "bullish_fvg",
+        "top": 0.68353,
+        "bottom": 0.6777,
+        "midpoint": 0.680615,
+        "status": "open",
+        "time": "2026-01-23 00:00"
+      },
+      {
+        "index": 149,
+        "displacement_index": 148,
+        "type": "bullish_fvg",
+        "top": 0.68776,
+        "bottom": 0.68442,
+        "midpoint": 0.6860900000000001,
+        "status": "open",
+        "time": "2026-01-24 00:00"
+      },
+      {
+        "index": 151,
+        "displacement_index": 150,
+        "type": "bullish_fvg",
+        "top": 0.69079,
+        "bottom": 0.68991,
+        "midpoint": 0.69035,
+        "status": "filled",
+        "time": "2026-01-26 00:00"
+      },
+      {
+        "index": 153,
+        "displacement_index": 152,
+        "type": "bullish_fvg",
+        "top": 0.6977,
+        "bottom": 0.69401,
+        "midpoint": 0.695855,
+        "status": "filled",
+        "time": "2026-01-28 00:00"
+      },
+      {
+        "index": 166,
+        "displacement_index": 165,
+        "type": "bullish_fvg",
+        "top": 0.70646,
+        "bottom": 0.7014,
+        "midpoint": 0.70393,
+        "status": "filled",
+        "time": "2026-02-10 00:00"
+      },
+      {
+        "index": 194,
+        "displacement_index": 193,
+        "type": "bullish_fvg",
+        "top": 0.70542,
+        "bottom": 0.70355,
+        "midpoint": 0.704485,
+        "status": "filled",
+        "time": "2026-03-10 00:00"
+      },
+      {
+        "index": 195,
+        "displacement_index": 194,
+        "type": "bullish_fvg",
+        "top": 0.71132,
+        "bottom": 0.70815,
+        "midpoint": 0.709735,
+        "status": "filled",
+        "time": "2026-03-11 00:00"
+      },
+      {
+        "index": 197,
+        "displacement_index": 196,
+        "type": "bearish_fvg",
+        "top": 0.71132,
+        "bottom": 0.70928,
+        "midpoint": 0.7102999999999999,
+        "status": "open",
+        "time": "2026-03-13 00:00"
+      },
+      {
+        "index": 198,
+        "displacement_index": 197,
+        "type": "bearish_fvg",
+        "top": 0.70732,
+        "bottom": 0.70466,
+        "midpoint": 0.7059899999999999,
+        "status": "open",
+        "time": "2026-03-14 00:00"
+      },
+      {
+        "index": 199,
+        "displacement_index": 198,
+        "type": "bearish_fvg",
+        "top": 0.69907,
+        "bottom": 0.69899,
+        "midpoint": 0.69903,
+        "status": "open",
+        "time": "2026-03-15 00:00"
+      }
+    ],
+    "state": "WAITING",
+    "created_at": "2026-03-15T07:13:49.951327+00:00",
+    "updated_at": "2026-03-15T21:33:31.738242+00:00",
+    "cycles_waited": 4
+  },
+  "AUDUSD_weekly_bearish": {
+    "pair": "AUDUSD",
+    "horizon": "weekly",
+    "bias": "bearish",
+    "ote_top": 0.70951688,
+    "ote_bottom": 0.70406,
+    "s_start": 0.7136,
+    "s_end": 0.69452,
+    "obs": [
+      {
+        "index": 9,
+        "type": "bearish_ob",
+        "top": 0.65146583,
+        "bottom": 0.65091455,
+        "has_fvg_confluence": true,
+        "displacement_index": 11,
+        "status": "mitigated",
+        "time": "2025-08-16 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 27,
+        "type": "bullish_ob",
+        "top": 0.65590972,
+        "bottom": 0.65487885,
+        "has_fvg_confluence": true,
+        "displacement_index": 28,
+        "status": "mitigated",
+        "time": "2025-09-06 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 54,
+        "type": "bearish_ob",
+        "top": 0.65902197,
+        "bottom": 0.65595275,
+        "has_fvg_confluence": true,
+        "displacement_index": 56,
+        "status": "mitigated",
+        "time": "2025-10-08 00:00",
+        "ob_score": 2,
+        "ob_grade": "WEAK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:FAIL(mitigated)"
+        ],
+        "ob_valid": false
+      },
+      {
+        "index": 99,
+        "type": "bullish_ob",
+        "top": 0.65518,
+        "bottom": 0.6547,
+        "has_fvg_confluence": true,
+        "displacement_index": 102,
+        "status": "unmitigated",
+        "time": "2025-11-29 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 117,
+        "type": "bullish_ob",
+        "top": 0.66205,
+        "bottom": 0.66081,
+        "has_fvg_confluence": true,
+        "displacement_index": 119,
+        "status": "unmitigated",
+        "time": "2025-12-20 00:00",
+        "ob_score": 4,
+        "ob_grade": "A",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:OK(corps>50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 143,
+        "type": "bullish_ob",
+        "top": 0.67037,
+        "bottom": 0.66681,
+        "has_fvg_confluence": true,
+        "displacement_index": 147,
+        "status": "unmitigated",
+        "time": "2026-01-18 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      },
+      {
+        "index": 164,
+        "type": "bullish_ob",
+        "top": 0.7014,
+        "bottom": 0.70107,
+        "has_fvg_confluence": true,
+        "displacement_index": 165,
+        "status": "unmitigated",
+        "time": "2026-02-08 00:00",
+        "ob_score": 3,
+        "ob_grade": "OK",
+        "ob_details": [
+          "C1:OK(bougie_opposee)",
+          "C2:FAIL(corps<50%)",
+          "C3:OK(FVG)",
+          "C4:FAIL(noLiq)",
+          "C5:OK(fresh)"
+        ],
+        "ob_valid": true
+      }
+    ],
+    "fvgs": [
+      {
+        "index": 2,
+        "displacement_index": 1,
+        "type": "bullish_fvg",
+        "top": 0.65135974,
+        "bottom": 0.6510374,
+        "midpoint": 0.65119857,
+        "status": "filled",
+        "time": "2025-08-08 00:00"
+      },
+      {
+        "index": 11,
+        "displacement_index": 10,
+        "type": "bearish_fvg",
+        "top": 0.65091455,
+        "bottom": 0.64998376,
+        "midpoint": 0.650449155,
+        "status": "filled",
+        "time": "2025-08-19 00:00"
+      },
+      {
+        "index": 12,
+        "displacement_index": 11,
+        "type": "bearish_fvg",
+        "top": 0.64842433,
+        "bottom": 0.64616179,
+        "midpoint": 0.64729306,
+        "status": "filled",
+        "time": "2025-08-20 00:00"
+      },
+      {
+        "index": 13,
+        "displacement_index": 12,
+        "type": "bearish_fvg",
+        "top": 0.64520288,
+        "bottom": 0.64383209,
+        "midpoint": 0.644517485,
+        "status": "filled",
+        "time": "2025-08-21 00:00"
+      },
+      {
+        "index": 15,
+        "displacement_index": 14,
+        "type": "bullish_fvg",
+        "top": 0.64901352,
+        "bottom": 0.64383209,
+        "midpoint": 0.646422805,
+        "status": "filled",
+        "time": "2025-08-23 00:00"
+      },
+      {
+        "index": 19,
+        "displacement_index": 18,
+        "type": "bullish_fvg",
+        "top": 0.65049112,
+        "bottom": 0.65019506,
+        "midpoint": 0.65034309,
+        "status": "filled",
+        "time": "2025-08-28 00:00"
+      },
+      {
+        "index": 20,
+        "displacement_index": 19,
+        "type": "bullish_fvg",
+        "top": 0.6526137,
+        "bottom": 0.65150827,
+        "midpoint": 0.652060985,
+        "status": "filled",
+        "time": "2025-08-29 00:00"
+      },
+      {
+        "index": 21,
+        "displacement_index": 20,
+        "type": "bullish_fvg",
+        "top": 0.65427899,
+        "bottom": 0.65393674,
+        "midpoint": 0.6541078650000001,
+        "status": "filled",
+        "time": "2025-08-30 00:00"
+      },
+      {
+        "index": 29,
+        "displacement_index": 28,
+        "type": "bullish_fvg",
+        "top": 0.65845788,
+        "bottom": 0.65590972,
+        "midpoint": 0.6571838000000001,
+        "status": "filled",
+        "time": "2025-09-09 00:00"
+      },
+      {
+        "index": 35,
+        "displacement_index": 34,
+        "type": "bullish_fvg",
+        "top": 0.66626692,
+        "bottom": 0.66520321,
+        "midpoint": 0.665735065,
+        "status": "filled",
+        "time": "2025-09-16 00:00"
+      },
+      {
+        "index": 37,
+        "displacement_index": 36,
+        "type": "bearish_fvg",
+        "top": 0.66626692,
+        "bottom": 0.66617817,
+        "midpoint": 0.666222545,
+        "status": "filled",
+        "time": "2025-09-18 00:00"
+      },
+      {
+        "index": 38,
+        "displacement_index": 37,
+        "type": "bearish_fvg",
+        "top": 0.66471684,
+        "bottom": 0.66207623,
+        "midpoint": 0.663396535,
+        "status": "filled",
+        "time": "2025-09-19 00:00"
+      },
+      {
+        "index": 39,
+        "displacement_index": 38,
+        "type": "bearish_fvg",
+        "top": 0.6612007,
+        "bottom": 0.6596306,
+        "midpoint": 0.66041565,
+        "status": "filled",
+        "time": "2025-09-20 00:00"
+      },
+      {
+        "index": 44,
+        "displacement_index": 43,
+        "type": "bearish_fvg",
+        "top": 0.65789473,
+        "bottom": 0.65535092,
+        "midpoint": 0.6566228249999999,
+        "status": "filled",
+        "time": "2025-09-26 00:00"
+      },
+      {
+        "index": 47,
+        "displacement_index": 46,
+        "type": "bullish_fvg",
+        "top": 0.65746218,
+        "bottom": 0.65513629,
+        "midpoint": 0.656299235,
+        "status": "filled",
+        "time": "2025-09-30 00:00"
+      },
+      {
+        "index": 48,
+        "displacement_index": 47,
+        "type": "bullish_fvg",
+        "top": 0.65919578,
+        "bottom": 0.65832782,
+        "midpoint": 0.6587618,
+        "status": "filled",
+        "time": "2025-10-01 00:00"
+      },
+      {
+        "index": 57,
+        "displacement_index": 56,
+        "type": "bearish_fvg",
+        "top": 0.65432179,
+        "bottom": 0.64876091,
+        "midpoint": 0.65154135,
+        "status": "filled",
+        "time": "2025-10-11 00:00"
+      },
+      {
+        "index": 70,
+        "displacement_index": 69,
+        "type": "bullish_fvg",
+        "top": 0.65312517,
+        "bottom": 0.65291196,
+        "midpoint": 0.653018565,
+        "status": "filled",
+        "time": "2025-10-27 00:00"
+      },
+      {
+        "index": 71,
+        "displacement_index": 70,
+        "type": "bullish_fvg",
+        "top": 0.65475023,
+        "bottom": 0.65155065,
+        "midpoint": 0.65315044,
+        "status": "filled",
+        "time": "2025-10-28 00:00"
+      },
+      {
+        "index": 72,
+        "displacement_index": 71,
+        "type": "bullish_fvg",
+        "top": 0.65625411,
+        "bottom": 0.65612495,
+        "midpoint": 0.65618953,
+        "status": "filled",
+        "time": "2025-10-29 00:00"
+      },
+      {
+        "index": 74,
+        "displacement_index": 73,
+        "type": "bearish_fvg",
+        "top": 0.65625411,
+        "bottom": 0.65621102,
+        "midpoint": 0.656232565,
+        "status": "filled",
+        "time": "2025-10-31 00:00"
+      },
+      {
+        "index": 77,
+        "displacement_index": 76,
+        "type": "bearish_fvg",
+        "top": 0.65445024,
+        "bottom": 0.6542362,
+        "midpoint": 0.65434322,
+        "status": "filled",
+        "time": "2025-11-04 00:00"
+      },
+      {
+        "index": 78,
+        "displacement_index": 77,
+        "type": "bearish_fvg",
+        "top": 0.65201801,
+        "bottom": 0.65146583,
+        "midpoint": 0.6517419200000001,
+        "status": "filled",
+        "time": "2025-11-05 00:00"
+      },
+      {
+        "index": 82,
+        "displacement_index": 81,
+        "type": "bullish_fvg",
+        "top": 0.64989924,
+        "bottom": 0.64985704,
+        "midpoint": 0.64987814,
+        "status": "filled",
+        "time": "2025-11-10 00:00"
+      },
+      {
+        "index": 83,
+        "displacement_index": 82,
+        "type": "bullish_fvg",
+        "top": 0.65172052,
+        "bottom": 0.65011048,
+        "midpoint": 0.6509155,
+        "status": "filled",
+        "time": "2025-11-11 00:00"
+      },
+      {
+        "index": 89,
+        "displacement_index": 88,
+        "type": "bearish_fvg",
+        "top": 0.65342,
+        "bottom": 0.65183,
+        "midpoint": 0.652625,
+        "status": "filled",
+        "time": "2025-11-18 00:00"
+      },
+      {
+        "index": 97,
+        "displacement_index": 96,
+        "type": "bullish_fvg",
+        "top": 0.65145,
+        "bottom": 0.64752,
+        "midpoint": 0.649485,
+        "status": "open",
+        "time": "2025-11-27 00:00"
+      },
+      {
+        "index": 98,
+        "displacement_index": 97,
+        "type": "bullish_fvg",
+        "top": 0.65204,
+        "bottom": 0.65201,
+        "midpoint": 0.652025,
+        "status": "open",
+        "time": "2025-11-28 00:00"
+      },
+      {
+        "index": 99,
+        "displacement_index": 98,
+        "type": "bullish_fvg",
+        "top": 0.6547,
+        "bottom": 0.65398,
+        "midpoint": 0.6543399999999999,
+        "status": "filled",
+        "time": "2025-11-29 00:00"
+      },
+      {
+        "index": 103,
+        "displacement_index": 102,
+        "type": "bullish_fvg",
+        "top": 0.65978,
+        "bottom": 0.65706,
+        "midpoint": 0.65842,
+        "status": "partially_filled",
+        "time": "2025-12-04 00:00"
+      },
+      {
+        "index": 104,
+        "displacement_index": 103,
+        "type": "bullish_fvg",
+        "top": 0.66057,
+        "bottom": 0.66013,
+        "midpoint": 0.66035,
+        "status": "filled",
+        "time": "2025-12-05 00:00"
+      },
+      {
+        "index": 105,
+        "displacement_index": 104,
+        "type": "bullish_fvg",
+        "top": 0.66364,
+        "bottom": 0.66238,
+        "midpoint": 0.66301,
+        "status": "filled",
+        "time": "2025-12-06 00:00"
+      },
+      {
+        "index": 119,
+        "displacement_index": 118,
+        "type": "bullish_fvg",
+        "top": 0.66534,
+        "bottom": 0.66205,
+        "midpoint": 0.663695,
+        "status": "open",
+        "time": "2025-12-23 00:00"
+      },
+      {
+        "index": 120,
+        "displacement_index": 119,
+        "type": "bullish_fvg",
+        "top": 0.66946,
+        "bottom": 0.66607,
+        "midpoint": 0.667765,
+        "status": "filled",
+        "time": "2025-12-24 00:00"
+      },
+      {
+        "index": 121,
+        "displacement_index": 120,
+        "type": "bullish_fvg",
+        "top": 0.67004,
+        "bottom": 0.67001,
+        "midpoint": 0.670025,
+        "status": "filled",
+        "time": "2025-12-25 00:00"
+      },
+      {
+        "index": 127,
+        "displacement_index": 126,
+        "type": "bearish_fvg",
+        "top": 0.66884,
+        "bottom": 0.66789,
+        "midpoint": 0.668365,
+        "status": "filled",
+        "time": "2026-01-01 00:00"
+      },
+      {
+        "index": 129,
+        "displacement_index": 128,
+        "type": "bullish_fvg",
+        "top": 0.66873,
+        "bottom": 0.66789,
+        "midpoint": 0.66831,
+        "status": "filled",
+        "time": "2026-01-03 00:00"
+      },
+      {
+        "index": 131,
+        "displacement_index": 130,
+        "type": "bullish_fvg",
+        "top": 0.67036,
+        "bottom": 0.66981,
+        "midpoint": 0.670085,
+        "status": "filled",
+        "time": "2026-01-06 00:00"
+      },
+      {
+        "index": 134,
+        "displacement_index": 133,
+        "type": "bearish_fvg",
+        "top": 0.67129,
+        "bottom": 0.67041,
+        "midpoint": 0.67085,
+        "status": "filled",
+        "time": "2026-01-09 00:00"
+      },
+      {
+        "index": 145,
+        "displacement_index": 144,
+        "type": "bullish_fvg",
+        "top": 0.67071,
+        "bottom": 0.67037,
+        "midpoint": 0.67054,
+        "status": "open",
+        "time": "2026-01-20 00:00"
+      },
+      {
+        "index": 146,
+        "displacement_index": 145,
+        "type": "bullish_fvg",
+        "top": 0.67276,
+        "bottom": 0.67172,
+        "midpoint": 0.67224,
+        "status": "open",
+        "time": "2026-01-21 00:00"
+      },
+      {
+        "index": 147,
+        "displacement_index": 146,
+        "type": "bullish_fvg",
+        "top": 0.67536,
+        "bottom": 0.67471,
+        "midpoint": 0.675035,
+        "status": "open",
+        "time": "2026-01-22 00:00"
+      },
+      {
+        "index": 148,
+        "displacement_index": 147,
+        "type": "bullish_fvg",
+        "top": 0.68353,
+        "bottom": 0.6777,
+        "midpoint": 0.680615,
+        "status": "open",
+        "time": "2026-01-23 00:00"
+      },
+      {
+        "index": 149,
+        "displacement_index": 148,
+        "type": "bullish_fvg",
+        "top": 0.68776,
+        "bottom": 0.68442,
+        "midpoint": 0.6860900000000001,
+        "status": "open",
+        "time": "2026-01-24 00:00"
+      },
+      {
+        "index": 151,
+        "displacement_index": 150,
+        "type": "bullish_fvg",
+        "top": 0.69079,
+        "bottom": 0.68991,
+        "midpoint": 0.69035,
+        "status": "filled",
+        "time": "2026-01-26 00:00"
+      },
+      {
+        "index": 153,
+        "displacement_index": 152,
+        "type": "bullish_fvg",
+        "top": 0.6977,
+        "bottom": 0.69401,
+        "midpoint": 0.695855,
+        "status": "filled",
+        "time": "2026-01-28 00:00"
+      },
+      {
+        "index": 166,
+        "displacement_index": 165,
+        "type": "bullish_fvg",
+        "top": 0.70646,
+        "bottom": 0.7014,
+        "midpoint": 0.70393,
+        "status": "filled",
+        "time": "2026-02-10 00:00"
+      },
+      {
+        "index": 194,
+        "displacement_index": 193,
+        "type": "bullish_fvg",
+        "top": 0.70542,
+        "bottom": 0.70355,
+        "midpoint": 0.704485,
+        "status": "filled",
+        "time": "2026-03-10 00:00"
+      },
+      {
+        "index": 195,
+        "displacement_index": 194,
+        "type": "bullish_fvg",
+        "top": 0.71132,
+        "bottom": 0.70815,
+        "midpoint": 0.709735,
+        "status": "filled",
+        "time": "2026-03-11 00:00"
+      },
+      {
+        "index": 197,
+        "displacement_index": 196,
+        "type": "bearish_fvg",
+        "top": 0.71132,
+        "bottom": 0.70928,
+        "midpoint": 0.7102999999999999,
+        "status": "open",
+        "time": "2026-03-13 00:00"
+      },
+      {
+        "index": 198,
+        "displacement_index": 197,
+        "type": "bearish_fvg",
+        "top": 0.70732,
+        "bottom": 0.70466,
+        "midpoint": 0.7059899999999999,
+        "status": "open",
+        "time": "2026-03-14 00:00"
+      },
+      {
+        "index": 199,
+        "displacement_index": 198,
+        "type": "bearish_fvg",
+        "top": 0.69907,
+        "bottom": 0.69899,
+        "midpoint": 0.69903,
+        "status": "open",
+        "time": "2026-03-15 00:00"
+      }
+    ],
+    "state": "WAITING",
+    "created_at": "2026-03-15T07:14:28.629835+00:00",
+    "updated_at": "2026-03-15T20:32:06.320344+00:00",
+    "cycles_waited": 1
   }
 }

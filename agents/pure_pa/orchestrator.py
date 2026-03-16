@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict, Any
+import pandas as pd
 
 from agents.ict.structure import StructureAgent
 from agents.calibration_multi_profils import PROFILE_TTL_SECONDS

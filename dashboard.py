@@ -151,7 +151,7 @@ app = Flask(__name__, template_folder='dashboard/templates', static_folder='dash
 
 # ── PAIRES DISPONIBLES ───────────────────────────────────────────
 ALL_PAIRS = {
-    "forex":   ["EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDJPY", "USDCAD", "USDCHF", "EURGBP"],
+    "forex":   ["EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDJPY", "USDCAD", "USDCHF", "EURGBP", "EURJPY", "GBPJPY", "AUDJPY"],
     "metals":  ["XAUUSD"],  # XAGUSD retiré — non disponible sur TwelveData Basic
     "crypto":  ["BTCUSD", "ETHUSD"],
     "energy":  []
@@ -1671,7 +1671,15 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                             continue
 
                         if "ict_raw" not in result_holder or "final" not in result_holder:
-                            log(f"Erreur {pair} [{horizon}]: résultat incomplet (clés manquantes)", "ERROR")
+                            # ── Bypass pour le hors Killzone sans logger une grosse erreur ──
+                            diag = result_holder.get("diag", "")
+                            if "Out of Killzone" in diag or "Closed day" in diag:
+                                log(f"{pair} [{horizon}] ⏭️ SKIP — Hors Killzone ou marché fermé", "INFO")
+                                continue
+                                
+                            missing_keys = [k for k in ["ict_raw", "final"] if k not in result_holder]
+                            found_keys = list(result_holder.keys())
+                            log(f"Erreur {pair} [{horizon}]: résultat incomplet (clés manquantes: {missing_keys}). Clés présentes: {found_keys}", "ERROR")
                             continue
 
                         ict_raw      = result_holder.get("ict_raw", "")
