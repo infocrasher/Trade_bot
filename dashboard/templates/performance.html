@@ -1,527 +1,298 @@
-<!DOCTYPE html>
-<html lang="fr">
+{% extends "base.html" %}
+{% block title %}Performance — TakeOption{% endblock %}
+{% block page_title %}Performance{% endblock %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performance — ICTBot Pro</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0e1a; color: #e0e6f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+{% block content %}
 
-        /* NAV */
-        .navbar { background: #111827; border-bottom: 1px solid #1e293b; padding: 0 24px; height: 52px; display: flex; align-items: center; gap: 24px; }
-        .navbar .brand { color: #3b82f6; font-weight: 700; font-size: 16px; text-decoration: none; }
-        .navbar a { color: #94a3b8; text-decoration: none; font-size: 14px; padding: 4px 12px; border-radius: 6px; transition: all 0.2s; }
-        .navbar a:hover, .navbar a.active { color: #e2e8f0; background: #1e293b; }
+<!-- ALERT BANNER (VSA negative expectancy) -->
+<div class="alert-banner" id="perf-alert-banner">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <triangle><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></triangle>
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+    <line x1="12" y1="9" x2="12" y2="13"></line>
+    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+  </svg>
+  <strong>Attention:</strong>&nbsp; Le profil VSA a une expectancy négative sur les 20 derniers trades (-0.18R). Révisez les paramètres des gates.
+</div>
 
-        .container { padding: 24px; max-width: 1400px; margin: 0 auto; }
-        h1 { font-size: 22px; color: #f1f5f9; margin-bottom: 16px; }
+<!-- PROFILE FILTER BUTTONS -->
+<div class="profile-filters" id="profile-filters">
+  <button class="profile-btn active" data-profile="All">Tous les Profils</button>
+  <button class="profile-btn" data-profile="ICT Strict">ICT Strict</button>
+  <button class="profile-btn" data-profile="Pure PA">Pure PA</button>
+  <button class="profile-btn" data-profile="Elliott">Elliott</button>
+  <button class="profile-btn" data-profile="VSA">VSA</button>
+  <button class="profile-btn" data-profile="Legacy">Legacy</button>
+</div>
 
-        /* PROFILE SELECTOR */
-        .profile-selector { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
-        .profile-selector span { font-size: 13px; color: #64748b; margin-right: 4px; }
-        .profile-btn {
-            padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
-            border: 1px solid #1e293b; background: #111827; color: #94a3b8;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .profile-btn:hover { border-color: #334155; color: #e2e8f0; }
-        .profile-btn.active { border-color: #3b82f6; background: #172554; color: #3b82f6; }
-        .profile-btn[data-pid="pure_pa"].active { border-color: #a855f7; background: #2d1b4e; color: #a855f7; }
-        .profile-btn[data-pid="legacy"].active { border-color: #f59e0b; background: #292308; color: #f59e0b; }
-        .profile-btn[data-pid="all"].active { border-color: #22c55e; background: #052e16; color: #22c55e; }
+<!-- METRICS CARDS -->
+<div class="metrics-grid" id="metrics-grid">
+  <div class="card card-sm" data-metric="trades">
+    <div class="card-label">Trades</div>
+    <div class="card-value neutral" id="m-trades">147</div>
+    <div class="card-sub" id="m-trades-sub">90 derniers jours</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Taux de réussite</div>
+    <div class="card-value positive" id="m-winrate">64.6%</div>
+    <div class="card-sub" id="m-winrate-sub">95 gains</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Expectancy</div>
+    <div class="card-value positive" id="m-exp">+0.42R</div>
+    <div class="card-sub">moyenne par trade</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Profit Factor</div>
+    <div class="card-value positive" id="m-pf">2.14</div>
+    <div class="card-sub">P bruts / P pertes</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Max Drawdown</div>
+    <div class="card-value negative" id="m-dd">-8.3%</div>
+    <div class="card-sub">sommet à creux</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">R:R Moyen</div>
+    <div class="card-value neutral" id="m-rr">1:2.3</div>
+    <div class="card-sub">réalisé moyen</div>
+  </div>
+</div>
 
-        /* ALERTES */
-        .alert-box {
-            background: #2d0b0b; border: 1px solid #ef4444; border-radius: 10px;
-            padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
-        }
-        .alert-box .alert-icon { font-size: 20px; }
-        .alert-box .alert-text { font-size: 13px; color: #fca5a5; }
-        .alert-box .alert-profile { font-weight: 700; color: #ef4444; }
-
-        /* CARDS STATS */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
-        .stat-card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 18px; text-align: center; }
-        .stat-card .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-        .stat-card .value { font-size: 26px; font-weight: 700; color: #f1f5f9; }
-        .stat-card .value.green { color: #22c55e; }
-        .stat-card .value.red { color: #ef4444; }
-        .stat-card .value.blue { color: #3b82f6; }
-        .stat-card .value.purple { color: #a855f7; }
-        .stat-card .sub { font-size: 11px; color: #475569; margin-top: 4px; }
-
-        /* SECTION TITLES */
-        .section-title { font-size: 15px; font-weight: 600; color: #94a3b8; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
-
-        /* TWO COLUMNS */
-        .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
-        @media (max-width: 900px) { .two-cols { grid-template-columns: 1fr; } }
-        .card { background: #111827; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
-
-        /* EQUITY CURVE */
-        .equity-chart { width: 100%; height: 180px; position: relative; margin-top: 12px; }
-        canvas { width: 100% !important; }
-
-        /* TABLE */
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { text-align: left; padding: 10px 12px; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #1e293b; }
-        td { padding: 10px 12px; border-bottom: 1px solid #0f172a; color: #cbd5e1; }
-        tr:hover td { background: #1e293b20; }
-
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-        .badge.win { background: #14532d; color: #22c55e; }
-        .badge.loss { background: #450a0a; color: #ef4444; }
-        .badge.buy { background: #172554; color: #3b82f6; }
-        .badge.sell { background: #2d1b4e; color: #a78bfa; }
-        .badge.ict { background: #172554; color: #3b82f6; }
-        .badge.pure_pa { background: #2d1b4e; color: #a855f7; }
-        .badge.legacy { background: #292308; color: #f59e0b; }
-
-        .pnl.pos { color: #22c55e; }
-        .pnl.neg { color: #ef4444; }
-
-        /* PAR PAIRE */
-        .pair-bar { height: 6px; background: #1e293b; border-radius: 3px; margin-top: 4px; overflow: hidden; }
-        .pair-bar-fill { height: 100%; border-radius: 3px; background: #3b82f6; transition: width 0.5s; }
-        .pair-bar-fill.green { background: #22c55e; }
-        .pair-bar-fill.red { background: #ef4444; }
-
-        /* PROFILE COMPARISON TABLE */
-        .comparison-table td:first-child { font-weight: 600; color: #94a3b8; }
-        .comparison-table .ict { color: #3b82f6; }
-        .comparison-table .pure_pa { color: #a855f7; }
-        .comparison-table .legacy { color: #f59e0b; }
-
-        /* LOADING / NO DATA */
-        .loading { text-align: center; padding: 60px; color: #475569; }
-        .no-data { text-align: center; padding: 40px; color: #475569; font-size: 14px; }
-    </style>
-</head>
-
-<body>
-
-    <nav class="navbar">
-        <a href="/" class="brand">📈 ICTBot Pro</a>
-        <a href="/">Dashboard</a>
-        <a href="/performance" class="active">📊 Performance</a>
-        <a href="/settings">⚙️ Réglages</a>
-    </nav>
-
-    <div class="container">
-        <h1>📊 Performance — Paper Trading</h1>
-
-        <!-- SÉLECTEUR DE PROFIL -->
-        <div class="profile-selector">
-            <span>Profil :</span>
-            <button class="profile-btn active" data-pid="all" onclick="switchProfile('all')">🌐 Tous</button>
-            <button class="profile-btn" data-pid="ict_strict" onclick="switchProfile('ict_strict')">🎯 ICT Strict</button>
-            <button class="profile-btn" data-pid="pure_pa" onclick="switchProfile('pure_pa')">⚡ Pure PA</button>
-            <button class="profile-btn" data-pid="legacy" onclick="switchProfile('legacy')">🗂 Legacy</button>
-        </div>
-
-        <!-- ALERTES EXPECTANCY NÉGATIVE -->
-        <div id="alerts-container"></div>
-
-        <div id="loading" class="loading">Chargement des statistiques...</div>
-        <div id="content" style="display:none">
-
-            <!-- KPIs -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="label">Trades Fermés</div>
-                    <div class="value blue" id="kpi-closed">—</div>
-                    <div class="sub" id="kpi-active">— actifs</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Win Rate</div>
-                    <div class="value" id="kpi-winrate">—</div>
-                    <div class="sub" id="kpi-wl">— W / — L</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Expectancy</div>
-                    <div class="value" id="kpi-expectancy">—</div>
-                    <div class="sub">pips/trade</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Profit Factor</div>
-                    <div class="value" id="kpi-pf">—</div>
-                    <div class="sub">gains/pertes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">PnL Total (pips)</div>
-                    <div class="value" id="kpi-pips">—</div>
-                    <div class="sub" id="kpi-avg">moy. — pips/trade</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Max Drawdown</div>
-                    <div class="value red" id="kpi-dd">—</div>
-                    <div class="sub">R:R moy. <span id="kpi-rr">—</span></div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Meilleur Trade</div>
-                    <div class="value green" id="kpi-best">—</div>
-                    <div class="sub" id="kpi-best-pair">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Pire Trade</div>
-                    <div class="value red" id="kpi-worst">—</div>
-                    <div class="sub" id="kpi-worst-pair">—</div>
-                </div>
-            </div>
-
-            <!-- Equity curve + Par paire -->
-            <div class="two-cols">
-                <div class="card">
-                    <div class="section-title">📈 Courbe de Capital (pips cumulés)</div>
-                    <div class="equity-chart">
-                        <canvas id="equityCanvas"></canvas>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="section-title">🎯 Performance par Paire</div>
-                    <div id="by-pair-table"></div>
-                </div>
-            </div>
-
-            <!-- Comparaison par profil (visible en mode "Tous") -->
-            <div class="card" id="profile-comparison-card" style="margin-bottom: 28px">
-                <div class="section-title">⚖️ Comparaison par Profil</div>
-                <div id="profile-comparison"></div>
-            </div>
-
-            <!-- Historique récent -->
-            <div class="card" style="margin-bottom: 28px">
-                <div class="section-title">🕐 20 Derniers Trades Fermés</div>
-                <div id="recent-table">
-                    <div class="no-data">Aucun trade fermé pour l'instant</div>
-                </div>
-            </div>
-
-            <!-- Direction + Raisons -->
-            <div class="two-cols">
-                <div class="card">
-                    <div class="section-title">📊 Répartition BUY / SELL</div>
-                    <div id="direction-stats" style="padding: 16px 0;"></div>
-                </div>
-                <div class="card">
-                    <div class="section-title">🔒 Raisons de Fermeture</div>
-                    <div id="reason-stats" style="padding: 16px 0;"></div>
-                </div>
-            </div>
-
-        </div>
-        <div id="no-data" style="display:none" class="no-data">
-            <p style="font-size:48px; margin-bottom:16px">📭</p>
-            <p>Aucun trade fermé pour l'instant.</p>
-            <p style="margin-top:8px; color:#334155">Les statistiques apparaîtront dès que le bot aura fermé son premier trade.</p>
-        </div>
+<!-- EQUITY CURVE CHART -->
+<div class="chart-card">
+  <div class="chart-header">
+    <span class="chart-title">Courbe de Capital</span>
+    <div class="chart-legend" id="equity-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#3B82F6"></span> Tous</div>
     </div>
+  </div>
+  <div class="chart-canvas-wrap">
+    <canvas id="equity-chart"></canvas>
+  </div>
+</div>
 
-    <script>
-        let _fullData = null;
-        let _currentProfile = 'all';
+<!-- TRADES HISTORY TABLE -->
+<div class="section-header">
+  <span class="section-title">Historique des trades</span>
+  <span class="section-badge" id="history-count">147 trades</span>
+</div>
+<div class="table-wrapper">
+  <table id="history-table">
+    <thead>
+      <tr>
+        <th data-col="date">Date<span class="sort-icon"></span></th>
+        <th data-col="pair">Paire<span class="sort-icon"></span></th>
+        <th data-col="profile">Profil<span class="sort-icon"></span></th>
+        <th data-col="dir">Dir<span class="sort-icon"></span></th>
+        <th data-col="entry">Entrée<span class="sort-icon"></span></th>
+        <th data-col="exit">Sortie<span class="sort-icon"></span></th>
+        <th data-col="pnl">PnL (R)<span class="sort-icon"></span></th>
+        <th data-col="conv">Convergence<span class="sort-icon"></span></th>
+        <th data-col="ai">Décision LLM<span class="sort-icon"></span></th>
+      </tr>
+    </thead>
+    <tbody id="history-tbody">
+      <!-- Rows generated by JS filter from mock data -->
+    </tbody>
+  </table>
+</div>
 
-        const PROFILE_LABELS = { all: '🌐 Tous', ict_strict: '🎯 ICT Strict', pure_pa: '⚡ Pure PA', legacy: '🗂 Legacy' };
-        const PROFILE_COLORS = { ict_strict: '#3b82f6', pure_pa: '#a855f7', legacy: '#f59e0b', all: '#22c55e' };
+{% endblock %}
 
-        async function loadStats() {
-            try {
-                const res = await fetch('/api/performance_stats');
-                _fullData = await res.json();
-                document.getElementById('loading').style.display = 'none';
-                renderAlerts(_fullData.expectancy_alerts || []);
-                renderProfile(_currentProfile);
-            } catch (e) {
-                document.getElementById('loading').textContent = 'Erreur de chargement: ' + e.message;
-            }
-        }
+{% block scripts %}
+<script>
+/* =============================================
+   PERFORMANCE PAGE — Données dynamiques
+   Endpoints : /api/performance_stats
+               /api/paper_history
+   ============================================= */
 
-        function getDataForProfile(pid) {
-            if (pid === 'all') return _fullData;
-            const p = (_fullData.by_profile || {})[pid];
-            if (!p) return null;
-            return {
-                ..._fullData,
-                closed_trades: p.closed_trades,
-                active_trades: _fullData.active_trades,
-                winners: p.winners,
-                losers: p.losers,
-                win_rate: p.win_rate,
-                total_pnl_pips: p.total_pnl_pips,
-                total_pnl_money: p.total_pnl_money,
-                avg_pnl_pips: p.avg_pnl_pips,
-                expectancy: p.expectancy,
-                profit_factor: p.profit_factor,
-                max_drawdown: p.max_drawdown,
-                rr_avg: p.rr_avg,
-                best_trade: p.best_trade,
-                worst_trade: p.worst_trade,
-                equity_curve: p.equity_curve,
-                by_pair: p.by_pair,
-                by_direction: p.by_direction,
-                by_reason: p.by_reason,
-                recent_trades: p.recent_trades,
-            };
-        }
+const PROFILE_COLORS = {
+  'All':        '#3B82F6',
+  'ICT Strict': '#7C3AED',
+  'Pure PA':    '#059669',
+  'Elliott':    '#2563EB',
+  'VSA':        '#D97706',
+  'Legacy':     '#F59E0B',
+};
+const PROFILE_BADGE = {
+  'ICT Strict':'badge-ict','Pure PA':'badge-pa',
+  'Elliott':'badge-elliott','VSA':'badge-vsa','Legacy':'badge-legacy'
+};
 
-        function switchProfile(pid) {
-            _currentProfile = pid;
-            document.querySelectorAll('.profile-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.pid === pid);
-            });
-            if (_fullData) renderProfile(pid);
-        }
+let _fullStats    = null;  // retour de /api/performance_stats
+let _allTrades    = [];    // retour de /api/paper_history
+let currentProfile = 'All';
+let equityChart    = null;
 
-        function renderProfile(pid) {
-            const d = getDataForProfile(pid);
+/* ---- Charge stats + historique ---- */
+async function loadPerfData() {
+  try {
+    const [statsRes, histRes] = await Promise.all([
+      fetch('/api/performance_stats'),
+      fetch('/api/paper_history'),
+    ]);
+    if (statsRes.ok) _fullStats = await statsRes.json();
+    if (histRes.ok)  _allTrades  = await histRes.json();
+  } catch(e) {
+    console.error('Erreur chargement perf:', e);
+  }
+  applyProfile(currentProfile);
+}
 
-            // Tableau comparaison — visible uniquement en mode "Tous"
-            document.getElementById('profile-comparison-card').style.display = pid === 'all' ? '' : 'none';
-            if (pid === 'all') renderComparison(_fullData.by_profile || {});
+/* ---- Applique le profil sélectionné ---- */
+function applyProfile(profile) {
+  currentProfile = profile;
 
-            if (!d || d.closed_trades === 0) {
-                document.getElementById('content').style.display = 'none';
-                document.getElementById('no-data').style.display = 'block';
-                return;
-            }
-            document.getElementById('content').style.display = 'block';
-            document.getElementById('no-data').style.display = 'none';
+  /* 1. Métriques cards */
+  let stats = null;
+  if (_fullStats) {
+    const s = profile === 'All' ? _fullStats : (_fullStats.by_profile && _fullStats.by_profile[profile]);
+    stats = s || _fullStats;
+  }
+  if (stats) {
+    const wr    = stats.win_rate    ?? 0;
+    const exp   = stats.expectancy  ?? 0;
+    const pf    = stats.profit_factor ?? 0;
+    const dd    = stats.max_drawdown ?? 0;
+    const rr    = stats.rr_avg      ?? 0;
+    const n     = stats.closed_trades ?? _allTrades.filter(t => t.status === 'closed').length;
+    const wins  = stats.winners     ?? 0;
 
-            // KPIs
-            const wr = d.win_rate;
-            document.getElementById('kpi-closed').textContent = d.closed_trades;
-            document.getElementById('kpi-active').textContent = `${d.active_trades} actifs`;
-            document.getElementById('kpi-winrate').textContent = `${wr}%`;
-            document.getElementById('kpi-winrate').className = `value ${wr >= 50 ? 'green' : 'red'}`;
-            document.getElementById('kpi-wl').textContent = `${d.winners} W / ${d.losers} L`;
+    document.getElementById('m-trades').textContent     = n;
+    document.getElementById('m-trades-sub').textContent = `${wins} gains`;
+    document.getElementById('m-winrate').textContent    = `${wr}%`;
+    document.getElementById('m-winrate-sub').textContent= `${wins} gains`;
+    const expEl = document.getElementById('m-exp');
+    expEl.textContent  = `${exp >= 0 ? '+' : ''}${exp}R`;
+    expEl.className    = `card-value ${exp >= 0 ? 'positive' : 'negative'}`;
+    document.getElementById('m-pf').textContent  = pf || '--';
+    document.getElementById('m-dd').textContent  = dd ? `-${Math.abs(dd).toFixed(1)}` : '--';
+    document.getElementById('m-rr').textContent  = rr ? `1:${rr}` : '--';
 
-            const exp = d.expectancy || 0;
-            document.getElementById('kpi-expectancy').textContent = `${exp >= 0 ? '+' : ''}${exp}`;
-            document.getElementById('kpi-expectancy').className = `value ${exp >= 0 ? 'green' : 'red'}`;
+    /* Alerte expectancy négative */
+    const banner = document.getElementById('perf-alert-banner');
+    banner.style.display = (exp < 0 || profile === 'All') ? 'flex' : 'none';
+  }
 
-            const pf = d.profit_factor || 0;
-            document.getElementById('kpi-pf').textContent = pf;
-            document.getElementById('kpi-pf').className = `value ${pf >= 1 ? 'green' : 'red'}`;
+  /* 2. Historique table */
+  renderHistoryTable(profile);
 
-            document.getElementById('kpi-pips').textContent = `${d.total_pnl_pips >= 0 ? '+' : ''}${d.total_pnl_pips}`;
-            document.getElementById('kpi-pips').className = `value ${d.total_pnl_pips >= 0 ? 'green' : 'red'}`;
-            document.getElementById('kpi-avg').textContent = `moy. ${d.avg_pnl_pips >= 0 ? '+' : ''}${d.avg_pnl_pips} pips/trade`;
+  /* 3. Courbe de capital */
+  buildEquityChart(profile);
+}
 
-            document.getElementById('kpi-dd').textContent = `-${d.max_drawdown || 0}`;
-            document.getElementById('kpi-rr').textContent = d.rr_avg || '—';
+/* ---- Table Historique ---- */
+function renderHistoryTable(profile) {
+  const tbody = document.getElementById('history-tbody');
+  const closed = _allTrades.filter(t => t.status === 'closed');
+  const rows   = profile === 'All' ? closed : closed.filter(t => {
+    const p = resolveProfile(t);
+    return p.toLowerCase().includes(profile.toLowerCase());
+  });
 
-            if (d.best_trade) {
-                document.getElementById('kpi-best').textContent = `+${d.best_trade.pnl_pips} pips`;
-                document.getElementById('kpi-best-pair').textContent = `${d.best_trade.pair} ${d.best_trade.direction}`;
-            }
-            if (d.worst_trade) {
-                document.getElementById('kpi-worst').textContent = `${d.worst_trade.pnl_pips} pips`;
-                document.getElementById('kpi-worst-pair').textContent = `${d.worst_trade.pair} ${d.worst_trade.direction}`;
-            }
+  document.getElementById('history-count').textContent = `${rows.length} trades`;
 
-            // Equity curve — en mode "Tous" on overlay les courbes par profil
-            if (pid === 'all' && _fullData.by_profile && Object.keys(_fullData.by_profile).length > 1) {
-                drawEquityCurveMulti(_fullData.by_profile);
-            } else {
-                drawEquityCurve(d.equity_curve, PROFILE_COLORS[pid] || '#3b82f6');
-            }
+  tbody.innerHTML = rows.map(t => {
+    const profile = resolveProfile(t);
+    const profClass = PROFILE_BADGE[profile] || 'badge-legacy';
+    const dirClass = (t.direction === 'LONG' || t.direction === 'BUY') ? 'badge-long' : 'badge-short';
+    const pnl = t.pnl_pips ?? 0;
+    const pnlS = `${pnl >= 0 ? '+' : ''}${parseFloat(pnl).toFixed(1)}`;
+    const pnlClass = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    const conv  = t.convergence_state ?? '--';
+    const convCls = conv === 'Aligned' || conv.toLowerCase().includes('align') ? 'badge-aligned' : 'badge-independent';
+    const ai    = t.llm_decision?.decision ?? '--';
+    const aiCls = { 'approve':'badge-approved','soft_approve':'badge-soft-approved','reject':'badge-rejected' }[ai] || '';
+    const openDate = (t.opened_at ?? t.created_at ?? '').split(' ')[0] || '--';
+    return `<tr>
+      <td class="td-mono">${openDate}</td>
+      <td class="td-primary">${t.pair}</td>
+      <td><span class="badge ${profClass}">${profile}</span></td>
+      <td><span class="badge ${dirClass}">${t.direction}</span></td>
+      <td class="td-mono">${t.entry ?? '-'}</td>
+      <td class="td-mono">${t.close_price ?? '-'}</td>
+      <td class="${pnlClass}">${pnlS} pips</td>
+      <td><span class="badge ${convCls}">${conv}</span></td>
+      <td><span class="badge ${aiCls}">${ai.replace('_',' ')}</span></td>
+    </tr>`;
+  }).join('');
 
-            // Par paire
-            const pairDiv = document.getElementById('by-pair-table');
-            const pairs = Object.entries(d.by_pair).sort((a, b) => b[1].pnl_pips - a[1].pnl_pips);
-            if (pairs.length === 0) {
-                pairDiv.innerHTML = '<div class="no-data">Aucune donnée</div>';
-            } else {
-                const maxAbs = Math.max(...pairs.map(([, v]) => Math.abs(v.pnl_pips)), 1);
-                pairDiv.innerHTML = `<table>
-                    <tr><th>Paire</th><th>Trades</th><th>Win%</th><th>PnL pips</th></tr>
-                    ${pairs.map(([pair, v]) => `
-                    <tr>
-                        <td><strong>${pair}</strong></td>
-                        <td>${v.trades}</td>
-                        <td class="${v.win_rate >= 50 ? 'pnl pos' : 'pnl neg'}">${v.win_rate}%</td>
-                        <td>
-                            <span class="${v.pnl_pips >= 0 ? 'pnl pos' : 'pnl neg'}">${v.pnl_pips >= 0 ? '+' : ''}${v.pnl_pips}</span>
-                            <div class="pair-bar"><div class="pair-bar-fill ${v.pnl_pips >= 0 ? 'green' : 'red'}" style="width:${Math.abs(v.pnl_pips) / maxAbs * 100}%"></div></div>
-                        </td>
-                    </tr>`).join('')}
-                </table>`;
-            }
+  initTableSort('history-table');
+}
 
-            // Trades récents
-            if (d.recent_trades && d.recent_trades.length > 0) {
-                document.getElementById('recent-table').innerHTML = `
-                <table>
-                    <tr>
-                        <th>Paire</th><th>Dir.</th><th>Profil</th><th>TF</th>
-                        <th>Entrée</th><th>Score</th>
-                        <th>Fermeture</th><th>PnL pips</th>
-                    </tr>
-                    ${d.recent_trades.map(t => `
-                    <tr>
-                        <td><strong>${t.pair}</strong></td>
-                        <td><span class="badge ${t.direction === 'BUY' || t.direction === 'ACHAT' ? 'buy' : 'sell'}">${t.direction}</span></td>
-                        <td><span class="badge ${t.profile_id || 'legacy'}">${t.profile_id || 'legacy'}</span></td>
-                        <td>${t.timeframe || '—'}</td>
-                        <td>${t.entry}</td>
-                        <td>${t.score}/100</td>
-                        <td><span class="badge ${t.pnl_pips > 0 ? 'win' : 'loss'}">${t.close_reason || '?'}</span></td>
-                        <td class="${t.pnl_pips >= 0 ? 'pnl pos' : 'pnl neg'}">${t.pnl_pips >= 0 ? '+' : ''}${t.pnl_pips}</td>
-                    </tr>`).join('')}
-                </table>`;
-            }
+/* ---- Courbe de capital depuis equity_curve ---- */
+function buildEquityChart(profile) {
+  const closed = _allTrades.filter(t => t.status === 'closed');
+  const byProf = profile === 'All' ? [null] : [profile];
 
-            // Direction
-            const total = (d.by_direction.BUY + d.by_direction.SELL) || 1;
-            document.getElementById('direction-stats').innerHTML = `
-            <div style="display:flex; gap:24px; justify-content:center; padding:16px">
-                <div style="text-align:center">
-                    <div style="font-size:32px; font-weight:700; color:#3b82f6">${d.by_direction.BUY || 0}</div>
-                    <div style="color:#64748b; font-size:13px">BUY (${Math.round((d.by_direction.BUY || 0) / total * 100)}%)</div>
-                </div>
-                <div style="text-align:center">
-                    <div style="font-size:32px; font-weight:700; color:#a78bfa">${d.by_direction.SELL || 0}</div>
-                    <div style="color:#64748b; font-size:13px">SELL (${Math.round((d.by_direction.SELL || 0) / total * 100)}%)</div>
-                </div>
-            </div>`;
+  const ctx = document.getElementById('equity-chart').getContext('2d');
+  if (equityChart) equityChart.destroy();
 
-            // Raisons fermeture
-            document.getElementById('reason-stats').innerHTML = Object.entries(d.by_reason || {})
-                .map(([r, n]) => `
-            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #1e293b; font-size:14px">
-                <span style="color:#94a3b8">${r}</span>
-                <span style="font-weight:600; color:#f1f5f9">${n} trades</span>
-            </div>`).join('');
-        }
+  // Construire une courbe cumulée maison depuis paper_history
+  function buildCurve(filter) {
+    const subset = filter ? closed.filter(t => resolveProfile(t).toLowerCase().includes(filter.toLowerCase())) : closed;
+    const sorted = [...subset].sort((a,b) => (a.closed_at??'').localeCompare(b.closed_at??''));
+    let cumul = 0;
+    return sorted.map(t => { cumul += (t.pnl_pips || 0); return { x: (t.closed_at||'').split(' ')[0], y: parseFloat(cumul.toFixed(1)) }; });
+  }
 
-        function renderAlerts(alerts) {
-            const container = document.getElementById('alerts-container');
-            if (!alerts || alerts.length === 0) { container.innerHTML = ''; return; }
-            container.innerHTML = alerts.map(a => `
-            <div class="alert-box">
-                <div class="alert-icon">⚠️</div>
-                <div class="alert-text">
-                    <span class="alert-profile">${PROFILE_LABELS[a.profile_id] || a.profile_id}</span>
-                    — ${a.message}
-                    <span style="color:#64748b; font-size:11px; margin-left:8px">(${a.trades_count} trades analysés)</span>
-                </div>
-            </div>`).join('');
-        }
+  let datasets = [];
+  let legendHtml = '';
 
-        function renderComparison(byProfile) {
-            const pids = Object.keys(byProfile);
-            if (pids.length === 0) {
-                document.getElementById('profile-comparison').innerHTML = '<div class="no-data">Aucun profil avec des trades fermés</div>';
-                return;
-            }
-            const metrics = [
-                { key: 'closed_trades', label: 'Trades' },
-                { key: 'win_rate', label: 'Win Rate', suffix: '%' },
-                { key: 'expectancy', label: 'Expectancy', suffix: ' pips' },
-                { key: 'profit_factor', label: 'Profit Factor' },
-                { key: 'max_drawdown', label: 'Max Drawdown', suffix: ' pips' },
-                { key: 'rr_avg', label: 'R:R Moy.' },
-                { key: 'total_pnl_pips', label: 'PnL Total', suffix: ' pips' },
-            ];
-            document.getElementById('profile-comparison').innerHTML = `
-            <table class="comparison-table">
-                <tr>
-                    <th>Métrique</th>
-                    ${pids.map(p => `<th style="color:${PROFILE_COLORS[p] || '#94a3b8'}">${PROFILE_LABELS[p] || p}</th>`).join('')}
-                </tr>
-                ${metrics.map(m => `<tr>
-                    <td>${m.label}</td>
-                    ${pids.map(p => {
-                        const v = byProfile[p][m.key];
-                        const isGood = m.key === 'max_drawdown' ? false : v > 0;
-                        return `<td class="${m.key !== 'closed_trades' ? (isGood ? 'pnl pos' : 'pnl neg') : ''}">${v !== undefined ? v + (m.suffix || '') : '—'}</td>`;
-                    }).join('')}
-                </tr>`).join('')}
-            </table>`;
-        }
+  if (profile === 'All') {
+    const profiles = ['ICT Strict','Pure PA','Elliott','VSA','Legacy'];
+    datasets = profiles.map(p => ({
+      label: p,
+      data: buildCurve(p).map(d => d.y),
+      borderColor: PROFILE_COLORS[p],
+      backgroundColor: 'transparent',
+      borderWidth: 1.5, pointRadius: 0, tension: 0.3,
+    }));
+    legendHtml = profiles.map(p => `<div class="legend-item"><span class="legend-dot" style="background:${PROFILE_COLORS[p]}"></span>${p}</div>`).join('');
+    // labels = union of all dates
+    var labels = [...new Set(closed.map(t => (t.closed_at||'').split(' ')[0]).filter(Boolean))].sort();
+    datasets.forEach(d => { while (d.data.length < labels.length) d.data.push(null); });
+  } else {
+    const pts = buildCurve(profile);
+    var labels = pts.map(d => d.x);
+    datasets = [{ label: profile, data: pts.map(d => d.y), borderColor: PROFILE_COLORS[profile], fill:true, backgroundColor: (PROFILE_COLORS[profile]||'#3B82F6')+'18', borderWidth:2, pointRadius:0, tension:0.3 }];
+    legendHtml = `<div class="legend-item"><span class="legend-dot" style="background:${PROFILE_COLORS[profile]}"></span>${profile}</div>`;
+  }
 
-        function drawEquityCurve(data, color) {
-            const canvas = document.getElementById('equityCanvas');
-            if (!canvas || !data || data.length === 0) return;
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth || 500;
-            canvas.height = 160;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            _drawSingleCurve(ctx, data.map(d => d.cumul_pips), canvas.width, canvas.height, color || '#3b82f6', true);
-        }
+  document.getElementById('equity-legend').innerHTML = legendHtml;
 
-        function drawEquityCurveMulti(byProfile) {
-            const canvas = document.getElementById('equityCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth || 500;
-            canvas.height = 160;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const allValues = Object.values(byProfile).flatMap(p => (p.equity_curve || []).map(e => e.cumul_pips));
-            if (allValues.length === 0) return;
-            const globalMin = Math.min(...allValues, 0);
-            const globalMax = Math.max(...allValues, 1);
-            Object.entries(byProfile).forEach(([pid, p]) => {
-                if (p.equity_curve && p.equity_curve.length >= 2) {
-                    _drawSingleCurve(ctx, p.equity_curve.map(e => e.cumul_pips), canvas.width, canvas.height,
-                        PROFILE_COLORS[pid] || '#3b82f6', false, globalMin, globalMax);
-                }
-            });
-            // Légende
-            const pids = Object.keys(byProfile);
-            ctx.font = '11px Segoe UI';
-            pids.forEach((pid, i) => {
-                ctx.fillStyle = PROFILE_COLORS[pid] || '#3b82f6';
-                ctx.fillRect(canvas.width - 120, 10 + i * 18, 12, 3);
-                ctx.fillText(PROFILE_LABELS[pid] || pid, canvas.width - 104, 15 + i * 18);
-            });
-        }
+  equityChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor:'#1A1D2E', borderColor:'#2A2D3E', borderWidth:1, titleColor:'#E8EAF6', bodyColor:'#8892AA', callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y} pips` } } },
+      scales: {
+        x: { grid: { color:'#2A2D3E' }, ticks: { color:'#515875', font:{size:11} } },
+        y: { grid: { color:'#2A2D3E' }, ticks: { color:'#515875', font:{size:11}, callback: v => `${v} pips` } },
+      }
+    }
+  });
+}
 
-        function _drawSingleCurve(ctx, values, w, h, color, withFill, forceMin, forceMax) {
-            const pad = { top: 10, right: 10, bottom: 20, left: 40 };
-            const min = forceMin !== undefined ? forceMin : Math.min(...values, 0);
-            const max = forceMax !== undefined ? forceMax : Math.max(...values, 1);
-            const range = max - min || 1;
-            if (values.length < 2) return;
-            const getX = i => pad.left + (i / (values.length - 1)) * (w - pad.left - pad.right);
-            const getY = v => h - pad.bottom - ((v - min) / range) * (h - pad.top - pad.bottom);
-            const zeroY = getY(0);
-            // Zero line
-            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
-            ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(w - pad.right, zeroY); ctx.stroke();
-            ctx.setLineDash([]);
-            // Fill
-            if (withFill) {
-                const lastVal = values[values.length - 1];
-                const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-                if (lastVal >= 0) { gradient.addColorStop(0, color + '4d'); gradient.addColorStop(1, color + '00'); }
-                else { gradient.addColorStop(0, '#ef44444d'); gradient.addColorStop(1, '#ef444400'); }
-                ctx.beginPath();
-                ctx.moveTo(getX(0), getY(values[0]));
-                values.forEach((v, i) => { if (i > 0) ctx.lineTo(getX(i), getY(v)); });
-                ctx.lineTo(getX(values.length - 1), h - pad.bottom);
-                ctx.lineTo(getX(0), h - pad.bottom);
-                ctx.closePath(); ctx.fillStyle = gradient; ctx.fill();
-            }
-            // Line
-            ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
-            ctx.moveTo(getX(0), getY(values[0]));
-            values.forEach((v, i) => { if (i > 0) ctx.lineTo(getX(i), getY(v)); });
-            ctx.stroke();
-            // Y labels
-            if (withFill) {
-                ctx.fillStyle = '#475569'; ctx.font = '11px Segoe UI'; ctx.textAlign = 'right';
-                ctx.fillText(max.toFixed(0), pad.left - 4, pad.top + 4);
-                ctx.fillText('0', pad.left - 4, zeroY + 4);
-                ctx.fillText(min.toFixed(0), pad.left - 4, h - pad.bottom);
-            }
-        }
+function resolveProfile(t) {
+  if (t.profile_id) return t.profile_id;
+  if (t.narrative && t.narrative.includes('MSS')) return 'Pure PA';
+  return 'Unknown';
+}
 
-        loadStats();
-        setInterval(loadStats, 60000);
-    </script>
-</body>
+// Profile filter wiring
+document.querySelectorAll('#profile-filters .profile-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#profile-filters .profile-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyProfile(btn.dataset.profile);
+  });
+});
 
-</html>
+// Init
+loadPerfData();
+</script>
+{% endblock %}

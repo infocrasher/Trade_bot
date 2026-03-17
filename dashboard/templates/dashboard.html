@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — TakeOption{% endblock %}
+
+{% block content %}
+
+<!-- SUMMARY CARDS -->
+<div class="cards-row">
+  <div class="card card-sm">
+    <div class="card-label">Trades ouverts</div>
+    <div class="card-value neutral" id="sum-open-trades">-</div>
+    <div class="card-sub" id="sum-open-trades-sub">En attente...</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">PnL du jour</div>
+    <div class="card-value neutral" id="sum-day-pnl">-</div>
+    <div class="card-sub" id="sum-day-pnl-sub">En attente...</div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Profils actifs</div>
+    <div class="card-value neutral">4</div>
+    <div class="card-sub">
+      <span class="badge badge-ict">ICT</span>
+      <span class="badge badge-pa">PA</span>
+      <span class="badge badge-elliott">Elliott</span>
+      <span class="badge badge-vsa" style="padding: 1px 4px; font-size: 10px; border-radius: 4px;">VSA</span>
+    </div>
+  </div>
+  <div class="card card-sm">
+    <div class="card-label">Taux de réussite (J)</div>
+    <div class="card-value neutral" id="sum-win-rate">-</div>
+    <div class="card-sub" id="sum-win-rate-sub">En attente...</div>
+  </div>
+</div>
+
+<!-- MAIN GRID: trades table + signals panel -->
+<div class="dashboard-grid">
+
+  <!-- LEFT: Active Trades -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">Trades actifs</span>
+      <span class="section-badge" id="badge-active-trades-count">0</span>
+    </div>
+    <div class="table-wrapper">
+      <table id="active-trades-table">
+        <thead>
+          <tr>
+            <th data-col="pair">Paire<span class="sort-icon"></span></th>
+            <th data-col="profile">Profil<span class="sort-icon"></span></th>
+            <th data-col="dir">Dir<span class="sort-icon"></span></th>
+            <th data-col="entry">Entrée<span class="sort-icon"></span></th>
+            <th data-col="pnl">PnL<span class="sort-icon"></span></th>
+            <th data-col="sl">SL<span class="sort-icon"></span></th>
+            <th data-col="tp">TP<span class="sort-icon"></span></th>
+            <th data-col="time">Temps<span class="sort-icon"></span></th>
+          </tr>
+        </thead>
+        <tbody id="active-trades-tbody">
+          <!-- Les lignes seront générées en JS -->
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT: Recent Signals -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">Signaux récents</span>
+      <span class="section-badge" id="badge-recent-signals">Historique</span>
+    </div>
+    <div class="table-wrapper">
+      <div class="signals-list">
+        <!-- Les signaux seront générés en JS -->
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /dashboard-grid -->
+
+<!-- SLIDE-IN PANEL POUR DÉTAILS TRADES/SIGNAUX -->
+<aside id="slide-in-panel" class="slide-in">
+  <div class="slide-in-header">
+    <div style="display: flex; flex-direction: column;">
+      <h2 id="slide-in-title">Détails</h2>
+      <span id="slide-in-subtitle" class="text-muted" style="font-size: 11px;">--</span>
+    </div>
+    <button id="slide-in-close" class="close-btn">&times;</button>
+  </div>
+  
+  <div class="slide-in-content">
+    
+    <!-- Section: Décision IA -->
+    <div class="detail-section" id="section-ai-decision" style="display:none;">
+      <h3 class="detail-title">Décision LLM</h3>
+      <div class="detail-row">
+        <span id="slide-ai-badge" class="badge">--</span>
+      </div>
+      <div id="slide-ai-reason" class="detail-text text-muted" style="margin-top: 8px;">--</div>
+    </div>
+    
+    <!-- Section: Gates & TTL -->
+    <div class="detail-section" id="section-gates">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="detail-title">Gates Actifs</h3>
+        <span id="slide-ttl" class="badge" style="display:none;">TTL: --</span>
+      </div>
+      <div id="slide-gates-container" class="gates-container">
+        <!-- Badges gates insérés via JS -->
+      </div>
+    </div>
+    
+    <!-- Section: Scores Profils -->
+    <div class="detail-section" id="section-scores" style="display:none;">
+      <h3 class="detail-title">Score par Axe</h3>
+      <div id="slide-scores-container" class="scores-container">
+        <!-- Barres de score insérées via JS -->
+      </div>
+    </div>
+    
+    <!-- Section: Convergence -->
+    <div class="detail-section" id="section-convergence">
+      <h3 class="detail-title">État de Convergence</h3>
+      <div id="slide-convergence-state" class="detail-text">--</div>
+      <div style="margin-top: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">
+        <span id="slide-profile-id">ID: --</span> | <span id="slide-profile-version">v--</span>
+      </div>
+    </div>
+    
+    <!-- Section: Narrative -->
+    <div class="detail-section" id="section-narrative">
+      <h3 class="detail-title">Narrative Logique</h3>
+      <div id="slide-narrative-text" class="detail-text narrative-box">
+        Aucune narrative fournie.
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  initTableSort('active-trades-table');
+</script>
+{% endblock %}

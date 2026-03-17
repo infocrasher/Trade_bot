@@ -428,7 +428,7 @@ class TwelveDataProvider:
             self._key_exhausted = {i: False for i in range(len(self._api_keys))}
             self._current_key_index = 0
             self._all_keys_exhausted = False
-            logger.info("[TwelveData] 🌅 Reset journalier — 4 clés disponibles")
+            logger.info(f"[TwelveData] 🌅 Reset journalier — {len(self._api_keys)} clés disponibles")
 
         cache_key = f"{symbol}_{timeframe}"
 

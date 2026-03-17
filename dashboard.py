@@ -2383,15 +2383,25 @@ def index():
     with state_lock:
         running = bot_state.get("status") in ("running", "waiting", "paused")
     return render_template(
-        "index.html",
+        "dashboard.html",
         pairs_by_group=ALL_PAIRS,
         bot_running=running,
     )
+
+@app.route("/postmortem")
+def page_postmortem():
+    """Page Post-Mortem (historique avancé)."""
+    return render_template("postmortem.html")
 
 @app.route("/performance")
 def page_performance():
     """Page des statistiques de performance du bot."""
     return render_template("performance.html")
+
+@app.route("/logs")
+def page_logs():
+    """Page de visualisation des logs temps réel."""
+    return render_template("logs.html")
 
 @app.route("/api/performance_stats")
 def api_performance_stats():
@@ -2631,7 +2641,7 @@ def api_analysis(order_id):
 
 @app.route("/settings")
 def page_settings():
-    return render_template("settings.html")
+    return render_template("settings.html", profiles=profiles_settings)
 
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
@@ -2664,6 +2674,29 @@ def api_get_settings():
         # Profiles Settings
         "profiles_settings": profiles_settings,
     })
+
+@app.route("/api/settings/save", methods=["POST"])
+def api_settings_save_single():
+    """Sauvegarde un paramètre unitaire envoyé depuis l'UI (Settings)."""
+    data = request.get_json(silent=True)
+    if not data or "key" not in data:
+        return jsonify({"ok": False, "error": "Missing key"}), 400
+
+    key = str(data["key"])
+    value = data.get("value")
+
+    # Mises à jour des profils ou du config
+    if key.startswith("ict_") or key.startswith("pa_"):
+        profiles_settings[key] = value
+        _save_profiles_settings()
+    else:
+        setattr(config, key, value)
+        _save_settings_override({key: value})
+        if key == "MIN_CONFIDENCE_SCORE":
+            with state_lock:
+                bot_state["min_score"] = value
+
+    return jsonify({"ok": True, "key": key, "value": value})
 
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
@@ -2824,20 +2857,41 @@ def api_state():
 
 @app.route("/api/paper_history")
 def api_paper_history():
-    """Retourne l'historique des paper trades."""
+    """Retourne les paper trades du jour (fallback : fichier le plus récent)."""
     paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
     if not os.path.exists(paper_dir):
         return jsonify([])
-    
-    all_trades = []
-    for filename in sorted(os.listdir(paper_dir)):
-        if filename.endswith(".json"):
-            filepath = os.path.join(paper_dir, filename)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    today_file = os.path.join(paper_dir, f"paper_{today}.json")
+
+    # Priorité 1 : fichier du jour
+    if os.path.exists(today_file):
+        try:
+            with open(today_file, "r") as f:
+                trades = json.load(f)
+            if trades:
+                return jsonify(trades)
+        except Exception:
+            pass
+
+    # Priorité 2 : fichier le plus récent disponible
+    candidates = sorted(
+        [f for f in os.listdir(paper_dir) if f.startswith("paper_") and f.endswith(".json")],
+        reverse=True
+    )
+    for filename in candidates:
+        filepath = os.path.join(paper_dir, filename)
+        try:
             with open(filepath, "r") as f:
                 trades = json.load(f)
-                all_trades.extend(trades)
-    
-    return jsonify(all_trades)
+            if trades:
+                return jsonify(trades)
+        except Exception:
+            continue
+
+    return jsonify([])
+
 
 
 @app.route("/api/paper_clear", methods=["POST"])

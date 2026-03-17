@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Logs — TakeOption{% endblock %}
+{% block page_title %}Logs Temps Réel{% endblock %}
+
+{% block head %}
+<style>
+/* ---------- LOGS PAGE STYLES ---------- */
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.logs-toolbar select,
+.logs-toolbar input {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.logs-toolbar button {
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.logs-toolbar button:hover { background: rgba(255,255,255,0.1); }
+.logs-toolbar .spacer { flex: 1; }
+.autoscroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.log-terminal {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 11.5px;
+  line-height: 1.65;
+  height: calc(100vh - 220px);
+  overflow-y: auto;
+  color: #c9d1d9;
+}
+.log-line { display: block; padding: 1px 0; white-space: pre-wrap; word-break: break-word; }
+.log-line.DEBUG   { color: #6e7681; }
+.log-line.INFO    { color: #c9d1d9; }
+.log-line.SUCCESS { color: #3fb950; }
+.log-line.WARNING { color: #d29922; }
+.log-line.ERROR   { color: #f85149; }
+.log-line .log-ts  { color: #8b949e; margin-right: 6px; }
+.log-line .log-lvl { font-weight: 700; margin-right: 6px; }
+.log-empty { color: #6e7681; text-align: center; padding: 40px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="logs-toolbar">
+  <!-- Filtre niveau -->
+  <select id="log-level-filter" onchange="applyFilters()">
+    <option value="">Tous les niveaux</option>
+    <option value="DEBUG">DEBUG</option>
+    <option value="INFO">INFO</option>
+    <option value="SUCCESS">SUCCESS</option>
+    <option value="WARNING">WARNING</option>
+    <option value="ERROR">ERROR</option>
+  </select>
+
+  <!-- Filtre paire -->
+  <input type="text" id="log-pair-filter" placeholder="Filtrer par paire (ex: EURUSD)" oninput="applyFilters()" style="width:180px;">
+
+  <!-- Filtre texte libre -->
+  <input type="text" id="log-text-filter" placeholder="Recherche libre..." oninput="applyFilters()" style="width:200px;">
+
+  <span class="spacer"></span>
+
+  <!-- Auto-scroll toggle -->
+  <label class="autoscroll-toggle">
+    <input type="checkbox" id="chk-autoscroll" checked>
+    Auto-scroll
+  </label>
+
+  <!-- Vider l'affichage -->
+  <button onclick="clearDisplay()">🗑 Vider l'affichage</button>
+
+  <!-- Statut polling -->
+  <span id="logs-status" style="font-size:11px;color:var(--text-muted);">En attente...</span>
+</div>
+
+<div class="log-terminal" id="log-terminal">
+  <div id="log-output">
+    <span class="log-empty">Chargement des logs...</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ==========================================
+   LOGS PAGE — Polling /api/logs toutes 2s
+   ========================================== */
+let _allLogs = [];
+let _logCleared = false;  /* Ne supprime pas le fichier, juste l'affichage */
+let _clearedBefore = null;
+
+async function fetchLogs() {
+  try {
+    const res = await fetch('/api/logs?n=300');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    /* data est une liste de {message, level, timestamp} ou juste de strings */
+    _allLogs = Array.isArray(data) ? data : [];
+
+    /* Si l'utilisateur a vidé l'affichage, ne montrer que les nouvelles lignes */
+    let toShow = _allLogs;
+    if (_logCleared && _clearedBefore !== null) {
+      toShow = _allLogs.filter(l => {
+        const ts = l.timestamp ?? l.ts ?? '';
+        return ts > _clearedBefore;
+      });
+    }
+
+    applyFilters(toShow);
+
+    const statusEl = document.getElementById('logs-status');
+    if (statusEl) statusEl.textContent = `${toShow.length} lignes · ${new Date().toLocaleTimeString('fr-FR')}`;
+  } catch (e) {
+    console.warn('Erreur /api/logs', e);
+  }
+}
+
+function applyFilters(source) {
+  const logs = source ?? _allLogs;
+  const levelF = document.getElementById('log-level-filter')?.value ?? '';
+  const pairF  = (document.getElementById('log-pair-filter')?.value ?? '').toUpperCase().trim();
+  const textF  = (document.getElementById('log-text-filter')?.value ?? '').toLowerCase().trim();
+
+  let filtered = logs.filter(l => {
+    const raw     = typeof l === 'string' ? l : (l.message ?? '');
+    const level   = (typeof l === 'object' ? (l.level ?? parseLevel(raw)) : parseLevel(raw));
+    const msg     = raw.toLowerCase();
+
+    if (levelF && level !== levelF) return false;
+    if (pairF  && !raw.toUpperCase().includes(pairF)) return false;
+    if (textF  && !msg.includes(textF)) return false;
+    return true;
+  });
+
+  renderLogs(filtered);
+}
+
+function parseLevel(line) {
+  if (/\bERROR\b/.test(line))   return 'ERROR';
+  if (/\bWARNING\b/.test(line)) return 'WARNING';
+  if (/\bSUCCESS\b/.test(line)) return 'SUCCESS';
+  if (/\bDEBUG\b/.test(line))   return 'DEBUG';
+  return 'INFO';
+}
+
+function renderLogs(logs) {
+  const out = document.getElementById('log-output');
+  if (!out) return;
+
+  if (logs.length === 0) {
+    out.innerHTML = `<span class="log-empty">Aucune ligne ne correspond aux filtres.</span>`;
+    return;
+  }
+
+  out.innerHTML = logs.map(l => {
+    const raw = typeof l === 'string' ? l : (l.message ?? String(l));
+    const ts  = typeof l === 'object' ? (l.timestamp ?? l.ts ?? '') : '';
+    const lvl = typeof l === 'object' ? (l.level ?? parseLevel(raw)) : parseLevel(raw);
+    const tsHTML  = ts ? `<span class="log-ts">${ts}</span>` : '';
+    const lvlHTML = `<span class="log-lvl">[${lvl}]</span>`;
+    /* Escaper le HTML pour éviter XSS */
+    const safeMsg = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<span class="log-line ${lvl}">${tsHTML}${lvlHTML}${safeMsg}</span>`;
+  }).join('');
+
+  /* Auto-scroll */
+  const chk = document.getElementById('chk-autoscroll');
+  const terminal = document.getElementById('log-terminal');
+  if (chk?.checked && terminal) {
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+}
+
+function clearDisplay() {
+  /* Note : ne supprime PA le fichier — seulement l'affichage */
+  _logCleared = true;
+  _clearedBefore = new Date().toISOString();
+  document.getElementById('log-output').innerHTML = `<span class="log-empty">Affichage vidé — les nouveaux logs apparaîtront ici.</span>`;
+  showToast('Affichage vidé (fichier conservé)', 'info');
+}
+
+/* Lancement du polling */
+fetchLogs();
+setInterval(fetchLogs, 2000);
+</script>
+{% endblock %}

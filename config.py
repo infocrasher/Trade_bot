@@ -41,12 +41,15 @@ GEMINI_VISION_API_KEY = os.getenv("GEMINI_VISION_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL   = "claude-3-5-sonnet-20241022"
 
-# Clé TwelveData (Rotation de 4 clés)
+# Clé TwelveData (Rotation de 7 clés)
 TWELVE_DATA_API_KEYS = [
     os.getenv("TWELVE_DATA_API_KEY_1", ""),
     os.getenv("TWELVE_DATA_API_KEY_2", ""),
     os.getenv("TWELVE_DATA_API_KEY_3", ""),
     os.getenv("TWELVE_DATA_API_KEY_4", ""),
+    os.getenv("TWELVE_DATA_API_KEY_5", ""),
+    os.getenv("TWELVE_DATA_API_KEY_6", ""),
+    os.getenv("TWELVE_DATA_API_KEY_7", ""),
 ]
 # Rétrocompatibilité
 TWELVE_DATA_API_KEY = TWELVE_DATA_API_KEYS[0] if TWELVE_DATA_API_KEYS else ""

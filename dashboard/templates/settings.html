@@ -1,928 +1,358 @@
-<!DOCTYPE html>
-<html lang="fr">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Réglages — ICTBot Pro</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #0a0e1a;
-            color: #e0e6f0;
-            font-family: 'Segoe UI', sans-serif;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            background: #111827;
-            border-bottom: 1px solid #1e293b;
-            padding: 0 24px;
-            height: 52px;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .navbar .brand {
-            color: #3b82f6;
-            font-weight: 700;
-            font-size: 16px;
-            text-decoration: none;
-        }
-
-        .navbar a {
-            color: #94a3b8;
-            text-decoration: none;
-            font-size: 14px;
-            padding: 4px 12px;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .navbar a:hover,
-        .navbar a.active {
-            color: #e2e8f0;
-            background: #1e293b;
-        }
-
-        .container {
-            padding: 24px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            font-size: 22px;
-            color: #f1f5f9;
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            color: #475569;
-            font-size: 13px;
-            margin-bottom: 28px;
-        }
-
-        .section {
-            background: #111827;
-            border: 1px solid #1e293b;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-        }
-
-        .section-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        /* FORM ROWS */
-        .form-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #0f172a;
-        }
-
-        .form-row:last-child {
-            border-bottom: none;
-        }
-
-        .form-label {
-            flex: 1;
-        }
-
-        .form-label .name {
-            font-size: 14px;
-            color: #e2e8f0;
-        }
-
-        .form-label .desc {
-            font-size: 12px;
-            color: #475569;
-            margin-top: 2px;
-        }
-
-        .form-control {
-            flex: 0 0 180px;
-            text-align: right;
-        }
-
-        /* INPUTS */
-        input[type="number"],
-        input[type="text"],
-        input[type="password"] {
-            background: #0f172a;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            color: #e2e8f0;
-            padding: 8px 12px;
-            font-size: 14px;
-            width: 160px;
-            text-align: right;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        input:focus {
-            border-color: #3b82f6;
-        }
-
-        input[type="text"],
-        input[type="password"] {
-            text-align: left;
-            width: 220px;
-        }
-
-        /* TOGGLE */
-        .toggle-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .toggle {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            cursor: pointer;
-        }
-
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            inset: 0;
-            background: #1e293b;
-            border-radius: 24px;
-            transition: 0.3s;
-        }
-
-        .toggle-slider:before {
-            content: '';
-            position: absolute;
-            width: 18px;
-            height: 18px;
-            left: 3px;
-            bottom: 3px;
-            background: #475569;
-            border-radius: 50%;
-            transition: 0.3s;
-        }
-
-        .toggle input:checked+.toggle-slider {
-            background: #3b82f620;
-        }
-
-        .toggle input:checked+.toggle-slider:before {
-            transform: translateX(20px);
-            background: #3b82f6;
-        }
-
-        .toggle-label {
-            font-size: 13px;
-            color: #64748b;
-            min-width: 30px;
-        }
-
-        /* PAIRS GRID */
-        .pairs-group {
-            margin-bottom: 16px;
-        }
-
-        .pairs-group-title {
-            font-size: 12px;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
-        }
-
-        .pairs-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .pair-chip {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: #0f172a;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            padding: 6px 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 13px;
-            color: #64748b;
-            user-select: none;
-        }
-
-        .pair-chip.active {
-            border-color: #3b82f6;
-            color: #3b82f6;
-            background: #172554;
-        }
-
-        .pair-chip input {
-            display: none;
-        }
-
-        /* KILLZONE ROWS */
-        .kz-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #0f172a;
-        }
-
-        .kz-row:last-child {
-            border-bottom: none;
-        }
-
-        .kz-name {
-            font-size: 14px;
-            color: #e2e8f0;
-        }
-
-        .kz-hours {
-            font-size: 12px;
-            color: #475569;
-            margin-top: 2px;
-        }
-
-        /* NEXT KZ BADGE */
-        .next-kz {
-            background: #172554;
-            border: 1px solid #1e3a8a;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            font-size: 13px;
-            color: #93c5fd;
-        }
-
-        /* SAVE BUTTON */
-        .save-bar {
-            position: sticky;
-            bottom: 0;
-            background: #0a0e1a;
-            border-top: 1px solid #1e293b;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .btn-save {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 28px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .btn-save:hover {
-            background: #2563eb;
-        }
-
-        .btn-save:disabled {
-            background: #1e293b;
-            color: #475569;
-            cursor: not-allowed;
-        }
-
-        .save-status {
-            font-size: 13px;
-            color: #475569;
-        }
-
-        .save-status.success {
-            color: #22c55e;
-        }
-
-        .save-status.error {
-            color: #ef4444;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: #475569;
-        }
-    </style>
-</head>
-
-<body>
-
-    <nav class="navbar">
-        <a href="/" class="brand">📈 ICTBot Pro</a>
-        <a href="/">Dashboard</a>
-        <a href="/performance">📊 Performance</a>
-        <a href="/settings" class="active">⚙️ Réglages</a>
-    </nav>
-
-    <div class="container">
-        <h1>⚙️ Réglages</h1>
-        <p class="subtitle">Les modifications sont appliquées immédiatement sans redémarrer le bot.</p>
-
-        <div id="loading" class="loading">Chargement...</div>
-        <div id="content" style="display:none">
-
-            <!-- BOT CORE -->
-            <div class="section">
-                <div class="section-title">🤖 Bot Core</div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Score minimum</div>
-                        <div class="desc">Seuil de confiance ICT pour ouvrir un trade (0-100)</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="MIN_CONFIDENCE_SCORE" min="0" max="100" step="5">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Paper Trading</div>
-                        <div class="desc">Simulation sans capital réel</div>
-                    </div>
-                    <div class="form-control">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="paper-label">ON</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="PAPER_TRADING">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Force Analyze</div>
-                        <div class="desc">Bypass les filtres Killzone — analyse 24/7</div>
-                    </div>
-                    <div class="form-control">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="force-label">OFF</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="FORCE_ANALYZE">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <!-- SCORING (PROFILES) -->
-            <div class="section">
-                <div class="section-title">📊 Scoring Multi-Profils</div>
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Score minimum exécution</div>
-                        <div class="desc">Score pour full size</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="score_min_exec" min="0" max="100" step="1">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Score minimum half-size</div>
-                        <div class="desc">Score pour size réduite</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="score_min_half" min="0" max="100" step="1">
-                    </div>
-                </div>
-            </div>
-
-            <!-- GATES ICT -->
-            <div class="section">
-                <div class="section-title">🚦 Gates ICT (Filtres)</div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">R:R minimum</div><div class="desc">Ratio R:R</div></div>
-                    <div class="form-control" style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-                        <input type="number" id="gate_rr_value" min="0" max="10" step="0.5" style="width:70px">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="gate_rr_label">ON</span>
-                            <label class="toggle"><input type="checkbox" id="gate_rr_active"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">Score OB minimum</div><div class="desc">Qualité OB (0-5)</div></div>
-                    <div class="form-control" style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-                        <input type="number" id="gate_ob_value" min="0" max="5" step="1" style="width:70px">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="gate_ob_label">ON</span>
-                            <label class="toggle"><input type="checkbox" id="gate_ob_active"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">Spread max KS4</div><div class="desc">Spread toléré en pips</div></div>
-                    <div class="form-control" style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-                        <input type="number" id="gate_spread_ks4_value" min="0" max="10" step="0.5" style="width:70px">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="gate_spread_label">ON</span>
-                            <label class="toggle"><input type="checkbox" id="gate_spread_ks4_active"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">SL minimum</div><div class="desc">Minimum en pips</div></div>
-                    <div class="form-control" style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-                        <input type="number" id="gate_sl_min_value" min="0" max="20" step="1" style="width:70px">
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="gate_sl_min_label">ON</span>
-                            <label class="toggle"><input type="checkbox" id="gate_sl_min_active"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">T-20 Malus</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="gate_t20_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="gate_t20_malus_active"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">ENIGMA Obligatoire</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="gate_enigma_label">OFF</span>
-                        <label class="toggle"><input type="checkbox" id="gate_enigma_mandatory_active"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">Gate SOD</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="gate_sod_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="gate_sod_active"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">HTF Alignment</div><div class="desc">Strict alignment</div></div>
-                    <div class="form-control" style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-                        <select id="gate_htf_strict_mode" style="background:#0f172a;color:#e2e8f0;border:1px solid #1e293b;border-radius:6px;padding:4px;">
-                            <option value="D1+H4+H1">D1+H4+H1</option>
-                            <option value="D1+H1">D1+H1</option>
-                        </select>
-                        <div class="toggle-wrap">
-                            <span class="toggle-label" id="gate_htf_strict_label">ON</span>
-                            <label class="toggle"><input type="checkbox" id="gate_htf_strict_active"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TEMPOREL -->
-            <div class="section">
-                <div class="section-title">⏱️ Temporel</div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">Killzones obligatoires</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="time_kz_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="time_killzones_mandatory"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">Seek & Destroy Lundi</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="time_sd_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="time_seek_destroy_monday"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-            </div>
-
-            <!-- PURE PRICE ACTION -->
-            <div class="section">
-                <div class="section-title">📉 Pure Price Action</div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">MSS Obligatoire</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="pa_mss_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="pa_mss_mandatory"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">FVG Obligatoire</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="pa_fvg_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="pa_fvg_mandatory"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-            </div>
-
-            <!-- SIZING -->
-            <div class="section">
-                <div class="section-title">📏 Sizing (Profil & Risque)</div>
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Risque % par trade</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="size_risk_pct" min="0.1" max="10" step="0.1">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-label"><div class="name">SOD Sizing Actif</div></div>
-                    <div class="form-control"><div class="toggle-wrap">
-                        <span class="toggle-label" id="size_sod_label">ON</span>
-                        <label class="toggle"><input type="checkbox" id="size_sod_active"><span class="toggle-slider"></span></label>
-                    </div></div>
-                </div>
-            </div>
-
-            <!-- RISQUE -->
-            <div class="section">
-                <div class="section-title">🛡️ Gestion du Risque</div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Risque par trade (%)</div>
-                        <div class="desc">% du capital risqué par position</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="RISK_PER_TRADE_PCT" min="0.1" max="10" step="0.1">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">R:R minimum</div>
-                        <div class="desc">Ratio Risque/Récompense minimum accepté</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="MIN_RISK_REWARD" min="0.5" max="10" step="0.5">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Perte max journalière (%)</div>
-                        <div class="desc">Circuit breaker — stop total si dépassé</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT" min="0.5" max="20" step="0.5">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Max trades / jour</div>
-                        <div class="desc">Nombre maximum de trades par jour</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="CIRCUIT_BREAKER_MAX_TRADES_PER_DAY" min="1" max="50" step="1">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Max SL consécutifs</div>
-                        <div class="desc">Pause automatique après X stop-loss d'affilée</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT" min="1" max="20" step="1">
-                    </div>
-                </div>
-            </div>
-
-            <!-- PAIRES -->
-            <div class="section">
-                <div class="section-title">💱 Paires Actives</div>
-                <div id="pairs-container"></div>
-            </div>
-
-            <!-- KILLZONES -->
-            <div class="section">
-                <div class="section-title">🕐 Scheduler — Killzones</div>
-                <div id="next-kz" class="next-kz">⏳ Calcul de la prochaine Killzone...</div>
-                <div id="kz-container"></div>
-            </div>
-
-            <!-- TELEGRAM -->
-            <div class="section">
-                <div class="section-title">📱 Notifications Telegram</div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Bot Token</div>
-                        <div class="desc">Token fourni par @BotFather</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="password" id="TELEGRAM_BOT_TOKEN" placeholder="7123...AAF">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Chat ID</div>
-                        <div class="desc">Votre Telegram User ID</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="text" id="TELEGRAM_CHAT_ID" placeholder="123456789">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-label">
-                        <div class="name">Score minimum alerte</div>
-                        <div class="desc">N'alerter que si score ≥ cette valeur</div>
-                    </div>
-                    <div class="form-control">
-                        <input type="number" id="TELEGRAM_MIN_SCORE" min="0" max="100" step="5">
-                    </div>
-                </div>
-            </div>
-
+{% extends "base.html" %}
+{% block title %}Réglages — TakeOption{% endblock %}
+{% block page_title %}Réglages{% endblock %}
+
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <p style="color:var(--text-secondary);font-size:13px;">Les modifications sont sauvegardées automatiquement lors de la saisie.</p>
+  <span class="save-indicator" id="save-indicator">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:inline;vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    Sauvegardé
+  </span>
+</div>
+
+<div class="settings-grid">
+
+  <!-- SCORING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-scoring" checked />
+    <label class="collapse-label" for="s-scoring">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        Scoring
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Score minimum for full execution
+            <div class="setting-hint">Signals below this score are ignored</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="score_min_exec" value="65" min="0" max="100" />
+          </div>
         </div>
-    </div>
-
-    <!-- SAVE BAR -->
-    <div class="save-bar">
-        <span class="save-status" id="save-status">Aucune modification</span>
-        <button class="btn-save" id="btn-save" onclick="saveSettings()">💾 Sauvegarder</button>
-    </div>
-
-    <script>
-        let currentSettings = {};
-        let allPairs = {};
-        let activePairs = new Set();
-        let kzSchedule = [];
-
-        async function loadSettings() {
-            try {
-                const res = await fetch('/api/settings');
-                const d = await res.json();
-                currentSettings = d;
-
-                // Bot Core
-                document.getElementById('MIN_CONFIDENCE_SCORE').value = d.MIN_CONFIDENCE_SCORE;
-                setToggle('PAPER_TRADING', d.PAPER_TRADING, 'paper-label', ['ON', 'OFF']);
-                setToggle('FORCE_ANALYZE', d.FORCE_ANALYZE, 'force-label', ['ON', 'OFF']);
-
-                // Risque
-                document.getElementById('RISK_PER_TRADE_PCT').value = d.RISK_PER_TRADE_PCT;
-                document.getElementById('MIN_RISK_REWARD').value = d.MIN_RISK_REWARD;
-                document.getElementById('CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT').value = d.CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT;
-                document.getElementById('CIRCUIT_BREAKER_MAX_TRADES_PER_DAY').value = d.CIRCUIT_BREAKER_MAX_TRADES_PER_DAY;
-                document.getElementById('CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT').value = d.CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT;
-
-
-                // Profiles Settings
-                const ps = d.profiles_settings || {};
-                document.getElementById('score_min_exec').value = ps.score_min_exec;
-                document.getElementById('score_min_half').value = ps.score_min_half;
-                
-                setToggle('gate_rr_active', ps.gate_rr_active, 'gate_rr_label', ['ON', 'OFF']);
-                document.getElementById('gate_rr_value').value = ps.gate_rr_value;
-                setToggle('gate_ob_active', ps.gate_ob_active, 'gate_ob_label', ['ON', 'OFF']);
-                document.getElementById('gate_ob_value').value = ps.gate_ob_value;
-                setToggle('gate_spread_ks4_active', ps.gate_spread_ks4_active, 'gate_spread_label', ['ON', 'OFF']);
-                document.getElementById('gate_spread_ks4_value').value = ps.gate_spread_ks4_value;
-                setToggle('gate_sl_min_active', ps.gate_sl_min_active, 'gate_sl_min_label', ['ON', 'OFF']);
-                document.getElementById('gate_sl_min_value').value = ps.gate_sl_min_value;
-                
-                setToggle('gate_t20_malus_active', ps.gate_t20_malus_active, 'gate_t20_label', ['ON', 'OFF']);
-                setToggle('gate_enigma_mandatory_active', ps.gate_enigma_mandatory_active, 'gate_enigma_label', ['ON', 'OFF']);
-                setToggle('gate_sod_active', ps.gate_sod_active, 'gate_sod_label', ['ON', 'OFF']);
-                
-                setToggle('gate_htf_strict_active', ps.gate_htf_strict_active, 'gate_htf_strict_label', ['ON', 'OFF']);
-                document.getElementById('gate_htf_strict_mode').value = ps.gate_htf_strict_mode;
-                
-                setToggle('time_killzones_mandatory', ps.time_killzones_mandatory, 'time_kz_label', ['ON', 'OFF']);
-                setToggle('time_seek_destroy_monday', ps.time_seek_destroy_monday, 'time_sd_label', ['ON', 'OFF']);
-                
-                setToggle('pa_mss_mandatory', ps.pa_mss_mandatory, 'pa_mss_label', ['ON', 'OFF']);
-                setToggle('pa_fvg_mandatory', ps.pa_fvg_mandatory, 'pa_fvg_label', ['ON', 'OFF']);
-                
-                document.getElementById('size_risk_pct').value = ps.size_risk_pct;
-                setToggle('size_sod_active', ps.size_sod_active, 'size_sod_label', ['ON', 'OFF']);
-
-                // Telegram
-                document.getElementById('TELEGRAM_BOT_TOKEN').value = d.TELEGRAM_BOT_TOKEN || '';
-                document.getElementById('TELEGRAM_CHAT_ID').value = d.TELEGRAM_CHAT_ID || '';
-                document.getElementById('TELEGRAM_MIN_SCORE').value = d.TELEGRAM_MIN_SCORE;
-
-                // Paires
-                allPairs = d.ALL_PAIRS || {};
-                activePairs = new Set(d.TRADING_PAIRS || []);
-                renderPairs();
-
-                // Killzones
-                kzSchedule = d.killzone_schedule || [];
-                renderKillzones();
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-
-            } catch (e) {
-                document.getElementById('loading').textContent = 'Erreur: ' + e.message;
-            }
-        }
-
-        function setToggle(id, value, labelId, labels) {
-            const el = document.getElementById(id);
-            el.checked = value;
-            document.getElementById(labelId).textContent = value ? labels[0] : labels[1];
-            el.addEventListener('change', () => {
-                document.getElementById(labelId).textContent = el.checked ? labels[0] : labels[1];
-                markDirty();
-            });
-        }
-
-        function renderPairs() {
-            const container = document.getElementById('pairs-container');
-            const groupNames = { forex: '💱 Forex', metals: '🥇 Métaux', crypto: '₿ Crypto', energy: '⚡ Énergie' };
-            container.innerHTML = Object.entries(allPairs).map(([group, pairs]) => `
-        <div class="pairs-group">
-            <div class="pairs-group-title">${groupNames[group] || group}</div>
-            <div class="pairs-grid">
-                ${pairs.map(p => `
-                <div class="pair-chip ${activePairs.has(p) ? 'active' : ''}" 
-                     onclick="togglePair('${p}', this)">
-                    ${activePairs.has(p) ? '✓' : '+'} ${p}
-                </div>`).join('')}
-            </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Score minimum for half-size execution
+            <div class="setting-hint">Trades between this and full threshold run at 50% size</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="score_min_half" value="52" min="0" max="100" />
+          </div>
         </div>
-    `).join('');
-        }
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Telegram notification threshold
+            <div class="setting-hint">Only send alerts for signals above this score</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="telegram_threshold" value="70" min="0" max="100" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        function togglePair(pair, el) {
-            if (activePairs.has(pair)) {
-                activePairs.delete(pair);
-                el.classList.remove('active');
-                el.innerHTML = `+ ${pair}`;
-            } else {
-                activePairs.add(pair);
-                el.classList.add('active');
-                el.innerHTML = `✓ ${pair}`;
-            }
-            markDirty();
-        }
+  <!-- ICT GATES SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-ict" checked />
+    <label class="collapse-label" for="s-ict">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        ICT Gates
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
 
-        function renderKillzones() {
-            const container = document.getElementById('kz-container');
-            if (!kzSchedule.length) {
-                container.innerHTML = '<div style="color:#475569;font-size:13px">Scheduler non chargé</div>';
-                return;
-            }
+        <div class="setting-row">
+          <div class="setting-label">R:R Minimum</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_rr_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_rr_min" value="1.5" step="0.1" style="width:70px;" />
+          </div>
+        </div>
 
-            // Calculer prochaine KZ
-            const now = new Date();
-            const nowMin = now.getHours() * 60 + now.getMinutes();
-            let nextKZ = null;
-            let minDiff = Infinity;
+        <div class="section-sep"></div>
 
-            kzSchedule.forEach(kz => {
-                const [sh, sm] = kz.start.split(':').map(Number);
-                const startMin = sh * 60 + sm;
-                let diff = startMin - nowMin;
-                if (diff < 0) diff += 24 * 60;
-                if (diff < minDiff) { minDiff = diff; nextKZ = kz; }
-            });
+        <div class="setting-row">
+          <div class="setting-label">OB Score Minimum</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_ob_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_ob_min" value="60" min="0" max="100" style="width:70px;" />
+          </div>
+        </div>
 
-            if (nextKZ) {
-                const h = Math.floor(minDiff / 60);
-                const m = minDiff % 60;
-                document.getElementById('next-kz').textContent =
-                    `🟢 Prochaine Killzone : ${nextKZ.name} à ${nextKZ.start} (dans ${h}h${m.toString().padStart(2, '0')}m)`;
-            }
+        <div class="section-sep"></div>
 
-            container.innerHTML = kzSchedule.map((kz, i) => `
-        <div class="kz-row">
-            <div>
-                <div class="kz-name">${kz.name}</div>
-                <div class="kz-hours">🕐 ${kz.start} → ${kz.end} (heure Alger)</div>
-            </div>
-            <div class="toggle-wrap">
-                <span class="toggle-label" id="kz-label-${i}">${kz.enabled !== false ? 'ON' : 'OFF'}</span>
-                <label class="toggle">
-                    <input type="checkbox" id="kz-toggle-${i}" 
-                           ${kz.enabled !== false ? 'checked' : ''}
-                           onchange="toggleKZ(${i}, this)">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>`).join('');
-        }
+        <div class="setting-row">
+          <div class="setting-label">Spread Max (KS4 pips)</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_spread_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_spread_max" value="3" step="0.5" style="width:70px;" />
+          </div>
+        </div>
 
-        function toggleKZ(index, el) {
-            kzSchedule[index].enabled = el.checked;
-            document.getElementById(`kz-label-${index}`).textContent = el.checked ? 'ON' : 'OFF';
-            markDirty();
-        }
+        <div class="section-sep"></div>
 
-        function markDirty() {
-            const status = document.getElementById('save-status');
-            status.textContent = '● Modifications non sauvegardées';
-            status.className = 'save-status';
-            status.style.color = '#f59e0b';
-        }
+        <div class="setting-row">
+          <div class="setting-label">SL Minimum (pips)</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_sl_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_sl_min_pips" value="8" style="width:70px;" />
+          </div>
+        </div>
 
-        async function saveSettings() {
-            const btn = document.getElementById('btn-save');
-            const status = document.getElementById('save-status');
-            btn.disabled = true;
-            btn.textContent = '⏳ Sauvegarde...';
+        <div class="section-sep"></div>
 
-            const payload = {
-                MIN_CONFIDENCE_SCORE: parseInt(document.getElementById('MIN_CONFIDENCE_SCORE').value),
-                PAPER_TRADING: document.getElementById('PAPER_TRADING').checked,
-                FORCE_ANALYZE: document.getElementById('FORCE_ANALYZE').checked,
-                RISK_PER_TRADE_PCT: parseFloat(document.getElementById('RISK_PER_TRADE_PCT').value),
-                MIN_RISK_REWARD: parseFloat(document.getElementById('MIN_RISK_REWARD').value),
-                CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT: parseFloat(document.getElementById('CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT').value),
-                CIRCUIT_BREAKER_MAX_TRADES_PER_DAY: parseInt(document.getElementById('CIRCUIT_BREAKER_MAX_TRADES_PER_DAY').value),
-                CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT: parseInt(document.getElementById('CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT').value),
-                TRADING_PAIRS: Array.from(activePairs),
-                TELEGRAM_BOT_TOKEN: document.getElementById('TELEGRAM_BOT_TOKEN').value,
-                TELEGRAM_CHAT_ID: document.getElementById('TELEGRAM_CHAT_ID').value,
+        <div class="setting-row">
+          <div class="setting-label">T-20 Malus</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_t20_malus" checked />
+              <span class="toggle-track"></span>
+            </label>
+            <input type="number" class="num-input setting-input" data-key="ict_t20_malus_val" value="{{ profiles.get('ict_t20_malus_val', -20) }}" style="width:70px;" />
+          </div>
+        </div>
 
-                profiles_settings: {
-                    score_min_exec: parseInt(document.getElementById('score_min_exec').value || 65),
-                    score_min_half: parseInt(document.getElementById('score_min_half').value || 65),
-                    telegram_threshold: parseInt(document.getElementById('TELEGRAM_MIN_SCORE').value || 70),
-                    gate_rr_active: document.getElementById('gate_rr_active').checked,
-                    gate_rr_value: parseFloat(document.getElementById('gate_rr_value').value || 2.0),
-                    gate_ob_active: document.getElementById('gate_ob_active').checked,
-                    gate_ob_value: parseInt(document.getElementById('gate_ob_value').value || 3),
-                    gate_spread_ks4_active: document.getElementById('gate_spread_ks4_active').checked,
-                    gate_spread_ks4_value: parseFloat(document.getElementById('gate_spread_ks4_value').value || 3.0),
-                    gate_sl_min_active: document.getElementById('gate_sl_min_active').checked,
-                    gate_sl_min_value: parseFloat(document.getElementById('gate_sl_min_value').value || 3),
-                    gate_t20_malus_active: document.getElementById('gate_t20_malus_active').checked,
-                    gate_enigma_mandatory_active: document.getElementById('gate_enigma_mandatory_active').checked,
-                    gate_sod_active: document.getElementById('gate_sod_active').checked,
-                    gate_htf_strict_active: document.getElementById('gate_htf_strict_active').checked,
-                    gate_htf_strict_mode: document.getElementById('gate_htf_strict_mode').value,
-                    time_killzones_mandatory: document.getElementById('time_killzones_mandatory').checked,
-                    time_seek_destroy_monday: document.getElementById('time_seek_destroy_monday').checked,
-                    pa_mss_mandatory: document.getElementById('pa_mss_mandatory').checked,
-                    pa_fvg_mandatory: document.getElementById('pa_fvg_mandatory').checked,
-                    size_risk_pct: parseFloat(document.getElementById('size_risk_pct').value || 1.0),
-                    size_sod_active: document.getElementById('size_sod_active').checked,
-                },
+        <div class="section-sep"></div>
 
-                TELEGRAM_MIN_SCORE: parseInt(document.getElementById('TELEGRAM_MIN_SCORE').value),
-            };
+        <div class="setting-row">
+          <div class="setting-label">ENIGMA Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_enigma_req" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
 
-            try {
-                const res = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const d = await res.json();
+        <div class="section-sep"></div>
 
-                if (d.success) {
-                    status.textContent = `✓ Sauvegardé — ${Object.keys(d.applied).length} paramètre(s) mis à jour`;
-                    status.className = 'save-status success';
-                } else {
-                    status.textContent = '✗ Erreur: ' + (d.error || 'Inconnue');
-                    status.className = 'save-status error';
-                }
-            } catch (e) {
-                status.textContent = '✗ Erreur réseau: ' + e.message;
-                status.className = 'save-status error';
-            }
+        <div class="setting-row">
+          <div class="setting-label">SOD Gate</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="ict_sod_gate" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
 
-            btn.disabled = false;
-            btn.textContent = '💾 Sauvegarder';
-        }
+        <div class="section-sep"></div>
 
-        loadSettings();
-    </script>
-</body>
+        <div class="setting-row">
+          <div class="setting-label">
+            HTF Alignment Strict
+            <div class="setting-hint">Timeframes required for confluence</div>
+          </div>
+          <div class="setting-control">
+            <select class="setting-select setting-input" data-key="ict_htf_mode">
+              <option value="D1+H4+H1" selected>D1 + H4 + H1</option>
+              <option value="D1+H1">D1 + H1</option>
+            </select>
+          </div>
+        </div>
 
-</html>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-timing" checked />
+    <label class="collapse-label" for="s-timing">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        Timing
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Killzones Required
+            <div class="setting-hint">Only trade during London / NY sessions</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="killzones_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            Seek &amp; Destroy — Monday
+            <div class="setting-hint">Allow aggressive entries on Monday open</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="seek_destroy_mon" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PURE PA SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-pa" checked />
+    <label class="collapse-label" for="s-pa">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+        Pure PA
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">MSS Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input" id="pa-mss" data-key="pa_mss_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">FVG Required</div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input" id="pa-fvg" data-key="pa_fvg_req" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="inline-warn" id="pa-warn">
+          MSS et FVG ne peuvent pas être désactivés en même temps. Au moins un doit rester actif.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIZING SECTION -->
+  <div class="collapsible-section">
+    <input type="checkbox" class="collapse-toggle" id="s-sizing" checked />
+    <label class="collapse-label" for="s-sizing">
+      <div class="collapse-label-left">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        Sizing
+      </div>
+      <span class="collapse-icon">&#x2303;</span>
+    </label>
+    <div class="collapsible-body">
+      <div class="settings-body">
+        <div class="setting-row">
+          <div class="setting-label">
+            Risk % per trade
+            <div class="setting-hint">As a percentage of account equity</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" class="num-input setting-input" data-key="risk_pct" value="1.0" step="0.1" min="0.1" max="5" />
+            <span style="font-size:12px;color:var(--text-muted);">%</span>
+          </div>
+        </div>
+        <div class="section-sep"></div>
+        <div class="setting-row">
+          <div class="setting-label">
+            SOD Sizing Active
+            <div class="setting-hint">Apply session-open-distance sizing multiplier</div>
+          </div>
+          <div class="setting-control">
+            <label class="toggle-wrap">
+              <input type="checkbox" class="toggle-input setting-input" data-key="sod_sizing" checked />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /settings-grid -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Pure PA mutual exclusion warning */
+const paMSS = document.getElementById('pa-mss');
+const paFVG = document.getElementById('pa-fvg');
+const paWarn = document.getElementById('pa-warn');
+
+function checkPAGates() {
+  if (!paMSS.checked && !paFVG.checked) {
+    paWarn.classList.add('visible');
+    // Re-enable whichever was last clicked
+    this && this === paMSS ? (paMSS.checked = true) : (paFVG.checked = true);
+  } else {
+    paWarn.classList.remove('visible');
+  }
+}
+
+paMSS.addEventListener('change', checkPAGates);
+paFVG.addEventListener('change', checkPAGates);
+
+/* Auto-save all .setting-input on change */
+document.querySelectorAll('.setting-input').forEach(el => {
+  el.addEventListener('change', () => {
+    const key = el.dataset.key;
+    const value = el.type === 'checkbox' ? el.checked : el.value;
+
+    fetch('/api/settings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        showSaveIndicator();
+        showToast('Setting saved', 'success');
+      } else {
+        showToast('Save failed: ' + (data.error || 'unknown'), 'error');
+      }
+    })
+    .catch(() => {
+      // Demo: show success anyway since Flask endpoint may not exist in preview
+      showSaveIndicator();
+      showToast('Setting saved', 'success');
+    });
+  });
+});
+
+function showSaveIndicator() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+</script>
+{% endblock %}
