@@ -383,6 +383,33 @@ class OrchestratorAgent:
             pass  # fail-safe silencieux
         # ─────────────────────────────────────────────────────────────────────────────
 
+        # ── P-B5 — Weekly Template Bonus/Malus ───────────────────────────────────────
+        # Règle : Alignment setup actuel avec le template ICT weekly = +5pts / Piège Mercredi = -5pts
+        try:
+            from agents.ict.structure import detect_weekly_template
+            import datetime
+            _weekly_candles = structure_report.get('weekly_candles', [])
+            _daily_candles  = structure_report.get('daily_candles', [])
+            if _weekly_candles and _daily_candles:
+                _current_day = datetime.datetime.now().weekday()  # 0=Lundi … 4=Vendredi
+                wt_res = detect_weekly_template(_weekly_candles, _daily_candles, _current_day)
+                wt_bonus  = wt_res.get('bonus', 0)
+                wt_template = wt_res.get('template', 'UNKNOWN')
+                wt_dir = wt_res.get('direction', 'neutral')
+                if wt_bonus != 0 and wt_template != 'UNKNOWN':
+                    # Appliquer uniquement si le setup est dans la bonne direction
+                    if wt_template == 'PIEGE_MERCREDI' and wt_dir == final_direction:
+                        # Trade dans le sens du faux move → malus
+                        conf_score = max(0.0, conf_score + wt_bonus / 100.0)
+                        reasons.append(f"P-B5 — Piège Mercredi (-5pts)")
+                    elif wt_template != 'PIEGE_MERCREDI' and wt_dir == final_direction:
+                        # Template aligné avec le trade → bonus
+                        conf_score = min(1.0, conf_score + wt_bonus / 100.0)
+                        reasons.append(f"P-B5 — Weekly Template {wt_template} (+5pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
 
         result = {

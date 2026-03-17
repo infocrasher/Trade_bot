@@ -827,3 +827,96 @@ def detect_suspension_block(candle: dict, fvgs: list) -> dict:
         return {'detected': True, 'fvg_above': fvg_above, 'fvg_below': fvg_below}
 
     return {'detected': False, 'fvg_above': fvg_above, 'fvg_below': fvg_below}
+
+def detect_weekly_template(weekly_candles: list, daily_candles: list, current_day: int) -> dict:
+    """
+    Règle P-B5 : Identifie le Weekly Template ICT et calcule bonus/malus.
+    
+    current_day : 0=Lundi, 1=Mardi, 2=Mercredi, 3=Jeudi, 4=Vendredi
+    
+    Templates :
+    - TEMPLATE_1 : Lundi a cassé les lows de la semaine précédente → bearish week
+    - TEMPLATE_2 : Lundi a cassé les highs de la semaine précédente → bullish week
+    - TEMPLATE_3 : Lundi+Mardi en accumulation (range serré) → move directionnel mercredi+
+    - PIEGE_MERCREDI : Mercredi a bougé > 60% du range lun-mar puis renversement possible
+    - UNKNOWN : données insuffisantes
+    """
+    NO_TEMPLATE = {'template': 'UNKNOWN', 'confidence': 0.0, 'bonus': 0, 'direction': 'neutral'}
+    
+    if not weekly_candles or len(weekly_candles) < 2:
+        return NO_TEMPLATE
+    if not daily_candles or len(daily_candles) < 1:
+        return NO_TEMPLATE
+
+    prev_week = weekly_candles[-2]  # Semaine précédente
+    # curr_week = weekly_candles[-1] # Non utilisé directement
+
+    prev_high = prev_week.get('high', 0.0)
+    prev_low  = prev_week.get('low', 0.0)
+    
+    # Lundi = daily_candles[0] (première bougie de la semaine actuelle)
+    # On suppose que daily_candles est filtré pour la semaine courante
+    if len(daily_candles) < 1:
+        return NO_TEMPLATE
+
+    monday = daily_candles[0]
+    monday_high = monday.get('high', 0.0)
+    monday_low  = monday.get('low', 0.0)
+
+    # ── PIEGE_MERCREDI : uniquement si on est mercredi (current_day == 2) ──
+    if current_day == 2 and len(daily_candles) >= 3:
+        tuesday = daily_candles[1]
+        wednesday = daily_candles[2]
+        
+        # Range accumulé lun-mar
+        range_mon_tue = abs(max(monday_high, tuesday.get('high', 0.0)) -
+                             min(monday_low, tuesday.get('low', 0.0)))
+        # Move de mercredi (wick total)
+        wed_move = abs(wednesday.get('high', 0.0) - wednesday.get('low', 0.0))
+        
+        if range_mon_tue > 0 and (wed_move / range_mon_tue) > 0.60:
+            wed_dir = 'bullish' if wednesday.get('close', 0.0) > wednesday.get('open', 0.0) else 'bearish'
+            return {
+                'template': 'PIEGE_MERCREDI',
+                'confidence': round(wed_move / range_mon_tue, 2),
+                'bonus': -5,
+                'direction': wed_dir  # La direction du FAUX move à éviter
+            }
+
+    # ── TEMPLATE_1 : Lundi a cassé les lows de la semaine précédente ──
+    if prev_low > 0 and monday_low < prev_low:
+        return {
+            'template': 'TEMPLATE_1',
+            'confidence': 0.75,
+            'bonus': 5,
+            'direction': 'bearish'
+        }
+    
+    # ── TEMPLATE_2 : Lundi a cassé les highs de la semaine précédente ──
+    if prev_high > 0 and monday_high > prev_high:
+        return {
+            'template': 'TEMPLATE_2',
+            'confidence': 0.75,
+            'bonus': 5,
+            'direction': 'bullish'
+        }
+
+    # ── TEMPLATE_3 : Lundi+Mardi en range serré (accumulation < 30% du range hebdo précédent) ──
+    if len(daily_candles) >= 2 and current_day >= 2:
+        tuesday = daily_candles[1]
+        acc_range = abs(max(monday_high, tuesday.get('high', 0.0)) -
+                         min(monday_low, tuesday.get('low', 0.0)))
+        prev_week_range = abs(prev_high - prev_low)
+        if prev_week_range > 0 and acc_range < 0.30 * prev_week_range:
+            # Direction supposée par le biais des journées suivantes
+            avg_daily_close = sum(d.get('close', 0.0) for d in daily_candles[:2]) / 2.0
+            avg_prev_mid    = (prev_high + prev_low) / 2.0
+            dir3 = 'bullish' if avg_daily_close > avg_prev_mid else 'bearish'
+            return {
+                'template': 'TEMPLATE_3',
+                'confidence': 0.65,
+                'bonus': 5,
+                'direction': dir3
+            }
+
+    return NO_TEMPLATE
