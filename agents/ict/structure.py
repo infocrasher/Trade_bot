@@ -797,3 +797,33 @@ def detect_flout_pattern(candles: list, obs: list, fvgs: list) -> dict:
             return {'detected': True, 'type': 'bullish_flout', 'level': round(lvl, 5)}
 
     return {'detected': False, 'type': 'none', 'level': 0.0}
+
+def detect_suspension_block(candle: dict, fvgs: list) -> dict:
+    """
+    Règle P-B4 : Détecte un Suspension Block.
+    Une bougie unique est isolée entre deux Volume Imbalances (FVGs) ouverts :
+    - un FVG dont le bottom est au-dessus du high de la bougie (FVG above)
+    - un FVG dont le top est en-dessous du low de la bougie (FVG below)
+    Les deux FVGs doivent être open (status == 'open').
+    """
+    if not candle or not fvgs:
+        return {'detected': False, 'fvg_above': None, 'fvg_below': None}
+
+    c_high = candle.get('high', 0.0)
+    c_low  = candle.get('low', 0.0)
+
+    open_fvgs = [f for f in fvgs if f.get('status', '') == 'open']
+
+    fvg_above = next(
+        (f for f in open_fvgs if f.get('bottom', 0.0) > c_high),
+        None
+    )
+    fvg_below = next(
+        (f for f in open_fvgs if f.get('top', 0.0) < c_low),
+        None
+    )
+
+    if fvg_above and fvg_below:
+        return {'detected': True, 'fvg_above': fvg_above, 'fvg_below': fvg_below}
+
+    return {'detected': False, 'fvg_above': fvg_above, 'fvg_below': fvg_below}

@@ -368,6 +368,21 @@ class OrchestratorAgent:
             pass  # fail-safe silencieux
         # ─────────────────────────────────────────────────────────────────────────────
 
+        # ── P-B4 — Suspension Block Bonus ─────────────────────────────────────────────
+        # Règle : bougie isolée entre deux FVGs ouverts (above + below) = +2pts (+0.02)
+        try:
+            from agents.ict.structure import detect_suspension_block
+            if df_m5 is not None and not df_m5.empty:
+                last_candle = df_m5.iloc[-1].to_dict()
+                _fvgs_sb = structure_report.get('fvg', [])
+                sb_res = detect_suspension_block(last_candle, _fvgs_sb)
+                if sb_res.get('detected'):
+                    conf_score = min(1.0, conf_score + 0.02)
+                    reasons.append("P-B4 — Suspension Block (+2pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
 
         result = {
