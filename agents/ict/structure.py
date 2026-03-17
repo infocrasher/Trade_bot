@@ -920,3 +920,73 @@ def detect_weekly_template(weekly_candles: list, daily_candles: list, current_da
             }
 
     return NO_TEMPLATE
+
+def calculate_magnetic_force(current_price: float, obs: list, fvgs: list,
+                              swing_highs: list, swing_lows: list,
+                              pip_value: float = 0.0001) -> dict:
+    """
+    Règle P-B6 : Score d'attraction magnétique entre le prix et les niveaux clés.
+
+    Score 0-100 :
+    - Distance   : 40 pts max — score = 40 × (1 - distance_pips / 50). Si > 50 pips → 0
+    - Type niveau: 20 pts — OB = 20, FVG = 15, Swing = 10
+    - Fraîcheur  : 20 pts — unmitigated/open = 20, partial = 10, mitigé = 0
+    - Confluence : 20 pts — 2+ niveaux dans ±3 pips → 20, sinon 0
+    """
+    NO_FORCE = {'score': 0, 'nearest_level': 0.0, 'level_type': 'none', 'distance_pips': 999.0}
+
+    if current_price <= 0:
+        return NO_FORCE
+
+    candidates = []
+
+    for ob in obs:
+        for level_price in [ob.get('top', 0.0), ob.get('bottom', 0.0)]:
+            if level_price > 0:
+                candidates.append({'price': level_price, 'type': 'ob', 'status': ob.get('status', 'mitigated')})
+
+    for fvg in fvgs:
+        for level_price in [fvg.get('top', 0.0), fvg.get('bottom', 0.0)]:
+            if level_price > 0:
+                candidates.append({'price': level_price, 'type': 'fvg', 'status': fvg.get('status', 'mitigated')})
+
+    for sh in swing_highs:
+        price = sh if isinstance(sh, (int, float)) else sh.get('price', 0.0)
+        if price > 0:
+            candidates.append({'price': price, 'type': 'swing', 'status': 'open'})
+
+    for sl in swing_lows:
+        price = sl if isinstance(sl, (int, float)) else sl.get('price', 0.0)
+        if price > 0:
+            candidates.append({'price': price, 'type': 'swing', 'status': 'open'})
+
+    if not candidates:
+        return NO_FORCE
+
+    def dist_pips(c):
+        return abs(c['price'] - current_price) / pip_value
+
+    nearest = min(candidates, key=dist_pips)
+    d_pips = dist_pips(nearest)
+
+    # Score distance (40 pts max)
+    dist_score = 0 if d_pips > 50 else int(40 * (1.0 - d_pips / 50.0))
+
+    # Score type (20 pts)
+    type_score = {'ob': 20, 'fvg': 15, 'swing': 10}.get(nearest['type'], 0)
+
+    # Score fraîcheur (20 pts)
+    fresh_score = {'unmitigated': 20, 'open': 20, 'partial': 10, 'mitigated': 0}.get(nearest['status'], 0)
+
+    # Score confluence (20 pts) - 2+ niveaux dans ±3 pips
+    count_in_zone = sum(1 for c in candidates if abs(c['price'] - nearest['price']) / pip_value <= 3.0)
+    conf_score_pb6 = 20 if count_in_zone >= 2 else 0
+
+    total = min(100, dist_score + type_score + fresh_score + conf_score_pb6)
+
+    return {
+        'score': total,
+        'nearest_level': round(nearest['price'], 5),
+        'level_type': nearest['type'],
+        'distance_pips': round(d_pips, 1)
+    }

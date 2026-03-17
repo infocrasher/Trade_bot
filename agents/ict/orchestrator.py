@@ -410,6 +410,28 @@ class OrchestratorAgent:
             pass  # fail-safe silencieux
         # ─────────────────────────────────────────────────────────────────────────────
 
+        # ── P-B6 — Magnetic Force Score ───────────────────────────────────────────────
+        # Règle : score d'attraction vers les niveaux clés — ≥70 → +5pts, ≥50 → +3pts
+        try:
+            from agents.ict.structure import calculate_magnetic_force
+            _entry_price = trade_signal.get('entry_price', 0.0)
+            _obs_pb6     = structure_report.get('order_blocks', [])
+            _fvgs_pb6    = structure_report.get('fvg', [])
+            _swings      = structure_report.get('swings', [])
+            _sh = [s['price'] for s in _swings if isinstance(s, dict) and s.get('type') == 'swing_high']
+            _sl = [s['price'] for s in _swings if isinstance(s, dict) and s.get('type') == 'swing_low']
+            _pip = 0.01 if any(x in trade_signal.get('symbol', '') for x in ['JPY', 'XAU', 'GOLD']) else 0.0001
+            if _entry_price > 0:
+                mf = calculate_magnetic_force(_entry_price, _obs_pb6, _fvgs_pb6, _sh, _sl, pip_value=_pip)
+                mf_score = mf.get('score', 0)
+                mf_bonus = 5 if mf_score >= 70 else 3 if mf_score >= 50 else 0
+                if mf_bonus > 0:
+                    conf_score = min(1.0, conf_score + mf_bonus / 100.0)
+                    reasons.append(f"P-B6 — Magnetic Force Score {mf_score}/100 (+{mf_bonus}pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
 
         result = {
