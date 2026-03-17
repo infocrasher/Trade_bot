@@ -7,8 +7,8 @@ Ce document décrit l'architecture complète du projet de trading algorithmique,
 ```text
 Trading_Bot_Project/
 │
-├── config.py                 # Configuration globale (paires, risques, intervalles, API keys via .env)
-├── dashboard.py              # Point d'entrée principal : Serveur Flask, UI, et boucle de trading
+├── config.py                 # Configuration globale (paires, risques, rotation 7 clés API TwelveData via .env)
+├── dashboard.py              # Dashboard V0 (TakeOption) : Serveur Flask, UI temps réel, API et boucle de trading
 ├── main.py                   # (Alternative CLI) Point d'entrée sans interface web
 ├── requirements.txt          # Dépendances Python
 ├── .env                      # Clés API sensibles (JAMAIS committé sur Git)
@@ -24,7 +24,7 @@ Trading_Bot_Project/
 │   │   ├── sod_detector.py   # (Helper A5) State of Delivery 5 états (STRONG/WEAK/ACC/MANIP)
 │   │   ├── liquidity_tracker.py # LRLR/HRLR — compte les obstacles entre prix et cible
 │   │   ├── ote_tracker.py    # State Machine OTE (WAITING/TRIGGERED/INVALIDATED) — persistant
-│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (fusion A1+A2+A3+A4, scoring KB4)
+│   │   └── orchestrator.py   # A5 : Orchestrateur ICT (fusion A1+A2+A3+A4, scoring KB4 + Bonus P-B1)
 │   │
 │   ├── elliott/              # École de trading Elliott Waves
 │   │   ├── wave_counter.py   # Compteur de vagues (Impulsion/Correction)
@@ -56,6 +56,9 @@ Trading_Bot_Project/
 │   ├── bot.log               # Événements système (DEBUG)
 │   ├── trades.log            # Décisions de trading (INFO)
 │   └── sessions/SESSION__YYYY-MM-DD_HH-MM-SS/
+│
+├── tests/                    # Tests unitaires et d'intégration
+│   └── run_all_tests.sh      # Script global dynamique d'exécution de tous les tests du projet
 │
 └── paper_trading/            # Environnement de simulation (exclu de Git)
     └── paper_trades.json
@@ -102,10 +105,10 @@ Chaque refus d'entrée est enregistré dans `data/gate_logs/` :
 - `elliott_blocked_YYYY-MM-DD.json` — rejets Elliott (score, vague ambiguë)
 - `meta_blocked_YYYY-MM-DD.json` — rejets du Meta-Orchestrateur (désaccord, score insuffisant)
 
-### Post-Mortem (`agents/post_mortem.py`)
+### Post-Mortem (`agents/post_mortem.py` & UI TakeOption)
 Lance chaque soir à 23h00 UTC via le scheduler de `dashboard.py`.
-Compare Entry/SL/TP1 des setups bloqués avec le prix réel via `yfinance`.
-Calcule le **Gate Regret Rate** (% de trades bloqués qui auraient atteint TP1).
+Compare Entry/SL/TP1 des setups bloqués avec le prix réel (calcul du **Gate Regret Rate**).
+Affiché dynamiquement sur le Dashboard V0 via `/api/paper_history?date=YYYY-MM-DD`.
 ```bash
 python3 agents/post_mortem.py  # Lancement manuel
 ```
@@ -141,3 +144,4 @@ Stockage persistant : `data/ote_setups.json`
 4. **Optimisation LLM** — Prompt Caching Anthropic, modèle Haiku → -90% de coût (~$0.001/appel).
 5. **Circuit Breaker** — Arrêt automatique à -3% capital/jour, max 5 trades/jour/paire, 4h cooldown.
 6. **OTE Tracker** — Expiration automatique à 288 cycles (24h en M5) pour éviter les setups périmés.
+7. **Suite de Tests Isolés** — Validation continue via `tests/run_all_tests.sh` (> 240 tests natifs).
