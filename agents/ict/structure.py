@@ -676,3 +676,38 @@ class StructureAgent:
         report["htf_confidence_modifier"] = modifier
         
         return report
+
+def is_first_presented_fvg(fvg_list: list, current_fvg: dict, bias: str) -> bool:
+    """
+    Retourne True si current_fvg est le PREMIER FVG apparu après 09h29 NY
+    (= 14h29 UTC, "HH:MM" dans fvg['time']) dans la direction du biais HTF.
+    """
+    NY_OPEN_TIME = "14:29"  # 09h29 NY = 14h29 UTC
+
+    def matches_bias(fvg, bias):
+        if bias == "bullish":
+            return fvg.get("type") == "bullish_fvg"
+        if bias == "bearish":
+            return fvg.get("type") == "bearish_fvg"
+        return False
+
+    if not matches_bias(current_fvg, bias):
+        return False
+
+    # Filtrer les FVGs dans la bonne direction, apparus à 14:29 UTC ou après
+    candidates = [
+        f for f in fvg_list
+        if matches_bias(f, bias) and len(f.get("time", "")) >= 5 and f.get("time", "")[-5:] >= NY_OPEN_TIME
+    ]
+
+    if not candidates:
+        return False
+
+    # Trier chronologiquement selon le champ 'time'
+    candidates_sorted = sorted(candidates, key=lambda x: x.get("time", ""))
+
+    # Le current_fvg est-il le premier ?
+    first_fvg_time = candidates_sorted[0].get("time")
+    current_time = current_fvg.get("time")
+    
+    return first_fvg_time == current_time and current_time is not None

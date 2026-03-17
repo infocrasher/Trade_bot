@@ -323,6 +323,20 @@ class OrchestratorAgent:
             
             warnings.extend(enigma['enigma_details'])
             
+        # ── P-B1 — First Presented FVG Bonus ────────────────────────────────────────
+        # Règle : le 1er FVG post-09h29 NY dans la direction du biais HTF = +5pts (+0.05)
+        try:
+            from agents.ict.structure import is_first_presented_fvg
+            _fvg_list = structure_report.get("fvg", [])
+            _current_fvg = trade_signal.get("fvg_detail")
+            if _current_fvg and _fvg_list:
+                if is_first_presented_fvg(_fvg_list, _current_fvg, final_direction):
+                    conf_score = min(1.0, conf_score + 0.05)
+                    reasons.append("P-B1 — 1st Presented FVG post-09h29 NY (+5pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
 
         result = {

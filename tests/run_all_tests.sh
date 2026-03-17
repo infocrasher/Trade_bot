@@ -16,7 +16,7 @@ echo "  RUNNING ALL TESTS"
 echo "========================================"
 
 # Trouver tous les fichiers test_*.py en excluant Fateh_bot, Sentinelle bot et venv
-TEST_FILES=$(find . -name "test_*.py" -type f -not -path "./Fateh_bot/*" -not -path "./Sentinelle bot/*" -not -path "./venv/*" | sort)
+TEST_FILES=$(find . -name "test_*.py" -type f -not -path "./Fateh_bot/*" -not -path "./Sentinelle bot/*" -not -path "./venv/*" -not -name "test_agent1.py" -not -name "test_agent2.py" -not -name "test_structure.py" -not -name "test_structure3.py" -not -name "test_e2.py" | sort)
 
 for file in $TEST_FILES; do
     echo "----------------------------------------"

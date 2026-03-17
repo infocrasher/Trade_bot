@@ -2857,15 +2857,26 @@ def api_state():
 
 @app.route("/api/paper_history")
 def api_paper_history():
-    """Retourne les paper trades du jour (fallback : fichier le plus récent)."""
+    """Retourne les paper trades. Paramètre optionnel ?date=YYYY-MM-DD."""
     paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
     if not os.path.exists(paper_dir):
         return jsonify([])
 
+    # Si une date est passée en paramètre, on charge ce fichier précis
+    requested_date = request.args.get("date", "").strip()
+    if requested_date:
+        target_file = os.path.join(paper_dir, f"paper_{requested_date}.json")
+        if os.path.exists(target_file):
+            try:
+                with open(target_file, "r") as f:
+                    return jsonify(json.load(f))
+            except Exception:
+                pass
+        return jsonify([])  # date demandée mais fichier absent ou illisible
+
+    # Sans paramètre : Priorité 1 = fichier du jour
     today = datetime.now().strftime("%Y-%m-%d")
     today_file = os.path.join(paper_dir, f"paper_{today}.json")
-
-    # Priorité 1 : fichier du jour
     if os.path.exists(today_file):
         try:
             with open(today_file, "r") as f:

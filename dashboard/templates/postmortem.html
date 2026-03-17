@@ -16,22 +16,22 @@
 <!-- SUMMARY CARD -->
 <div class="pm-summary" id="pm-summary">
   <div class="pm-summary-stat">
-    <div class="stat-value" id="pm-total" style="color:var(--text-primary);">14</div>
+    <div class="stat-value" id="pm-total" style="color:var(--text-primary);">-</div>
     <div class="stat-label">Setups Bloqués</div>
   </div>
   <div class="pm-divider"></div>
   <div class="pm-summary-stat">
-    <div class="stat-value" id="pm-would-win" style="color:var(--green);">8</div>
+    <div class="stat-value" id="pm-would-win" style="color:var(--green);">-</div>
     <div class="stat-label">Auraient été profitables</div>
   </div>
   <div class="pm-divider"></div>
   <div class="pm-summary-stat">
-    <div class="stat-value" id="pm-regret-pct" style="color:var(--yellow);">57%</div>
+    <div class="stat-value" id="pm-regret-pct" style="color:var(--yellow);">-</div>
     <div class="stat-label">Taux de regret</div>
   </div>
   <div class="pm-divider"></div>
   <div class="pm-summary-stat">
-    <div class="stat-value" id="pm-missed-r" style="color:var(--red);">-6.2R</div>
+    <div class="stat-value" id="pm-missed-r" style="color:var(--red);">-</div>
     <div class="stat-label">Manque à gagner (est.)</div>
   </div>
 </div>
@@ -42,53 +42,13 @@
   <span class="section-badge">Fréquence à laquelle les setups bloqués auraient gagné</span>
 </div>
 <div class="regret-bars" id="regret-bars">
-
-  <div class="regret-bar-row">
-    <span class="regret-bar-label">ICT Strict</span>
-    <div class="regret-bar-track">
-      <div class="regret-bar-fill green" style="width:17%"></div>
-    </div>
-    <span class="regret-bar-pct green">17%</span>
-  </div>
-
-  <div class="regret-bar-row">
-    <span class="regret-bar-label">Pure PA</span>
-    <div class="regret-bar-track">
-      <div class="regret-bar-fill green" style="width:12%"></div>
-    </div>
-    <span class="regret-bar-pct green">12%</span>
-  </div>
-
-  <div class="regret-bar-row">
-    <span class="regret-bar-label">Elliott</span>
-    <div class="regret-bar-track">
-      <div class="regret-bar-fill yellow" style="width:35%"></div>
-    </div>
-    <span class="regret-bar-pct yellow">35%</span>
-  </div>
-
-  <div class="regret-bar-row">
-    <span class="regret-bar-label">VSA</span>
-    <div class="regret-bar-track">
-      <div class="regret-bar-fill red" style="width:58%"></div>
-    </div>
-    <span class="regret-bar-pct red">58%</span>
-  </div>
-
-  <div class="regret-bar-row">
-    <span class="regret-bar-label">Legacy</span>
-    <div class="regret-bar-track">
-      <div class="regret-bar-fill yellow" style="width:28%"></div>
-    </div>
-    <span class="regret-bar-pct yellow">28%</span>
-  </div>
-
+  <!-- Populated by JS -->
 </div>
 
 <!-- BLOCKED SETUPS TABLE -->
 <div class="section-header">
   <span class="section-title">Setups Bloqués</span>
-  <span class="section-badge" id="blocked-count">14 setups</span>
+  <span class="section-badge" id="blocked-count">0 setups</span>
 </div>
 <div class="table-wrapper">
   <table id="blocked-table">
@@ -109,4 +69,129 @@
   </table>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ── Initialisation au chargement ───────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('pm-date');
+    if (input) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      input.value = `${y}-${m}-${d}`;
+    }
+    loadPostmortem();
+  });
+
+  /* ── Fonction principale ─────────────────────────────────── */
+  async function loadPostmortem() {
+    const dateInput = document.getElementById('pm-date');
+    const selectedDate = dateInput ? dateInput.value : '';
+    if (!selectedDate) return;
+
+    let allTrades = [];
+    try {
+      const res = await fetch(`/api/paper_history?date=${selectedDate}`);
+      if (res.ok) allTrades = await res.json();
+    } catch(e) {
+      console.error('[PostMortem] Erreur fetch:', e);
+      return;
+    }
+
+    /* Filtre : trades de la date sélectionnée, statuts bloqués */
+    const BLOCKED_STATUSES = ['expired', 'rejected'];
+    const dayTrades = allTrades.filter(t => {
+      const openedAt = t.opened_at || t.created_at || '';
+      return openedAt.startsWith(selectedDate) && BLOCKED_STATUSES.includes(t.status);
+    });
+
+    /* ── Compteurs ──────────────────────────────────────────── */
+    const total    = dayTrades.length;
+    /* Un setup "aurait gagné" si son pnl_pips > 0 */
+    const wouldWin = dayTrades.filter(t => (parseFloat(t.pnl_pips) || 0) > 0).length;
+    const regretPct = total > 0 ? Math.round(wouldWin / total * 100) : 0;
+    const missedR   = dayTrades
+      .filter(t => (parseFloat(t.pnl_pips) || 0) > 0)
+      .reduce((acc, t) => acc + (parseFloat(t.pnl_pips) || 0), 0);
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('pm-total',    total);
+    set('pm-would-win', wouldWin);
+    set('pm-regret-pct', `${regretPct}%`);
+    set('pm-missed-r',  `${missedR > 0 ? '-' : ''}${Math.abs(missedR).toFixed(1)} pips`);
+    set('blocked-count', `${total} setup${total !== 1 ? 's' : ''}`);
+
+    /* ── Barres de Regret par Profil ────────────────────────── */
+    const profileMap = {};
+    dayTrades.forEach(t => {
+      const p = t.profile_id || 'Unknown';
+      if (!profileMap[p]) profileMap[p] = { total: 0, win: 0 };
+      profileMap[p].total++;
+      if ((parseFloat(t.pnl_pips) || 0) > 0) profileMap[p].win++;
+    });
+
+    const barsEl = document.getElementById('regret-bars');
+    if (barsEl) {
+      barsEl.innerHTML = '';
+      if (Object.keys(profileMap).length === 0) {
+        barsEl.innerHTML = '<p style="color:var(--text-muted);padding:16px 0;">Aucun setup bloqué pour cette date.</p>';
+      } else {
+        Object.entries(profileMap).forEach(([profile, stats]) => {
+          const pct    = stats.total > 0 ? Math.round(stats.win / stats.total * 100) : 0;
+          const color  = pct < 25 ? 'green' : (pct < 50 ? 'yellow' : 'red');
+          barsEl.innerHTML += `
+            <div class="regret-bar-row">
+              <span class="regret-bar-label">${profile}</span>
+              <div class="regret-bar-track">
+                <div class="regret-bar-fill ${color}" style="width:${pct}%"></div>
+              </div>
+              <span class="regret-bar-pct ${color}">${pct}%</span>
+            </div>`;
+        });
+      }
+    }
+
+    /* ── Table Setups Bloqués ───────────────────────────────── */
+    const tbody = document.getElementById('blocked-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (dayTrades.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">Aucun setup bloqué pour le ${selectedDate}</td></tr>`;
+      return;
+    }
+
+    dayTrades.forEach(t => {
+      const openedAt  = (t.opened_at || t.created_at || '').substring(11, 16);
+      const pair      = t.pair || '-';
+      const profile   = t.profile_id || 'Unknown';
+      const dir       = t.direction || '-';
+      const reason    = t.close_reason || t.status || '-';
+      const pnl       = parseFloat(t.pnl_pips) || 0;
+      const outcome   = pnl > 0 ? `<span style="color:var(--green)">+${pnl.toFixed(1)} pips</span>` :
+                        pnl < 0 ? `<span style="color:var(--red)">${pnl.toFixed(1)} pips</span>` :
+                        '<span style="color:var(--text-muted)">0 pips</span>';
+      const regret    = pnl > 0
+        ? '<span style="color:var(--green)">✓ Aurait gagné</span>'
+        : '<span style="color:var(--text-muted)">✗ Aurait perdu</span>';
+      const dirBadge  = (dir === 'LONG' || dir === 'BUY' || dir === 'ACHAT')
+        ? `<span class="badge badge-long">${dir}</span>`
+        : `<span class="badge badge-short">${dir}</span>`;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-mono">${openedAt}</td>
+        <td class="td-primary">${pair}</td>
+        <td><span class="badge">${profile}</span></td>
+        <td>${dirBadge}</td>
+        <td style="color:var(--text-secondary);font-size:12px;">${reason}</td>
+        <td>${outcome}</td>
+        <td>${regret}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+</script>
 {% endblock %}
