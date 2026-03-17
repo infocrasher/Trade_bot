@@ -744,3 +744,56 @@ def detect_cisd(candles: list, bias: str) -> dict:
         return {'detected': True, 'direction': c0_dir, 'strength': strength}
         
     return {'detected': False, 'direction': 'none', 'strength': 0.0}
+
+def detect_flout_pattern(candles: list, obs: list, fvgs: list) -> dict:
+    """
+    Règle P-B3 : Détecte un Flout Pattern (faux breakout institutionnel).
+    Conditions (sur les 2 dernières bougies, N-1 et N) :
+    1. N-1 a cassé un niveau clé (OB top/bottom ou FVG top/bottom)
+    2. Corps de N-1 < 40% de la mèche totale (weak breakout)
+    3. N a réintégré sous/au-dessus du niveau cassé
+    """
+    if len(candles) < 2:
+        return {'detected': False, 'type': 'none', 'level': 0.0}
+
+    n1 = candles[-2]  # Bougie de breakout
+    n  = candles[-1]  # Bougie de réintégration
+
+    # Calcul du ratio corps/mèche de N-1
+    wick_total = abs(n1['high'] - n1['low'])
+    body_n1    = abs(n1['close'] - n1['open'])
+    if wick_total == 0:
+        return {'detected': False, 'type': 'none', 'level': 0.0}
+
+    body_ratio = body_n1 / wick_total
+    if body_ratio >= 0.40:
+        # Corps trop fort → breakout réel, pas un flout
+        return {'detected': False, 'type': 'none', 'level': 0.0}
+
+    # Rassembler tous les niveaux clés (OB + FVG)
+    key_levels = []
+    for ob in obs:
+        key_levels.append({'level': ob.get('top', 0.0),    'label': 'ob_top'})
+        key_levels.append({'level': ob.get('bottom', 0.0), 'label': 'ob_bottom'})
+    for fvg in fvgs:
+        key_levels.append({'level': fvg.get('top', 0.0),    'label': 'fvg_top'})
+        key_levels.append({'level': fvg.get('bottom', 0.0), 'label': 'fvg_bottom'})
+
+    for kl in key_levels:
+        lvl = kl['level']
+        if lvl == 0.0:
+            continue
+
+        # --- Cas BULLISH FLOUT : N-1 a percé un niveau par le haut puis réintégré ---
+        # N-1 dépasse le niveau (high > lvl) mais clôture dessous
+        # N clôture aussi sous le niveau (réintégration confirmée)
+        if n1['high'] > lvl and n1['close'] < lvl and n['close'] < lvl:
+            return {'detected': True, 'type': 'bearish_flout', 'level': round(lvl, 5)}
+
+        # --- Cas BEARISH FLOUT : N-1 a percé un niveau par le bas puis réintégré ---
+        # N-1 descend sous le niveau (low < lvl) mais clôture dessus
+        # N clôture aussi au-dessus du niveau (réintégration confirmée)
+        if n1['low'] < lvl and n1['close'] > lvl and n['close'] > lvl:
+            return {'detected': True, 'type': 'bullish_flout', 'level': round(lvl, 5)}
+
+    return {'detected': False, 'type': 'none', 'level': 0.0}

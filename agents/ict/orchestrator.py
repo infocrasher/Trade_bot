@@ -352,6 +352,22 @@ class OrchestratorAgent:
             pass  # fail-safe silencieux
         # ─────────────────────────────────────────────────────────────────────────────
 
+        # ── P-B3 — Flout Pattern Bonus ────────────────────────────────────────────────
+        # Règle : faux breakout institutionnel sur un OB/FVG = +5pts (+0.05)
+        try:
+            from agents.ict.structure import detect_flout_pattern
+            if df_m5 is not None and not df_m5.empty and len(df_m5) >= 2:
+                last2 = df_m5.tail(2).to_dict('records')
+                _obs  = structure_report.get('order_blocks', [])
+                _fvgs = structure_report.get('fvg', [])
+                flout_res = detect_flout_pattern(last2, _obs, _fvgs)
+                if flout_res.get('detected'):
+                    conf_score = min(1.0, conf_score + 0.05)
+                    reasons.append(f"P-B3 — Flout Pattern ({flout_res.get('type')}, lvl={flout_res.get('level')} +5pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"
 
         result = {
