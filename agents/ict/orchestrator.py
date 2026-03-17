@@ -55,7 +55,7 @@ class OrchestratorAgent:
 
     def calculate_decision(self, structure_report: dict, time_report: dict,
                            trade_signal: dict, macro_report: dict,
-                           liquidity_report: dict = None) -> dict:
+                           liquidity_report: dict = None, df_m5=None) -> dict:
         """
         Fusionne les 4 rapports et prend la décision finale via un vote pondéré.
         """
@@ -333,6 +333,21 @@ class OrchestratorAgent:
                 if is_first_presented_fvg(_fvg_list, _current_fvg, final_direction):
                     conf_score = min(1.0, conf_score + 0.05)
                     reasons.append("P-B1 — 1st Presented FVG post-09h29 NY (+5pts)")
+        except Exception:
+            pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+        
+        # ── P-B2 — CISD 2026 Bonus ───────────────────────────────────────────────────
+        # Règle : Change In State of Delivery sur M5 dans la direction du trade = +5pts (+0.05)
+        try:
+            from agents.ict.structure import detect_cisd
+            if df_m5 is not None and not df_m5.empty and len(df_m5) >= 3:
+                # Convertir les 3 dernières bougies en liste de dicts
+                last_candles = df_m5.tail(3).to_dict('records')
+                cisd_res = detect_cisd(last_candles, final_direction)
+                if cisd_res.get('detected') and cisd_res.get('direction') == final_direction:
+                    conf_score = min(1.0, conf_score + 0.05)
+                    reasons.append(f"P-B2 — CISD M5 {final_direction.upper()} (+5pts, str={round(cisd_res.get('strength',0),1)})")
         except Exception:
             pass  # fail-safe silencieux
         # ─────────────────────────────────────────────────────────────────────────────

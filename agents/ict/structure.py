@@ -711,3 +711,36 @@ def is_first_presented_fvg(fvg_list: list, current_fvg: dict, bias: str) -> bool
     current_time = current_fvg.get("time")
     
     return first_fvg_time == current_time and current_time is not None
+
+def detect_cisd(candles: list, bias: str) -> dict:
+    """
+    Règle P-B2 : Détecte un CISD (Change In State of Delivery) sur les dernières bougies.
+    Condition : Le corps de la bougie actuelle est plus grand que les corps des 2 bougies précédentes
+    ET elle clôture dans la direction du biais HTF.
+    """
+    if len(candles) < 3:
+        return {'detected': False, 'direction': 'none', 'strength': 0.0}
+        
+    c0 = candles[-1] # Actuelle
+    c1 = candles[-2] # Précédente
+    c2 = candles[-3] # Encore avant
+    
+    # Calcul des corps (valeur absolue)
+    body0 = abs(c0['close'] - c0['open'])
+    body1 = abs(c1['close'] - c1['open'])
+    body2 = abs(c2['close'] - c2['open'])
+    
+    # Direction de la bougie actuelle
+    c0_dir = "bullish" if c0['close'] > c0['open'] else "bearish" if c0['close'] < c0['open'] else "neutral"
+    
+    # Vérification des conditions
+    is_engulfing_body = body0 > body1 and body0 > body2
+    matches_bias = c0_dir == bias
+    
+    if is_engulfing_body and matches_bias:
+        # Mesure de la force (ratio du corps par rapport à la moyenne des 2 précédents)
+        avg_prev_body = (body1 + body2) / 2.0
+        strength = body0 / avg_prev_body if avg_prev_body > 0 else 99.0
+        return {'detected': True, 'direction': c0_dir, 'strength': strength}
+        
+    return {'detected': False, 'direction': 'none', 'strength': 0.0}

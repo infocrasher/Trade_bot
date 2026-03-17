@@ -1258,7 +1258,8 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 # ─────────────────────────────────────────────────────────────────────────────
 
                                 decision_obj = agent5.calculate_decision(
-                                    structure_report, time_report, entry_signal, macro_report
+                                    structure_report, time_report, entry_signal, macro_report,
+                                    df_m5=dfs.get("M5", None)
                                 )
 
                                 dec  = decision_obj.get("decision", "NO_TRADE")
