@@ -50,6 +50,8 @@ TWELVE_DATA_API_KEYS = [
     os.getenv("TWELVE_DATA_API_KEY_5", ""),
     os.getenv("TWELVE_DATA_API_KEY_6", ""),
     os.getenv("TWELVE_DATA_API_KEY_7", ""),
+    os.getenv("TWELVE_DATA_API_KEY_8", ""),
+    os.getenv("TWELVE_DATA_API_KEY_9", ""),
 ]
 # Rétrocompatibilité
 TWELVE_DATA_API_KEY = TWELVE_DATA_API_KEYS[0] if TWELVE_DATA_API_KEYS else ""
