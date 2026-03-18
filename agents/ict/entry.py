@@ -18,6 +18,19 @@ class EntryAgent:
         """Convertit une différence de prix en pips."""
         return abs(price_diff) / self.pip_value
 
+    def _calc_atr(self, df: pd.DataFrame, period: int = 14) -> float:
+        """Calcule l'ATR sur les M5."""
+        if df is None or len(df) < period + 1:
+            if df is not None and len(df) > 0:
+                return float((df["high"] - df["low"]).mean())
+            return 0.0
+        tr = pd.concat([
+            df["high"] - df["low"],
+            (df["high"] - df["close"].shift()).abs(),
+            (df["low"]  - df["close"].shift()).abs(),
+        ], axis=1).max(axis=1)
+        return float(tr.tail(period).mean())
+
     def calculate_ote_zone(self, swing_start: float, swing_end: float, direction: str) -> dict:
         """
         Calcule la zone OTE entre 62% et 79% de retracement Fibonacci.
@@ -59,12 +72,13 @@ class EntryAgent:
         return a_top >= b_bottom and b_top >= a_bottom
 
     def find_confluence_zones(self, ote: dict, order_blocks: list[dict], fvgs: list[dict],
-                               candle_high: float = None, candle_low: float = None) -> list[dict]:
+                               candle_high: float = None, candle_low: float = None,
+                               atr: float = 0.0) -> list[dict]:
         """
         Cherche OBs et FVGs qui se superposent dans la zone OTE.
 
         Fix ICT : on ne vérifie plus si le prix instantané est dans l'OTE.
-        On vérifie si la bougie courante (high/low) intersecte la zone OTE,
+        On vérifie si la bougie courante (high/low) intersecte la zone OTE avec le buffer ATR,
         ce qui capture les wicks et les entrées intra-bougie.
         Si candle_high/candle_low ne sont pas fournis, on accepte toute confluence
         OB/FVG dans l'OTE (mode setup en attente).
@@ -77,13 +91,18 @@ class EntryAgent:
 
         ote_top = ote['ote_top']
         ote_bottom = ote['ote_bottom']
+        
+        # Application du buffer OTE
+        buffer = atr * 0.5
+        ote_top_with_buffer = ote_top + buffer
+        ote_bottom_with_buffer = ote_bottom - buffer
 
         # ── Vérification intersection bougie × zone OTE ─────────────────────────
         # Si on a les données de la bougie courante, on vérifie que la bougie
         # a visité la zone OTE (high >= ote_bottom ET low <= ote_top).
         # Sinon (mode setup en attente), on laisse passer.
         if candle_high is not None and candle_low is not None:
-            candle_touches_ote = (candle_high >= ote_bottom) and (candle_low <= ote_top)
+            candle_touches_ote = (candle_high >= ote_bottom_with_buffer) and (candle_low <= ote_top_with_buffer)
             if not candle_touches_ote:
                 return []  # La bougie n'a pas touché la zone OTE ce cycle
         # ────────────────────────────────────────────────────────────────────────
@@ -101,10 +120,10 @@ class EntryAgent:
         # puis on essaie de fusionner/scorer ceux qui encerclent la même zone.
         
         for ob in valid_obs:
-            if self._is_overlapping(ob['top'], ob['bottom'], ote_top, ote_bottom):
+            if self._is_overlapping(ob['top'], ob['bottom'], ote_top_with_buffer, ote_bottom_with_buffer):
                 # OTE + OB confluence
-                c_top = min(ob['top'], ote_top)
-                c_bot = max(ob['bottom'], ote_bottom)
+                c_top = min(ob['top'], ote_top_with_buffer)
+                c_bot = max(ob['bottom'], ote_bottom_with_buffer)
                 confluences.append({
                     "type": "ob_ote",
                     "zone_top": float(c_top),
@@ -117,9 +136,9 @@ class EntryAgent:
                 })
                 
         for fvg in valid_fvgs:
-            if self._is_overlapping(fvg['top'], fvg['bottom'], ote_top, ote_bottom):
-                c_top = min(fvg['top'], ote_top)
-                c_bot = max(fvg['bottom'], ote_bottom)
+            if self._is_overlapping(fvg['top'], fvg['bottom'], ote_top_with_buffer, ote_bottom_with_buffer):
+                c_top = min(fvg['top'], ote_top_with_buffer)
+                c_bot = max(fvg['bottom'], ote_bottom_with_buffer)
                 
                 # Chercher si cette zone FVG d'OTE chevauche déjà une confluence OB_OTE
                 merged = False
@@ -424,15 +443,18 @@ class EntryAgent:
         # si la bougie a visité la zone OTE (wick compris), pas seulement le close.
         candle_high = None
         candle_low  = None
+        atr_value = 0.0
         if df_entry is not None and len(df_entry) > 0:
             last_candle = df_entry.iloc[-1]
             candle_high = float(last_candle["high"])
             candle_low  = float(last_candle["low"])
+            atr_value = self._calc_atr(df_entry, 14)
         # ────────────────────────────────────────────────────────────────────────
 
         confluences = self.find_confluence_zones(ote, obs, fvgs,
                                                   candle_high=candle_high,
-                                                  candle_low=candle_low)
+                                                  candle_low=candle_low,
+                                                  atr=atr_value)
         if not confluences:
             # ── State Machine OTE : sauvegarder le setup au lieu de l'abandonner ──
             try:
