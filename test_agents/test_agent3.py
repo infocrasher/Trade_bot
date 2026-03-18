@@ -42,7 +42,7 @@ def test_agent3(results: TestResults):
     try:
         ote = agent.calculate_ote_zone(swing_start=1.0800, swing_end=1.1000, direction="bullish")
         
-        ok = round(ote['ote_top'], 5) == 1.0876 and round(ote['ote_bottom'], 5) == 1.08428
+        ok = round(ote['ote_top'], 5) == 1.0876 and round(ote['ote_bottom'], 5) == 1.0842
         results.check("C1 : OTE Zone Bullish", ok, f"Valeurs: top={ote.get('ote_top')}, bot={ote.get('ote_bottom')}")
     except Exception as e:
         results.check("C1 : OTE Zone Bullish", False, f"Exception: {e}")
@@ -50,7 +50,7 @@ def test_agent3(results: TestResults):
     # Test C2 : OTE Zone Bearish
     try:
         ote = agent.calculate_ote_zone(swing_start=1.1000, swing_end=1.0800, direction="bearish")
-        ok = round(ote['ote_top'], 5) == 1.09572 and round(ote['ote_bottom'], 5) == 1.0924
+        ok = round(ote['ote_top'], 5) == 1.0958 and round(ote['ote_bottom'], 5) == 1.0924
         results.check("C2 : OTE Zone Bearish", ok, f"Valeurs: top={ote.get('ote_top')}, bot={ote.get('ote_bottom')}")
     except Exception as e:
         results.check("C2 : OTE Zone Bearish", False, f"Exception: {e}")

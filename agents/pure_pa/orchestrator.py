@@ -76,7 +76,19 @@ class PurePAOrchestrator:
         ], axis=1).max(axis=1)
         return float(tr.tail(period).mean())
 
-    def evaluate(self, df, time_report: dict = None) -> dict:
+    def _get_price_threshold(self) -> float:
+        """Retourne le seuil de cohérence de prix selon l'actif."""
+        forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "USDCAD", "USDCHF", "EURGBP", 
+                       "AUDUSD", "NZDUSD", "EURJPY", "GBPJPY", "AUDJPY"]
+        if self.symbol in forex_pairs:
+            return 0.02  # 2% pour le Forex
+        if self.symbol == "XAUUSD":
+            return 0.03  # 3% pour l'Or
+        if self.symbol in ["BTCUSD", "ETHUSD"]:
+            return 0.05  # 5% pour la Crypto
+        return 0.05      # 5% par défaut
+
+    def evaluate(self, df: pd.DataFrame, time_report: dict = None) -> dict:
         settings = self.load_settings()
         min_rr = settings.get("min_rr", 1.0)
         use_kz = settings.get("use_killzones", False)
@@ -136,8 +148,9 @@ class PurePAOrchestrator:
         last_close = float(df["close"].iloc[-1])
         if last_close > 0:
             ecart_pct = abs(entry - last_close) / last_close
-            if ecart_pct > 0.05:
-                return self._no_trade(f"PRIX_ABERRANT — écart {ecart_pct * 100:.1f}% vs dernier close", entry=entry)
+            threshold = self._get_price_threshold()
+            if ecart_pct > threshold:
+                return self._no_trade(f"PRIX_ABERRANT — écart {ecart_pct * 100:.1f}% vs dernier close (seuil {threshold*100:.0f}%)", entry=entry)
 
         # SL initial en dessous (ou au-dessus) du FVG
         sl_initial = target_fvg["bottom"] if is_bullish else target_fvg["top"]

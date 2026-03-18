@@ -167,10 +167,11 @@ def run_pure_pa_tests():
             # FVG with entry=1.0900, bottom=1.0895 (très serré) → SL ≈ 5pips
             # Le TP sera forcé par swing (1.0910 par ex → reward=10pips) R:R=2 → peut PASSER
             # On force plutôt le mss bearish avec un FVG et SL proche du TP
+            # FVG avec entry=1.1150 (écart < 2% vs 1.1200), bottom=1.1140 (SL)
+            # TP forcé par swing à 1.1155 → reward=5pips, risk=10pips → R:R=0.5 < 1.5
             fake_fvg = [{"status": "open", "type": "bullish_fvg", "displacement_index": 4,
-                         "index": 5, "top": 1.0910, "bottom": 1.0908, "midpoint": 1.0909}]
-            fake_swings = [{"type": "swing_high", "price": 1.0911, "index": 3}]
-            # entry=1.0910, sl=1.0908 (2pip), TP=1.0911 (1pip) → R:R=0.5 < 1.5
+                         "index": 5, "top": 1.1150, "bottom": 1.1140, "midpoint": 1.1145}]
+            fake_swings = [{"type": "swing_high", "price": 1.1155, "index": 3}]
             with patch.object(StructureAgent, "detect_mss", return_value=fake_mss), \
                  patch.object(StructureAgent, "detect_fvg", return_value=fake_fvg), \
                  patch.object(StructureAgent, "detect_swing_points", return_value=fake_swings), \
@@ -195,16 +196,17 @@ def run_pure_pa_tests():
     except Exception as e:
         tr.check("PA5 : Bloqué si Killzone ON et hors KZ", False, str(e))
 
-    # ── PA6 : Bloqué si écart prix aberrant > 5% ──────────────────────────────────
+    # ── PA6 : Bloqué si écart prix aberrant > 2% (Forex) ──────────────────────────
     try:
         agent = PurePAOrchestrator("EURUSD")
         with patch.object(agent, "load_settings", return_value={"min_rr": 1.5, "use_killzones": False}):
             from agents.ict.structure import StructureAgent
             fake_mss = [{"type": "bullish_mss", "bos_index": 5, "displacement_index": 4}]
-            # FVG entry aberrant (1.2000 vs last_close 1.1200 de make_bullish_mss_df = +7%)
+            # FVG entry aberrant (1.1480 vs last_close 1.1200 de make_bullish_mss_df = +2.5%)
+            # Seuil Forex est 2%, donc 2.5% doit être rejeté.
             fake_fvg = [{"status": "open", "type": "bullish_fvg", "displacement_index": 4,
-                         "index": 5, "top": 1.2000, "bottom": 1.1990, "midpoint": 1.1995}]
-            fake_swings = [{"type": "swing_high", "price": 1.2500, "index": 3}]
+                         "index": 5, "top": 1.1480, "bottom": 1.1470, "midpoint": 1.1475}]
+            fake_swings = [{"type": "swing_high", "price": 1.1800, "index": 3}]
             with patch.object(StructureAgent, "detect_mss", return_value=fake_mss), \
                  patch.object(StructureAgent, "detect_fvg", return_value=fake_fvg), \
                  patch.object(StructureAgent, "detect_swing_points", return_value=fake_swings), \
@@ -212,7 +214,7 @@ def run_pure_pa_tests():
                  patch.object(StructureAgent, "detect_bos_choch", return_value=[{"index": 5, "type": "bullish_bos", "broken_level": 1.0905}]):
                 df = make_bullish_mss_df()
                 result = agent.evaluate(df)
-        tr.check("PA6 : Bloqué si écart prix aberrant > 5%",
+        tr.check("PA6 : Bloqué si écart prix aberrant > 2% (Forex)",
                  result["action"] == "NO_TRADE" and "PRIX_ABERRANT" in result["rationale"])
     except Exception as e:
         tr.check("PA6 : Bloqué si écart prix aberrant > 5%", False, str(e))

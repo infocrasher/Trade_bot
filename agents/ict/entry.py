@@ -41,14 +41,14 @@ class EntryAgent:
             fib_50 = swing_end - 0.50 * swing_range
             fib_62 = swing_end - 0.62 * swing_range
             fib_705 = swing_end - 0.705 * swing_range
-            fib_79 = swing_end - 0.786 * swing_range
+            fib_79 = swing_end - 0.79 * swing_range
             ote_top = fib_62
             ote_bottom = fib_79
         elif direction == "bearish":
             fib_50 = swing_end + 0.50 * swing_range
             fib_62 = swing_end + 0.62 * swing_range
             fib_705 = swing_end + 0.705 * swing_range
-            fib_79 = swing_end + 0.786 * swing_range
+            fib_79 = swing_end + 0.79 * swing_range
             ote_top = fib_79
             ote_bottom = fib_62
         else:
