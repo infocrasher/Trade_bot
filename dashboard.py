@@ -30,11 +30,19 @@ from agents.telegram_notifier import notifier
 # ── Logger fichier — garde tout l'historique ──────────────────────
 os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
 
-# Créer un dossier de session spécifique pour ce démarrage
+import sys
 from datetime import datetime
-_session_dir_name = "SESSION__" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-_session_path = os.path.join(PROJECT_ROOT, "logs", "sessions", _session_dir_name)
-os.makedirs(_session_path, exist_ok=True)
+
+# Ne créer un dossier de session QUE si on lance le dashboard directement (pas via les tests)
+is_test_run = any('test_' in arg or 'pytest' in arg for arg in sys.argv)
+
+if not is_test_run:
+    _session_dir_name = "SESSION__" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    _session_path = os.path.join(PROJECT_ROOT, "logs", "sessions", _session_dir_name)
+    os.makedirs(_session_path, exist_ok=True)
+else:
+    _session_path = os.path.join(PROJECT_ROOT, "logs", "sessions", "TEST_RUN")
+    os.makedirs(_session_path, exist_ok=True)
 
 file_logger = logging.getLogger("ict_bot")
 file_logger.setLevel(logging.DEBUG)
