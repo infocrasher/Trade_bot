@@ -574,8 +574,8 @@ import pytz
 KILLZONE_SCHEDULE = [
     {
         "name": "Asia Killzone",
-        "start": dtime(21, 0),
-        "end":   dtime(23, 0),
+        "start": dtime(0, 0),
+        "end":   dtime(4, 0),
         "pairs": ["USDJPY", "AUDUSD", "NZDUSD", "XAUUSD"],
         "horizons": ["H1", "M5"],
     },
@@ -595,22 +595,22 @@ KILLZONE_SCHEDULE = [
     },
     {
         "name": "NY AM Killzone",
-        "start": dtime(8, 0),
-        "end":   dtime(11, 0),
+        "start": dtime(12, 0),
+        "end":   dtime(15, 0),
         "pairs": None,   # None = toutes les paires actives
         "horizons": ["H1", "M5", "H4"],
     },
     {
         "name": "Silver Bullet NY",
-        "start": dtime(11, 0),
-        "end":   dtime(12, 0),
+        "start": dtime(15, 0),
+        "end":   dtime(16, 0),
         "pairs": ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"],
         "horizons": ["M5"],
     },
     {
         "name": "NY PM Killzone",
-        "start": dtime(11, 0),
-        "end":   dtime(13, 0),
+        "start": dtime(18, 30),
+        "end":   dtime(21, 0),
         "pairs": ["EURUSD", "GBPUSD", "USDJPY", "USDCAD"],
         "horizons": ["H1", "M5"],
     },
