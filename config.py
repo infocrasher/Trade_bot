@@ -137,7 +137,7 @@ SESSIONS = {
 }
 
 # Force analyze (bypass le filtre Killzone pour tester 24/7)
-FORCE_ANALYZE = True
+FORCE_ANALYZE = False
 
 # Macros algorithmiques (fentres de 20 minutes prcises)
 ALGO_MACROS = [
