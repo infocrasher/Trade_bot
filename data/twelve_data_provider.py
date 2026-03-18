@@ -145,6 +145,7 @@ class TwelveDataProvider:
         self._current_key_index = 0
         self._key_credits = {i: 0 for i in range(len(self._api_keys))}
         self._key_exhausted = {i: False for i in range(len(self._api_keys))}
+        self._key_minute_exhausted_until = {i: 0.0 for i in range(len(self._api_keys))}
         self._all_keys_exhausted = False
         
         self._daily_credits_limit = 780
@@ -171,20 +172,42 @@ class TwelveDataProvider:
             return ""
         return self._api_keys[self._current_key_index]
         
-    def _rotate_key(self, logger=None):
+    def _rotate_key(self, logger=None, is_minute_limit=False):
         if not self._api_keys:
             return
             
-        self._key_exhausted[self._current_key_index] = True
+        if is_minute_limit:
+            self._key_minute_exhausted_until[self._current_key_index] = time.time() + 60.0
+            msg_reason = "limite minute"
+        else:
+            self._key_exhausted[self._current_key_index] = True
+            msg_reason = "limite journalière"
         
-        for i in range(len(self._api_keys)):
-            next_idx = (self._current_key_index + 1 + i) % len(self._api_keys)
+        now = time.time()
+        for i in range(1, len(self._api_keys) + 1):
+            next_idx = (self._current_key_index + i) % len(self._api_keys)
             if not self._key_exhausted[next_idx]:
-                self._current_key_index = next_idx
-                msg = f"[TwelveData] 🔄 Rotation clé → clé #{next_idx + 1} ({self._key_credits[next_idx]} crédits utilisés)"
-                if logger: logger.info(msg)
-                else: print(msg)
-                return
+                if now > self._key_minute_exhausted_until[next_idx]:
+                    self._current_key_index = next_idx
+                    msg = f"[TwelveData] 🔄 Rotation ({msg_reason}) → clé #{next_idx + 1}"
+                    if logger: logger.info(msg)
+                    else: print(msg)
+                    return
+                    
+        # Si aucune clé n'est dispo immédiatement mais certaines ne sont pas épuisées pour la journée
+        active_keys = [i for i in range(len(self._api_keys)) if not self._key_exhausted[i]]
+        if active_keys:
+            msg = "[TwelveData] ⏳ Toutes les clés sont en cooldown minute. Attente 60s..."
+            if logger: logger.warning(msg)
+            else: print(msg)
+            time.sleep(60)
+            
+            # Prendre la première clé active
+            self._current_key_index = active_keys[0]
+            msg = f"[TwelveData] 🔄 Reprise après attente → clé #{self._current_key_index + 1}"
+            if logger: logger.info(msg)
+            else: print(msg)
+            return
                 
         msg = "[TwelveData] 🔴 Toutes les clés API sont épuisées pour aujourd'hui"
         if logger: logger.error(msg)
@@ -260,18 +283,29 @@ class TwelveDataProvider:
 
             if j.get("status") == "error":
                 msg = j.get("message", "Erreur inconnue")
-                # Détection épuisement passif
-                if "run out of api credits" in msg.lower() or "limit" in msg.lower():
+                msg_lower = msg.lower()
+                
+                # Détection épuisement limite MINUTE
+                if "minute" in msg_lower and "run out of api credits" in msg_lower:
                     import logging
                     logger = logging.getLogger("ict_bot")
-                    logger.warning(f"[TwelveData] ⚠️ Clé #{self._current_key_index + 1} épuisée signalée par l'API")
-                    self._rotate_key(logger)
+                    logger.warning(f"[TwelveData] ⏳ Clé #{self._current_key_index + 1} limite minute atteinte")
+                    self._rotate_key(logger, is_minute_limit=True)
+                    if not self._all_keys_exhausted:
+                        return self._fetch_candles(td_symbol, tf, n_bars)
+                        
+                # Détection épuisement limite JOURNALIÈRE
+                elif "run out of api credits" in msg_lower or "limit" in msg_lower:
+                    import logging
+                    logger = logging.getLogger("ict_bot")
+                    logger.warning(f"[TwelveData] ⚠️ Clé #{self._current_key_index + 1} épuisée (journalier) signalée par l'API")
+                    self._rotate_key(logger, is_minute_limit=False)
                     # Relancer la requête avec la nouvelle clé si disponible (récursion simple)
                     if not self._all_keys_exhausted:
                         return self._fetch_candles(td_symbol, tf, n_bars)
                         
                 # Silencieux pour les paires non supportées (ex: USOIL/UKOIL)
-                elif "not found" not in msg.lower():
+                elif "not found" not in msg_lower:
                     print(f"[TwelveData] ⚠️  {td_symbol} {tf}: {msg}")
                 return []
 
@@ -426,6 +460,7 @@ class TwelveDataProvider:
             self._credit_reset_date = today
             self._key_credits = {i: 0 for i in range(len(self._api_keys))}
             self._key_exhausted = {i: False for i in range(len(self._api_keys))}
+            self._key_minute_exhausted_until = {i: 0.0 for i in range(len(self._api_keys))}
             self._current_key_index = 0
             self._all_keys_exhausted = False
             logger.info(f"[TwelveData] 🌅 Reset journalier — {len(self._api_keys)} clés disponibles")
@@ -451,7 +486,7 @@ class TwelveDataProvider:
 
         # Rotation préventive si limite atteinte sur la clé actuelle
         if self._key_credits.get(self._current_key_index, 0) >= self._daily_credits_limit:
-            self._rotate_key(logger)
+            self._rotate_key(logger, is_minute_limit=False)
             if self._all_keys_exhausted:
                 if cache_key in self._cache:
                     return self._cache[cache_key]["df"]
