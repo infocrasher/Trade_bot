@@ -1,4 +1,7 @@
 import math
+import datetime
+import logging
+from datetime import timezone
 
 try:
     from agents.ict.liquidity_tracker import LiquidityTracker
@@ -16,6 +19,12 @@ try:
     _SOD_DETECTOR_AVAILABLE = True
 except ImportError:
     _SOD_DETECTOR_AVAILABLE = False
+
+try:
+    from agents.news_manager import NewsManager
+    _NEWS_MANAGER_AVAILABLE = True
+except ImportError:
+    _NEWS_MANAGER_AVAILABLE = False
 
 # Agent Weights for Fusion
 AGENT_WEIGHTS = {
@@ -430,6 +439,22 @@ class OrchestratorAgent:
                     reasons.append(f"P-B6 — Magnetic Force Score {mf_score}/100 (+{mf_bonus}pts)")
         except Exception:
             pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        # ── P-F3 — News Manager Malus (Phase F) ──────────────────────────────────────
+        # Règle : proximité (±15 min) d'une news HIGH impact = -10pts (-0.10)
+        if _NEWS_MANAGER_AVAILABLE:
+            try:
+                nm = NewsManager()
+                # news_window check
+                _now_utc = datetime.datetime.now(timezone.utc)
+                news_res = nm.is_news_window(trade_signal.get('symbol', ''), _now_utc)
+                if news_res.get('blocked'):
+                    conf_score = max(0.0, conf_score - 0.10)
+                    reasons.append(f"P-F3 — Proximité News HIGH Impact (-10pts)")
+                    warnings.append(f"⚠️ {news_res.get('reason')}")
+            except Exception as e:
+                pass
         # ─────────────────────────────────────────────────────────────────────────────
 
         decision_label = "EXECUTE_BUY" if final_direction == "bullish" else "EXECUTE_SELL"

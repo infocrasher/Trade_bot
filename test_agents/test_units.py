@@ -3,6 +3,8 @@ import numpy as np
 from datetime import datetime
 from agents.agent_structure import StructureAgent
 from agents.agent_time_session import TimeSessionAgent, to_ny_time
+from agents.news_manager import NewsManager
+from unittest.mock import patch
 
 class TestResults:
     def __init__(self):
@@ -438,6 +440,54 @@ def test_agent2(results: TestResults):
         results.check("B14 : Trade Quality None", report['trade_quality'] == 'no_trade', "Mouvement autorisé à tort")
     except Exception as e: results.check("B14", False, f"Exception: {e}")
 
+# ============================================================
+# PARTIE C — Tests News Manager (Phase F)
+# ============================================================
+def test_news_manager(results: TestResults):
+    print("\n--- PHASE F : News Manager (Finnhub) ---\n")
+    
+    # Simuler des news dans le manager
+    fake_news = [
+        {"time": "2026-03-19 12:30:00", "unit": "USD", "impact": "high", "event": "CPI m/m"},
+        {"time": "2026-03-19 14:00:00", "unit": "EUR", "impact": "medium", "event": "German ZEW"},
+        {"time": "2026-03-19 16:00:00", "unit": "USD", "impact": "high", "event": "FOMC"}
+    ]
+    
+    nm = NewsManager(api_key="fake")
+    nm._news_data = fake_news # Mock manuel
+    
+    # C1 : Bloqué si news HIGH ±15 min (ex: 12:35 UTC pour news à 12:30)
+    try:
+        now_utc = datetime(2026, 3, 19, 12, 35, tzinfo=timezone.utc if hasattr(datetime, "timezone") else None)
+        # S'assurer de gérer l'import de timezone si nécessaire (fait dans news_manager)
+        from datetime import timezone
+        now_utc = datetime(2026, 3, 19, 12, 35, tzinfo=timezone.utc)
+        
+        res = nm.is_news_window("EURUSD", now_utc)
+        results.check("C1 : News HIGH ±15 min (Bloqué)", res["blocked"] == True and "CPI" in res["reason"], f"Résultat: {res}")
+    except Exception as e: results.check("C1", False, f"Exception: {e}")
+
+    # C2 : Pass si news MEDIUM (même si ±5 min)
+    try:
+        now_utc = datetime(2026, 3, 19, 14, 0, tzinfo=timezone.utc)
+        res = nm.is_news_window("EURUSD", now_utc)
+        results.check("C2 : News MEDIUM (Pass)", res["blocked"] == False, f"Résultat: {res}")
+    except Exception as e: results.check("C2", False, f"Exception: {e}")
+
+    # C3 : Pass si news HIGH hors fenêtre (ex: 13:00 pour 12:30)
+    try:
+        now_utc = datetime(2026, 3, 19, 13, 0, tzinfo=timezone.utc)
+        res = nm.is_news_window("EURUSD", now_utc)
+        results.check("C3 : News HIGH hors fenêtre (Pass)", res["blocked"] == False, f"Résultat: {res}")
+    except Exception as e: results.check("C3", False, f"Exception: {e}")
+
+    # C4 : Pas de filtre pour Crypto (BTCUSD)
+    try:
+        now_utc = datetime(2026, 3, 19, 12, 30, tzinfo=timezone.utc)
+        res = nm.is_news_window("BTCUSD", now_utc)
+        results.check("C4 : Pas de filtre Crypto", res["blocked"] == False, f"Résultat: {res}")
+    except Exception as e: results.check("C4", False, f"Exception: {e}")
+
 if __name__ == "__main__":
     print("="*50)
     print("TESTS UNITAIRES — Trading Bot ICT")
@@ -446,4 +496,5 @@ if __name__ == "__main__":
     results = TestResults()
     test_agent1(results)
     test_agent2(results)
+    test_news_manager(results)
     results.summary()
