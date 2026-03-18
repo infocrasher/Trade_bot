@@ -330,12 +330,12 @@ class EntryAgent:
         confidence = min(0.95, confidence)
         
         rr_tp1 = take_profits.get('tp1', {}).get('rr_ratio', 0)
-        if rr_tp1 < 2.0:
+        if rr_tp1 < 1.5:
             try:
                 from agents.gate_logger import log_ict_blocked
                 log_ict_blocked(
                     pair=self.symbol, horizon="unknown",
-                    reason=f"R:R ratio too low ({rr_tp1} < 2.0)",
+                    reason=f"R:R ratio too low ({rr_tp1} < 1.5)",
                     bias=bias if 'bias' in dir() else "unknown",
                     htf_alignment="unknown",
                     entry=stop_loss.get("entry_price", 0),
@@ -345,7 +345,7 @@ class EntryAgent:
                 )
             except Exception:
                 pass
-            return {"signal": "NO_TRADE", "reason": f"R:R ratio too low ({rr_tp1} < 2.0)"}
+            return {"signal": "NO_TRADE", "reason": f"R:R ratio too low ({rr_tp1} < 1.5)"}
             
         # Determiner SENS
         direction = "bullish" if stop_loss['stop_loss'] < stop_loss['entry_price'] else "bearish"
