@@ -131,6 +131,14 @@ class PurePAOrchestrator:
         
         # Entry dans le FVG
         entry = target_fvg["top"] if is_bullish else target_fvg["bottom"]
+        
+        # Guard de cohérence de prix (PRIX_ABERRANT)
+        last_close = float(df["close"].iloc[-1])
+        if last_close > 0:
+            ecart_pct = abs(entry - last_close) / last_close
+            if ecart_pct > 0.05:
+                return self._no_trade(f"PRIX_ABERRANT — écart {ecart_pct * 100:.1f}% vs dernier close", entry=entry)
+
         # SL initial en dessous (ou au-dessus) du FVG
         sl_initial = target_fvg["bottom"] if is_bullish else target_fvg["top"]
         
