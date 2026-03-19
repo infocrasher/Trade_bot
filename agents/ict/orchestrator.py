@@ -172,7 +172,13 @@ class OrchestratorAgent:
         # Si non disponible, le gate est inactif (fail-safe silencieux)
         ks4_spread = trade_signal.get("current_spread_pips")
         if ks4_spread is not None:
-            ks4_limit = 3.0
+            # Seuil KS4 adapté par classe d'actif (Forex 3.0, XAUUSD 8.0, BTCUSD 50.0, ETHUSD 20.0)
+            try:
+                from config import KS4_SPREAD_LIMITS, KS4_SPREAD_LIMIT_DEFAULT
+                _pair = trade_signal.get("pair", "")
+                ks4_limit = KS4_SPREAD_LIMITS.get(_pair.upper(), KS4_SPREAD_LIMIT_DEFAULT)
+            except ImportError:
+                ks4_limit = 3.0
             if ks4_spread > ks4_limit:
                 return {
                     "decision": "NO_TRADE",

@@ -334,6 +334,34 @@ class TwelveDataProvider:
             return []
 
     # ─────────────────────────────────────────────────
+    # SPREAD RÉALISTE
+    # ─────────────────────────────────────────────────
+    @staticmethod
+    def _pip_value(symbol: str) -> float:
+        """Valeur d'1 pip en termes de prix pour un symbole donné."""
+        s = symbol.upper()
+        if any(x in s for x in ["JPY", "XAU", "GOLD"]):
+            return 0.01
+        if any(x in s for x in ["BTC", "ETH"]):
+            return 1.0
+        return 0.0001
+
+    def _spread_price(self, symbol: str, close: float) -> float:
+        """Retourne le spread en prix absolu (pas en pips) pour bid/ask."""
+        try:
+            from config import get_realistic_spread_pips
+            from datetime import datetime
+            try:
+                from zoneinfo import ZoneInfo
+                now_ny = datetime.now(ZoneInfo("America/New_York"))
+            except Exception:
+                now_ny = None
+            spread_pips = get_realistic_spread_pips(symbol, now_ny)
+        except ImportError:
+            spread_pips = 1.5  # fallback conservateur
+        return spread_pips * self._pip_value(symbol)
+
+    # ─────────────────────────────────────────────────
     # PRIX COURANT
     # ─────────────────────────────────────────────────
     def _fetch_price(self, td_symbol: str) -> dict:
@@ -353,12 +381,11 @@ class TwelveDataProvider:
                 return {"bid": 0, "ask": 0, "current_price": 0}
 
             close = float(j.get("close", 0))
-            # Twelve Data ne fournit pas bid/ask sur le plan gratuit
-            # On reconstruit un spread fictif minimal (0.5 pip pour FX)
-            spread = close * 0.00005
+            # Twelve Data ne fournit pas bid/ask → spread réaliste depuis config
+            spread = self._spread_price(td_symbol, close)
             return {
-                "bid":           round(close - spread, 6),
-                "ask":           round(close + spread, 6),
+                "bid":           round(close - spread / 2, 6),
+                "ask":           round(close + spread / 2, 6),
                 "current_price": close,
             }
         except Exception as e:
@@ -424,10 +451,10 @@ class TwelveDataProvider:
         if h1_candles:
             last = h1_candles[-1]
             close = last.get("close", 0)
-            spread = close * 0.00005
+            spread = self._spread_price(symbol, close)
             market_data["current_price"] = close
-            market_data["bid"]           = round(close - spread, 6)
-            market_data["ask"]           = round(close + spread, 6)
+            market_data["bid"]           = round(close - spread / 2, 6)
+            market_data["ask"]           = round(close + spread / 2, 6)
         else:
             # Fallback : appel dédié au prix
             price_data = self._fetch_price(td_symbol)

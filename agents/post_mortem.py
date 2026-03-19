@@ -19,11 +19,21 @@ def _pip_size(pair: str) -> float:
     return 0.0001
 
 
+def _get_spread_cost(pair: str) -> float:
+    """Retourne le coût du spread aller-retour en pips pour le PnL réaliste."""
+    try:
+        from config import get_realistic_spread_pips
+        return get_realistic_spread_pips(pair, None)  # spread 'default'
+    except ImportError:
+        return 1.5  # fallback conservateur
+
+
 def _evaluate(record: dict, current_price: float) -> dict:
     """
     Remplit would_have_won et pnl_pips pour un record donné.
     Logique : si le prix a atteint TP1 avant SL → gagné.
     On compare juste le prix actuel vs entry/sl/tp1.
+    Le spread est déduit du PnL pour refléter le coût réel.
     """
     entry = record.get("entry") or record.get("entry_price")
     sl    = record.get("sl") or record.get("stop_loss")
@@ -36,6 +46,7 @@ def _evaluate(record: dict, current_price: float) -> dict:
     pip      = _pip_size(pair)
     signal   = record.get("ict_signal") or record.get("signal") or ""
     bias     = record.get("bias") or record.get("a1_bias") or ""
+    spread   = _get_spread_cost(pair)
 
     # Déterminer la direction
     is_long = "BUY" in signal.upper() or "bullish" in bias.lower()
@@ -48,25 +59,26 @@ def _evaluate(record: dict, current_price: float) -> dict:
         # Prix actuel >= TP1 → aurait gagné
         if current_price >= tp1:
             record["would_have_won"] = True
-            record["pnl_pips"] = round((tp1 - entry) / pip, 1)
+            record["pnl_pips"] = round((tp1 - entry) / pip - spread, 1)
         # Prix actuel <= SL → aurait perdu
         elif current_price <= sl:
             record["would_have_won"] = False
-            record["pnl_pips"] = round((sl - entry) / pip, 1)
+            record["pnl_pips"] = round((sl - entry) / pip - spread, 1)
         else:
             record["would_have_won"] = None  # encore en cours
-            record["pnl_pips"] = round((current_price - entry) / pip, 1)
+            record["pnl_pips"] = round((current_price - entry) / pip - spread, 1)
     else:  # short
         if current_price <= tp1:
             record["would_have_won"] = True
-            record["pnl_pips"] = round((entry - tp1) / pip, 1)
+            record["pnl_pips"] = round((entry - tp1) / pip - spread, 1)
         elif current_price >= sl:
             record["would_have_won"] = False
-            record["pnl_pips"] = round((entry - sl) / pip, 1)
+            record["pnl_pips"] = round((entry - sl) / pip - spread, 1)
         else:
             record["would_have_won"] = None
-            record["pnl_pips"] = round((entry - current_price) / pip, 1)
+            record["pnl_pips"] = round((entry - current_price) / pip - spread, 1)
 
+    record["spread_cost_pips"] = spread
     return record
 
 

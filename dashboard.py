@@ -345,6 +345,50 @@ state_lock  = threading.Lock()
 sse_clients = []
 sse_lock    = threading.Lock()
 llm_validator = None
+_llm_skip_last_alert = 0.0  # timestamp de la dernière alerte Telegram LLM skip
+
+# ── File lock anti-double-instance ────────────────────────────────
+LOCK_FILE = os.path.join(PROJECT_ROOT, ".bot_lock")
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """Vérifie si un PID est encore vivant."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _acquire_bot_lock() -> tuple[bool, str]:
+    """Tente d'acquérir le lock. Retourne (success, message)."""
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            if _is_pid_alive(old_pid):
+                return False, f"Bot déjà en cours (PID {old_pid} vivant). Double-instance bloquée."
+            else:
+                os.remove(LOCK_FILE)
+                file_logger.warning("Lock stale supprimé (PID %d mort)", old_pid)
+        except (ValueError, IOError):
+            os.remove(LOCK_FILE)
+            file_logger.warning("Lock corrompu supprimé")
+    try:
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(os.getpid()))
+        return True, "Lock acquis"
+    except IOError as e:
+        return False, f"Impossible de créer le lock: {e}"
+
+
+def _release_bot_lock():
+    """Supprime le fichier lock."""
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except IOError:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -552,6 +596,11 @@ def init_system_async():
             log("🧠 LLM Validateur ICT activé (Claude Sonnet)", "SUCCESS")
         else:
             log("⚠️ LLM Validateur désactivé (ANTHROPIC_API_KEY manquante)", "WARNING")
+            notifier.send_message(
+                "⚠️ <b>LLM Validator DÉSACTIVÉ</b>\n"
+                "ANTHROPIC_API_KEY manquante dans config.\n"
+                "Les trades seront exécutés SANS validation LLM."
+            )
     except Exception as e:
         print(f"[INIT] Erreur critique : {e}")
         log(f"Erreur initialisation : {str(e)}", "ERROR")
@@ -1292,25 +1341,16 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     risk_percent    = getattr(config, "RISK_PERCENT", 1.0),
                                 )
                                 
-                                # ── KS4 : injecter le spread dans entry_signal ───────────────────────────────
-                                # TwelveData ne fournit pas le spread bid/ask en temps réel sur le plan Basic.
-                                # On estime le spread depuis la dernière bougie M5 : spread ≈ open - close de
-                                # la bougie la plus récente (approximation grossière mais cohérente pour le gate).
-                                # Si les données sont insuffisantes, on laisse current_spread_pips absent → gate inactif.
+                                # ── KS4 : injecter le spread réaliste dans entry_signal ────────────────────
                                 try:
-                                    df_m5_ks4 = dfs.get("M5", pd.DataFrame())
-                                    if not df_m5_ks4.empty and len(df_m5_ks4) >= 1:
-                                        last = df_m5_ks4.iloc[-1]
-                                        raw_spread = abs(float(last['high']) - float(last['low']))
-                                        # Convertir en pips selon la paire
-                                        is_jpy_pair = p.endswith("JPY") or p in ("XAUUSD", "BTCUSD", "ETHUSD")
-                                        pip_divisor = 0.01 if is_jpy_pair else 0.0001
-                                        spread_pips = raw_spread / pip_divisor
-                                        # Guard : si spread_pips > 50, c'est le range M5, pas un spread → ignorer
-                                        if spread_pips <= 50:
-                                            entry_signal["current_spread_pips"] = round(spread_pips, 1)
+                                    from zoneinfo import ZoneInfo
+                                    _ny_now = datetime.now(ZoneInfo("America/New_York"))
                                 except Exception:
-                                    pass  # gate KS4 inactif si erreur
+                                    _ny_now = None
+                                entry_signal["current_spread_pips"] = round(
+                                    config.get_realistic_spread_pips(p, _ny_now), 1
+                                )
+                                entry_signal["pair"] = p
                                 # ─────────────────────────────────────────────────────────────────────────────
 
                                 decision_obj = agent5.calculate_decision(
@@ -1409,7 +1449,17 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                         llm_warnings = llm_result.get("red_flags", [])
                                     else:
-                                        log(f"[{p}] 🧠 LLM skip: {llm_result['raisons'][0]}", "DEBUG")
+                                        _skip_reason = llm_result['raisons'][0] if llm_result.get('raisons') else "Unknown"
+                                        log(f"[{p}] ⚠️ LLM SKIP: {_skip_reason}", "WARNING")
+                                        # Alerte Telegram rate-limitée (max 1 / 5 min)
+                                        global _llm_skip_last_alert
+                                        if time.time() - _llm_skip_last_alert > 300:
+                                            _llm_skip_last_alert = time.time()
+                                            notifier.send_message(
+                                                f"⚠️ <b>LLM Validator SKIP</b>\n"
+                                                f"Paire: {p} | Horizon: {horizon}\n"
+                                                f"Raison: {_skip_reason}"
+                                            )
 
                                 elif llm_validator and llm_validator.enabled and dec.startswith("EXECUTE") and conf < 0.60:
                                     log(f"[{p}] 🧠 LLM skip — score trop bas ({conf:.0%} < 60%)", "DEBUG")
@@ -1527,7 +1577,14 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 conf          = 0.0
                                                 log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', []))}", "WARNING")
                                     except Exception as llm_err:
-                                        log(f"[{p}] LLM méta erreur: {llm_err}", "DEBUG")
+                                        log(f"[{p}] ⚠️ LLM méta erreur: {llm_err}", "WARNING")
+                                        if time.time() - _llm_skip_last_alert > 300:
+                                            _llm_skip_last_alert = time.time()
+                                            notifier.send_message(
+                                                f"⚠️ <b>LLM Validator ERREUR (Meta)</b>\n"
+                                                f"Paire: {p} | Horizon: {horizon}\n"
+                                                f"Erreur: {llm_err}"
+                                            )
 
                                 # ── Narrative ────────────────────────
                                 bias     = structure_report.get("bias", "neutral")
@@ -2909,6 +2966,13 @@ def api_start():
     if bot_state["status"] not in ("stopped", "paused"):
         return jsonify({"ok": False, "message": "Bot déjà en cours."})
 
+    # ── File lock anti-double-instance ──
+    lock_ok, lock_msg = _acquire_bot_lock()
+    if not lock_ok:
+        file_logger.critical("DOUBLE-INSTANCE BLOQUÉE: %s", lock_msg)
+        log(f"CRITICAL: {lock_msg}", "ERROR")
+        return jsonify({"ok": False, "message": lock_msg})
+
     stop_event.clear()
     pause_event.clear()
 
@@ -2925,6 +2989,7 @@ def api_start():
 def api_stop():
     stop_event.set()
     pause_event.clear()
+    _release_bot_lock()
     with state_lock: bot_state["status"] = "stopped"
     broadcast("status", {"status": "stopped"})
     log("Bot arrêté.", "INFO")
@@ -3485,6 +3550,21 @@ if __name__ == "__main__":
     print()
     print("  Ouvrir : http://localhost:5000")
     print()
+
+    # ── Cleanup lock stale au démarrage ──
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            if not _is_pid_alive(old_pid):
+                os.remove(LOCK_FILE)
+                print(f"  [LOCK] Lock stale supprimé (PID {old_pid} mort)")
+        except (ValueError, IOError):
+            os.remove(LOCK_FILE)
+            print("  [LOCK] Lock corrompu supprimé")
+
+    # Libérer le lock à la fermeture
+    atexit.register(_release_bot_lock)
 
     # Init système en arrière-plan (ne bloque pas Flask)
     threading.Thread(target=init_system_async, daemon=True).start()
