@@ -220,6 +220,7 @@ DEFAULT_PROFILES_SETTINGS = {
     
     # Sizing
     "size_risk_pct": 1.0,
+    "capital": 10000.0,
     "size_sod_active": True,
     
     # Meta
@@ -369,7 +370,46 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
                pnl_pips=0.0, pnl_money=0.0, timeframe="M15",
                profile_id=None, active_gates=None, convergence_state=None, ttl_seconds=None):
     pip_size = get_pip_size_safe(pair)
-    montant  = round(volume * abs(entry - sl) / pip_size * 10, 2) if entry and sl and pip_size > 0 else 0.0
+    entry_val = float(entry or 0)
+    sl_val = float(sl or 0)
+    
+    # ── Risk Sizing Dynamique ──
+    risk_pct = profiles_settings.get("size_risk_pct", 1.0)
+    capital = profiles_settings.get("capital", 10000.0)
+    
+    sl_pips = 0.0
+    if entry_val and sl_val and pip_size > 0:
+        sl_pips = abs(entry_val - sl_val) / pip_size
+        
+    if sl_pips <= 0:
+        dynamic_lot = 0.01
+    else:
+        pair_upper = pair.upper()
+        if any(c in pair_upper for c in ["BTC", "ETH"]):
+            pip_value = 1.0
+        elif "XAU" in pair_upper:
+            pip_value = 10.0
+        elif "JPY" in pair_upper:
+            if entry_val > 0:
+                pip_value = 1000.0 / entry_val
+            else:
+                pip_value = 6.66 # fallback
+        else:
+            pip_value = 10.0
+            
+        risk_amount = capital * (risk_pct / 100.0)
+        dynamic_lot = risk_amount / (sl_pips * pip_value)
+        dynamic_lot = round(dynamic_lot, 2)
+        
+        # Guards obligatoires
+        if dynamic_lot < 0.01:
+            dynamic_lot = 0.01
+        elif dynamic_lot > 1.0:
+            dynamic_lot = 1.0
+
+    final_volume = dynamic_lot
+    montant = round(final_volume * sl_pips * 10, 2) if pip_size > 0 else 0.0
+
     return {
         "id":               f"{pair}_{str(uuid.uuid4())[:8]}",
         "pair":             pair,
@@ -377,16 +417,17 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
         "status":           status,
         "direction":        direction,
         "timeframe":        timeframe,
-        "entry":            float(entry or 0),
-        "sl":               float(sl or 0),
+        "entry":            entry_val,
+        "sl":               sl_val,
         "tp1":              float(tp1 or 0),
         "tp2":              float(tp2 or 0),
-        "rr":               round(abs(float(tp1 or 0) - float(entry or 0)) / abs(float(entry or 0) - float(sl or 0)), 2)
-                            if entry and sl and abs(float(entry or 0) - float(sl or 0)) > 0 else 0,
+        "rr":               round(abs(float(tp1 or 0) - entry_val) / abs(entry_val - sl_val), 2)
+                            if entry_val and sl_val and abs(entry_val - sl_val) > 0 else 0,
         "score":            int(score or 50),
         "pnl_pips":         float(pnl_pips or 0),
         "pnl_money":        float(pnl_money or 0),
-        "volume":           float(volume or 0.1),
+        "volume":           float(final_volume),
+        "position_size_lots": float(final_volume),
         "montant_risque":   montant,
         "opened_at":        datetime.now().strftime("%Y-%m-%d %H:%M"),
         "closed_at":        None,

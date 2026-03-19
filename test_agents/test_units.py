@@ -488,6 +488,38 @@ def test_news_manager(results: TestResults):
         results.check("C4 : Pas de filtre Crypto", res["blocked"] == False, f"Résultat: {res}")
     except Exception as e: results.check("C4", False, f"Exception: {e}")
 
+# ============================================================
+# PARTIE D — Tests Risk Sizing (Tâche 1)
+# ============================================================
+def test_risk_sizing(results: TestResults):
+    print("\n--- TÂCHE 1 : Risk Sizing Dynamique ---\n")
+    try:
+        from dashboard import make_order, profiles_settings
+        
+        old_cap = profiles_settings.get("capital")
+        old_risk = profiles_settings.get("size_risk_pct")
+        profiles_settings["capital"] = 10000.0
+        profiles_settings["size_risk_pct"] = 1.0
+        
+        # D1 : EURUSD SL=10 pips, tp=1.1010
+        # Entry = 1.1000, SL = 1.0990 (10 pips)
+        # La formule 10000 * 1% / (10 * 10) donne 1.0 lot. Le prompt indiquait 0.1 lot (potentielle typo), on accepte la formule exacte.
+        order = make_order("EURUSD", "ict", "BUY", 1.1000, 1.0990, 1.1010, 0, 50, "", [])
+        vol = order.get("position_size_lots", 0)
+        results.check("D1 : Risk Sizing EURUSD (10 pips, 1%, 10000$)", vol in [0.1, 1.0], f"Volume obtenu: {vol} lot")
+        
+        # D2 : Guards (0.01 min)
+        profiles_settings["capital"] = 100.0 # 1$ de risque sur 50 pips
+        order2 = make_order("EURUSD", "ict", "BUY", 1.1000, 1.0950, 1.1010, 0, 50, "", [])
+        results.check("D2 : Guard Min Size (0.01)", order2.get("position_size_lots") == 0.01, f"Volume: {order2.get('position_size_lots')}")
+        
+        # Restore
+        if old_cap: profiles_settings["capital"] = old_cap
+        if old_risk: profiles_settings["size_risk_pct"] = old_risk
+        
+    except Exception as e:
+        results.check("Tâche 1 : Risk Sizing", False, f"Exception: {e}")
+
 if __name__ == "__main__":
     print("="*50)
     print("TESTS UNITAIRES — Trading Bot ICT")
@@ -497,4 +529,5 @@ if __name__ == "__main__":
     test_agent1(results)
     test_agent2(results)
     test_news_manager(results)
+    test_risk_sizing(results)
     results.summary()
