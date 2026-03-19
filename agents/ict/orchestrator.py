@@ -10,6 +10,12 @@ except ImportError:
     _LIQUIDITY_TRACKER_AVAILABLE = False
 
 try:
+    from agents.ict.liquidity_detector import LiquidityDetector
+    _LIQUIDITY_DETECTOR_AVAILABLE = True
+except ImportError:
+    _LIQUIDITY_DETECTOR_AVAILABLE = False
+
+try:
     from agents.ict.enigma import score_enigma, snap_to_enigma
     _ENIGMA_AVAILABLE = True
 except ImportError:
@@ -140,6 +146,24 @@ class OrchestratorAgent:
                 import logging as _log
                 _log.getLogger(__name__).warning(f"[OrchestratorAgent] LiquidityTracker erreur : {_liq_err}")
                 liquidity_report = None
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        # ── P-F2 — LiquidityDetector (calcul niveaux + bonus DOL/Sweep) ──────────────
+        # Appel après A1 : enrichit le scoring avec les niveaux PDH/PDL/EQH/EQL/DOL
+        _liq_det_report = None
+        if _LIQUIDITY_DETECTOR_AVAILABLE:
+            try:
+                symbol = (trade_signal.get('symbol') or structure_report.get('symbol', 'EURUSD')).upper()
+                import pandas as pd
+                df_m5_ld = trade_signal.get('_df_m5') or structure_report.get('_df_m5')
+                df_h1_ld = trade_signal.get('_df_h1') or structure_report.get('_df_h1')
+                df_d1_ld = trade_signal.get('_df_d1') or structure_report.get('_df_d1')
+                if df_d1_ld is not None or df_m5_ld is not None:
+                    _liq_det = LiquidityDetector(symbol=symbol)
+                    _bias_for_det = 'bullish' if trade_signal.get('signal') == 'BUY' else 'bearish'
+                    _liq_det_report = _liq_det.detect_all(df_m5_ld, df_h1_ld, df_d1_ld, _bias_for_det)
+            except Exception:
+                _liq_det_report = None
         # ─────────────────────────────────────────────────────────────────────────────
 
         # ── KS4 — Spread excessif (> 3 pips) ─────────────────────────────────────────
@@ -439,6 +463,41 @@ class OrchestratorAgent:
                     reasons.append(f"P-B6 — Magnetic Force Score {mf_score}/100 (+{mf_bonus}pts)")
         except Exception:
             pass  # fail-safe silencieux
+        # ─────────────────────────────────────────────────────────────────────────────
+
+        # ── P-F2 Bonuses — DOL + Sweep (LiquidityDetector) ──────────────────────────
+        # Bonus +5pts si prix entre DOL et entrée dans la direction du biais
+        # Bonus +5pts si sweep récent confirmé dans la direction du signal
+        if _liq_det_report:
+            try:
+                _dol             = _liq_det_report.get("dol", {})
+                _dol_price       = _dol.get("price", 0)
+                _entry_pf2       = trade_signal.get("entry_price", 0)
+                _c_price_pf2     = _liq_det_report.get("current_price", 0)
+                _bias_pf2        = _liq_det_report.get("bias", "neutral")
+
+                # Bonus DOL : prix entre DOL et entrée → le marché file vers le DOL
+                if _dol_price > 0 and _entry_pf2 > 0 and _c_price_pf2 > 0:
+                    is_between = (
+                        (_bias_pf2 == "bullish" and _entry_pf2 <= _c_price_pf2 <= _dol_price) or
+                        (_bias_pf2 == "bearish" and _dol_price <= _c_price_pf2 <= _entry_pf2)
+                    )
+                    if is_between:
+                        conf_score = min(1.0, conf_score + 0.05)
+                        reasons.append(f"P-F2 — Prix entre entrée et DOL {_dol.get('name', '')} (+5pts)")
+
+                # Bonus Sweep récent
+                _sweeps_pf2 = _liq_det_report.get("sweeps", [])
+                _sweep_confirmed = any(
+                    (s["type"] == "buyside_sweep"  and _bias_pf2 == "bearish") or
+                    (s["type"] == "sellside_sweep" and _bias_pf2 == "bullish")
+                    for s in _sweeps_pf2
+                )
+                if _sweep_confirmed:
+                    conf_score = min(1.0, conf_score + 0.05)
+                    reasons.append(f"P-F2 — Sweep de liquidité récent confirmé (+5pts)")
+            except Exception:
+                pass
         # ─────────────────────────────────────────────────────────────────────────────
 
         # ── P-F3 — News Manager Malus (Phase F) ──────────────────────────────────────
