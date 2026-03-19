@@ -1341,25 +1341,16 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     risk_percent    = getattr(config, "RISK_PERCENT", 1.0),
                                 )
                                 
-                                # ── KS4 : injecter le spread dans entry_signal ───────────────────────────────
-                                # TwelveData ne fournit pas le spread bid/ask en temps réel sur le plan Basic.
-                                # On estime le spread depuis la dernière bougie M5 : spread ≈ open - close de
-                                # la bougie la plus récente (approximation grossière mais cohérente pour le gate).
-                                # Si les données sont insuffisantes, on laisse current_spread_pips absent → gate inactif.
+                                # ── KS4 : injecter le spread réaliste dans entry_signal ────────────────────
                                 try:
-                                    df_m5_ks4 = dfs.get("M5", pd.DataFrame())
-                                    if not df_m5_ks4.empty and len(df_m5_ks4) >= 1:
-                                        last = df_m5_ks4.iloc[-1]
-                                        raw_spread = abs(float(last['high']) - float(last['low']))
-                                        # Convertir en pips selon la paire
-                                        is_jpy_pair = p.endswith("JPY") or p in ("XAUUSD", "BTCUSD", "ETHUSD")
-                                        pip_divisor = 0.01 if is_jpy_pair else 0.0001
-                                        spread_pips = raw_spread / pip_divisor
-                                        # Guard : si spread_pips > 50, c'est le range M5, pas un spread → ignorer
-                                        if spread_pips <= 50:
-                                            entry_signal["current_spread_pips"] = round(spread_pips, 1)
+                                    from zoneinfo import ZoneInfo
+                                    _ny_now = datetime.now(ZoneInfo("America/New_York"))
                                 except Exception:
-                                    pass  # gate KS4 inactif si erreur
+                                    _ny_now = None
+                                entry_signal["current_spread_pips"] = round(
+                                    config.get_realistic_spread_pips(p, _ny_now), 1
+                                )
+                                entry_signal["pair"] = p
                                 # ─────────────────────────────────────────────────────────────────────────────
 
                                 decision_obj = agent5.calculate_decision(

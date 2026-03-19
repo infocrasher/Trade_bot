@@ -193,3 +193,73 @@ CORRELATION_GROUPS = [
     ["BTCUSD"],                                  # Crypto
 ]
 MAX_CORRELATED_TRADES = 2  # Max 2 trades dans la même direction dans un groupe
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 11. SPREADS RÉALISTES PAR PAIRE ET SESSION (en pips)
+# ═══════════════════════════════════════════════════════════════════
+# Sources : conditions moyennes observées sur brokers ECN (IC Markets, Pepperstone)
+# liquid  = London AM + NY AM killzones (meilleure liquidité)
+# asian   = Asian session (liquidité réduite)
+# monday  = Lundi pré-London (spreads élargis post-weekend)
+# default = hors killzone standard
+REALISTIC_SPREADS = {
+    # Forex Majeurs
+    "EURUSD":  {"liquid": 0.8,  "asian": 2.0,  "monday": 2.5,  "default": 1.2},
+    "GBPUSD":  {"liquid": 1.2,  "asian": 2.5,  "monday": 3.0,  "default": 1.8},
+    "USDJPY":  {"liquid": 0.8,  "asian": 2.0,  "monday": 2.5,  "default": 1.2},
+    "USDCAD":  {"liquid": 1.5,  "asian": 3.0,  "monday": 3.5,  "default": 2.0},
+    "USDCHF":  {"liquid": 1.2,  "asian": 2.5,  "monday": 3.0,  "default": 1.8},
+    "AUDUSD":  {"liquid": 1.0,  "asian": 1.5,  "monday": 2.5,  "default": 1.5},
+    "NZDUSD":  {"liquid": 1.2,  "asian": 2.0,  "monday": 3.0,  "default": 1.8},
+    # Forex Cross
+    "EURGBP":  {"liquid": 1.5,  "asian": 3.0,  "monday": 3.5,  "default": 2.0},
+    "EURJPY":  {"liquid": 1.5,  "asian": 3.0,  "monday": 3.5,  "default": 2.0},
+    "GBPJPY":  {"liquid": 2.0,  "asian": 4.0,  "monday": 5.0,  "default": 3.0},
+    "AUDJPY":  {"liquid": 1.8,  "asian": 3.5,  "monday": 4.0,  "default": 2.5},
+    # Métaux
+    "XAUUSD":  {"liquid": 2.5,  "asian": 4.0,  "monday": 5.0,  "default": 3.5},
+    # Crypto
+    "BTCUSD":  {"liquid": 10.0, "asian": 20.0, "monday": 30.0, "default": 15.0},
+    "ETHUSD":  {"liquid": 8.0,  "asian": 15.0, "monday": 25.0, "default": 12.0},
+}
+
+# Seuils KS4 (spread max) par classe d'actif (en pips)
+KS4_SPREAD_LIMITS = {
+    "XAUUSD": 8.0,
+    "BTCUSD": 50.0,
+    "ETHUSD": 20.0,
+}
+KS4_SPREAD_LIMIT_DEFAULT = 3.0  # Forex
+
+
+def get_realistic_spread_pips(symbol: str, current_time_ny=None) -> float:
+    """
+    Retourne le spread réaliste en pips pour un symbole et un moment donné.
+    current_time_ny : datetime en heure de New York (optionnel).
+    Si None, retourne le spread 'default'.
+    """
+    symbol = symbol.upper()
+    spreads = REALISTIC_SPREADS.get(symbol)
+    if spreads is None:
+        return 2.0  # fallback conservateur
+
+    if current_time_ny is None:
+        return spreads["default"]
+
+    hour = current_time_ny.hour
+    weekday = current_time_ny.weekday()  # 0=lundi
+
+    # Lundi avant 8h NY = spread élargi post-weekend
+    if weekday == 0 and hour < 8:
+        return spreads["monday"]
+
+    # Asian session : 19h-02h NY (dimanche soir à mardi matin)
+    if hour >= 19 or hour < 2:
+        return spreads["asian"]
+
+    # London AM (02h-05h NY) + NY AM (08h-12h NY) = meilleure liquidité
+    if (2 <= hour < 5) or (8 <= hour < 12):
+        return spreads["liquid"]
+
+    return spreads["default"]
