@@ -31,3 +31,4 @@ old_*
 ngrok.log
 paper_trades/
 paper_trading/
+.bot_lock

@@ -346,6 +346,49 @@ sse_clients = []
 sse_lock    = threading.Lock()
 llm_validator = None
 
+# ── File lock anti-double-instance ────────────────────────────────
+LOCK_FILE = os.path.join(PROJECT_ROOT, ".bot_lock")
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """Vérifie si un PID est encore vivant."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _acquire_bot_lock() -> tuple[bool, str]:
+    """Tente d'acquérir le lock. Retourne (success, message)."""
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            if _is_pid_alive(old_pid):
+                return False, f"Bot déjà en cours (PID {old_pid} vivant). Double-instance bloquée."
+            else:
+                os.remove(LOCK_FILE)
+                file_logger.warning("Lock stale supprimé (PID %d mort)", old_pid)
+        except (ValueError, IOError):
+            os.remove(LOCK_FILE)
+            file_logger.warning("Lock corrompu supprimé")
+    try:
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(os.getpid()))
+        return True, "Lock acquis"
+    except IOError as e:
+        return False, f"Impossible de créer le lock: {e}"
+
+
+def _release_bot_lock():
+    """Supprime le fichier lock."""
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except IOError:
+        pass
+
 
 # ─────────────────────────────────────────────────────────────────
 # MODÈLE D'ORDRE
@@ -2909,6 +2952,13 @@ def api_start():
     if bot_state["status"] not in ("stopped", "paused"):
         return jsonify({"ok": False, "message": "Bot déjà en cours."})
 
+    # ── File lock anti-double-instance ──
+    lock_ok, lock_msg = _acquire_bot_lock()
+    if not lock_ok:
+        file_logger.critical("DOUBLE-INSTANCE BLOQUÉE: %s", lock_msg)
+        log(f"CRITICAL: {lock_msg}", "ERROR")
+        return jsonify({"ok": False, "message": lock_msg})
+
     stop_event.clear()
     pause_event.clear()
 
@@ -2925,6 +2975,7 @@ def api_start():
 def api_stop():
     stop_event.set()
     pause_event.clear()
+    _release_bot_lock()
     with state_lock: bot_state["status"] = "stopped"
     broadcast("status", {"status": "stopped"})
     log("Bot arrêté.", "INFO")
@@ -3485,6 +3536,21 @@ if __name__ == "__main__":
     print()
     print("  Ouvrir : http://localhost:5000")
     print()
+
+    # ── Cleanup lock stale au démarrage ──
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            if not _is_pid_alive(old_pid):
+                os.remove(LOCK_FILE)
+                print(f"  [LOCK] Lock stale supprimé (PID {old_pid} mort)")
+        except (ValueError, IOError):
+            os.remove(LOCK_FILE)
+            print("  [LOCK] Lock corrompu supprimé")
+
+    # Libérer le lock à la fermeture
+    atexit.register(_release_bot_lock)
 
     # Init système en arrière-plan (ne bloque pas Flask)
     threading.Thread(target=init_system_async, daemon=True).start()
