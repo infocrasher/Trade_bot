@@ -84,6 +84,34 @@ Réponds UNIQUEMENT avec ce JSON, rien d'autre:
 }
 """
 
+KNOWLEDGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowledge")
+KNOWLEDGE_FILES = [
+    "00_GLOSSAIRE_v2.md",
+    "01_CADRE_FRACTAL_SPECIFIQUE.md",
+    "02_PYRAMIDE_ANALYSE (1).md",
+    "03_ICT_ENCYCLOPEDIE_v5.md",
+    "04_PRICE_ACTION_BIBLE_v4.md",
+    "05_INSTRUMENTS_SPECIFIQUES.md",
+    "06_DOSSIER_PAIRE_SCHEMA.md",
+    "07_MOTEUR_DECISION.md",
+    "08_INDICATEURSCONFIRMATOIRES .md"
+]
+
+def load_knowledge_base():
+    content = ""
+    for fname in KNOWLEDGE_FILES:
+        fpath = os.path.join(KNOWLEDGE_DIR, fname)
+        if os.path.exists(fpath):
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    content += f"\n\n--- DOCUMENT: {fname} ---\n\n"
+                    content += f.read()
+            except Exception:
+                pass
+    return content
+
+KNOWLEDGE_TEXT = load_knowledge_base()
+
 
 class LLMValidatorAgent:
     """Agent 6 — Valide les signaux ICT via Claude Sonnet."""
@@ -125,16 +153,23 @@ class LLMValidatorAgent:
 
         try:
             self.last_call_time = time.time()
+            system_prompts = []
+            if KNOWLEDGE_TEXT:
+                system_prompts.append({
+                    "type": "text",
+                    "text": KNOWLEDGE_TEXT,
+                    "cache_control": {"type": "ephemeral"}
+                })
+            system_prompts.append({
+                "type": "text",
+                "text": ICT_SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"}
+            })
+
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=800,
-                system=[
-                    {
-                        "type": "text",
-                        "text": ICT_SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"}
-                    }
-                ],
+                system=system_prompts,
                 messages=[{"role": "user", "content": user_message}]
             )
 
