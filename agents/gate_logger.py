@@ -142,3 +142,25 @@ def log_pure_pa_blocked(
             "pnl_pips":     None,
         }
     )
+
+def log_behaviour_shield_blocked(
+    pair: str, horizon: str, reason: str,
+    entry: float = None, sl: float = None, tp: float = None,
+) -> None:
+    """Loggue un setup bloqué par le BehaviourShield."""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    _write(
+        os.path.join(GATE_LOG_DIR, f"behaviour_shield_blocked_{today}.json"),
+        {
+            "timestamp":    datetime.utcnow().isoformat(),
+            "profile_id":   "behaviour_shield",
+            "pair":         pair,
+            "horizon":      horizon,
+            "gate_reason":  reason,
+            "entry":        round(entry, 6) if entry else None,
+            "sl":           round(sl, 6) if sl else None,
+            "tp":           round(tp, 6) if tp else None,
+            "would_have_won": None,
+            "pnl_pips":     None,
+        }
+    )

@@ -27,6 +27,13 @@ import config
 from agents.post_mortem import run_post_mortem
 from agents.telegram_notifier import notifier
 
+try:
+    from agents.behaviour_shield import BehaviourShield
+    _behaviour_shield = BehaviourShield()
+    _BS_AVAILABLE = True
+except ImportError:
+    _BS_AVAILABLE = False
+
 # ── Logger fichier — garde tout l'historique ──────────────────────
 os.makedirs(os.path.join(PROJECT_ROOT, "logs"), exist_ok=True)
 
@@ -1272,6 +1279,52 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                 dec  = decision_obj.get("decision", "NO_TRADE")
                                 conf = decision_obj.get("global_confidence", 0)
+
+                                # ── P-F1 : BehaviourShield (Filtres comportementaux) ──
+                                # Placé avant le LLM pour économiser les crédits (si bloqué, LLM non appelé)
+                                if _BS_AVAILABLE and dec.startswith("EXECUTE"):
+                                    try:
+                                        from agents.gate_logger import log_behaviour_shield_blocked
+                                        bs_dir = "BUY" if "BUY" in dec else "SELL"
+                                        bs_ctx = {
+                                            "df_h1": dfs.get("H1"),
+                                            "recent_trades": bot_state.get("orders", []),
+                                            "entry_time": getattr(decision_obj, "entry_time", datetime.now(timezone.utc)),
+                                        }
+                                        # Ajouter les infos de liquidité si disponibles
+                                        if liquidity_report:
+                                            bs_ctx["key_levels"] = {
+                                                "pdh": liquidity_report.get("pdh"),
+                                                "pdl": liquidity_report.get("pdl"),
+                                                "pwh": liquidity_report.get("pwh"),
+                                                "pwl": liquidity_report.get("pwl"),
+                                                "eqh": liquidity_report.get("eqh"),
+                                                "eql": liquidity_report.get("eql")
+                                            }
+                                            bs_ctx["recent_sweeps"] = liquidity_report.get("recent_sweeps", [])
+                                            bs_ctx["atr"] = liquidity_report.get("atr_m5", 0)
+
+                                        bs_res = _behaviour_shield.check(
+                                            pair=p, direction=bs_dir,
+                                            entry_price=decision_obj.get("entry_price", 0),
+                                            sl=decision_obj.get("stop_loss", 0),
+                                            df_m5=dfs.get("M5"), context=bs_ctx
+                                        )
+
+                                        if bs_res.get("blocked"):
+                                            log(f"[{p}] 🛡️ BehaviourShield BLOQUÉ: {bs_res.get('reason')}", "WARNING")
+                                            log_behaviour_shield_blocked(
+                                                pair=p, horizon=horizon, reason=bs_res.get('reason'),
+                                                entry=decision_obj.get("entry_price", 0),
+                                                sl=decision_obj.get("stop_loss", 0), tp=decision_obj.get("tp1", 0)
+                                            )
+                                            dec = "NO_TRADE"
+                                            conf = 0.0
+                                            decision_obj["decision"] = dec
+                                            decision_obj["global_confidence"] = conf
+                                            decision_obj["reason"] = bs_res.get("reason")
+                                    except Exception as bs_err:
+                                        log(f"[{p}] BehaviourShield erreur: {bs_err}", "DEBUG")
 
                                 # ── Agent 6 : LLM Validateur (si activé et si EXECUTE et score >= 60) ──
                                 llm_result = None
