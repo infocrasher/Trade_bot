@@ -345,6 +345,7 @@ state_lock  = threading.Lock()
 sse_clients = []
 sse_lock    = threading.Lock()
 llm_validator = None
+_llm_skip_last_alert = 0.0  # timestamp de la dernière alerte Telegram LLM skip
 
 # ── File lock anti-double-instance ────────────────────────────────
 LOCK_FILE = os.path.join(PROJECT_ROOT, ".bot_lock")
@@ -595,6 +596,11 @@ def init_system_async():
             log("🧠 LLM Validateur ICT activé (Claude Sonnet)", "SUCCESS")
         else:
             log("⚠️ LLM Validateur désactivé (ANTHROPIC_API_KEY manquante)", "WARNING")
+            notifier.send_message(
+                "⚠️ <b>LLM Validator DÉSACTIVÉ</b>\n"
+                "ANTHROPIC_API_KEY manquante dans config.\n"
+                "Les trades seront exécutés SANS validation LLM."
+            )
     except Exception as e:
         print(f"[INIT] Erreur critique : {e}")
         log(f"Erreur initialisation : {str(e)}", "ERROR")
@@ -1452,7 +1458,17 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                         llm_warnings = llm_result.get("red_flags", [])
                                     else:
-                                        log(f"[{p}] 🧠 LLM skip: {llm_result['raisons'][0]}", "DEBUG")
+                                        _skip_reason = llm_result['raisons'][0] if llm_result.get('raisons') else "Unknown"
+                                        log(f"[{p}] ⚠️ LLM SKIP: {_skip_reason}", "WARNING")
+                                        # Alerte Telegram rate-limitée (max 1 / 5 min)
+                                        global _llm_skip_last_alert
+                                        if time.time() - _llm_skip_last_alert > 300:
+                                            _llm_skip_last_alert = time.time()
+                                            notifier.send_message(
+                                                f"⚠️ <b>LLM Validator SKIP</b>\n"
+                                                f"Paire: {p} | Horizon: {horizon}\n"
+                                                f"Raison: {_skip_reason}"
+                                            )
 
                                 elif llm_validator and llm_validator.enabled and dec.startswith("EXECUTE") and conf < 0.60:
                                     log(f"[{p}] 🧠 LLM skip — score trop bas ({conf:.0%} < 60%)", "DEBUG")
@@ -1570,7 +1586,14 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 conf          = 0.0
                                                 log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', []))}", "WARNING")
                                     except Exception as llm_err:
-                                        log(f"[{p}] LLM méta erreur: {llm_err}", "DEBUG")
+                                        log(f"[{p}] ⚠️ LLM méta erreur: {llm_err}", "WARNING")
+                                        if time.time() - _llm_skip_last_alert > 300:
+                                            _llm_skip_last_alert = time.time()
+                                            notifier.send_message(
+                                                f"⚠️ <b>LLM Validator ERREUR (Meta)</b>\n"
+                                                f"Paire: {p} | Horizon: {horizon}\n"
+                                                f"Erreur: {llm_err}"
+                                            )
 
                                 # ── Narrative ────────────────────────
                                 bias     = structure_report.get("bias", "neutral")
