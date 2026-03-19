@@ -23,6 +23,7 @@ build/
 data/gate_logs/
 Fateh_bot/
 Sentinelle bot/
+FNewbot/
 documentation/avis_ia/
 tests/
 test_*.py
