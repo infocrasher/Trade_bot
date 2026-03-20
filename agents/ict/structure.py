@@ -482,7 +482,10 @@ class StructureAgent:
         # 7. Détecter les liquidity sweeps
         sweeps = self.detect_liquidity_sweeps(df_struct, swings)
         
-        # 8. Compiler le rapport
+        # 8. Détecter les MSS (Market Structure Shift) avec validation Anti-Inducement (P-F5)
+        mss = self.detect_mss(df_struct, swings, displacements, fvgs, bos_choch, sweeps)
+        
+        # 9. Compiler le rapport
         bias = self._determine_bias(bos_choch, swings)
         
         return {
@@ -496,16 +499,19 @@ class StructureAgent:
             "order_blocks": obs,
             "bos_choch": bos_choch,
             "liquidity_sweeps": sweeps,
+            "mss": mss,
             "bias": bias
         }
 
     def detect_mss(self, df: pd.DataFrame, swings: list, displacements: list, 
-                   fvgs: list, bos_choch: list) -> list[dict]:
+                   fvgs: list, bos_choch: list, sweeps: list = None) -> list[dict]:
         """
         MSS = BOS/CHoCH + Displacement + FVG créé, tous dans le même mouvement.
+        Anti-Inducement (P-F5) : Un MSS est valide SEULEMENT si un Sweep ERL a précédé.
         """
         mss_events = []
-        df_times = df['time'].dt.strftime('%Y-%m-%d %H:%M').values
+        df_times = df['time'].dt.strftime('%H:%M').values if 'time' in df.columns else [None]*len(df)
+        sweeps = sweeps or []
         
         fvg_disp_indices = set(f['displacement_index'] for f in fvgs)
         
@@ -523,14 +529,35 @@ class StructureAgent:
                     is_bullish = 'bullish' in event['type']
                     mss_type = "bullish_mss" if is_bullish else "bearish_mss"
                     
+                    # --- P-F5 ANTI-INDUCEMENT SWEEP ---
+                    # Vérifier si un sweep a eu lieu juste avant (dans les 10 dernières bougies)
+                    sweep_confirmed = False
+                    reason = "Inducement Trap (No Sweep)"
+                    
+                    for s in sweeps:
+                        # Le sweep doit être dans le bon sens et récent
+                        if is_bullish and s['type'] == 'sellside_sweep':
+                            if 0 <= (event_idx - s['index']) <= 10:
+                                sweep_confirmed = True
+                                break
+                        elif not is_bullish and s['type'] == 'buyside_sweep':
+                            if 0 <= (event_idx - s['index']) <= 10:
+                                sweep_confirmed = True
+                                break
+                    
+                    if sweep_confirmed:
+                        reason = "✅ MSS Validé (Sweep ERL)"
+                    
                     mss_events.append({
                         "type": mss_type,
                         "bos_index": event_idx,
                         "displacement_index": d_idx,
                         "fvg_index": fvg_idx,
                         "broken_level": event['broken_level'],
-                        "confidence": "high",
-                        "time": df_times[event_idx]
+                        "confidence": "high" if sweep_confirmed else "low",
+                        "valid": sweep_confirmed,
+                        "anti_inducement": reason,
+                        "time": df_times[event_idx] if event_idx < len(df_times) else "N/A"
                     })
                     break # Un seul MSS pour cet event
                     

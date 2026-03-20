@@ -80,10 +80,8 @@ TRADING_PAIRS = [
 # 
 # 4. PARAMTRES DE RISQUE ET PHILOSOPHIE
 # 
-# Mode PURE ICT (Focus exclusif sur ICT)
-# True  = Utilise uniquement l'Expert ICT (autres experts en standby)
-# False = Systme multi-agent complet
-PURE_ICT_MODE = True
+# False = Système multi-agent complet
+PURE_ICT_MODE = False
 
 # Score minimum requis pour ouvrir un trade (entre 0 et 100)
 MIN_CONFIDENCE_SCORE = 70    # Rehausse pour plus de qualite
@@ -116,10 +114,11 @@ if PURE_ICT_MODE:
     }
 else:
     AGENT_WEIGHTS = {
-        "ict":          35,
-        "footprint":    30,
-        "fundamental":  20,
-        "elliott":      15,
+        "ict":          55,
+        "elliott":      30,
+        "vsa":          15,
+        "footprint":    0,
+        "fundamental":  0,
     }
 
 
@@ -176,6 +175,9 @@ RISK_PERCENT    = 1.0     # risque par trade en %
 
 # Arrêt automatique du trading si la perte journalière dépasse ce seuil
 CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT = 3.0    # -3% du capital = STOP total
+CIRCUIT_BREAKER_KELLY_DD_PCT       = 5.0    # -5% hebdomadaire = risque / 2 (Kelly/8)
+CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT  = 10.0   # -10% du capital sur 7j = PAPER_ONLY
+CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT   = 20.0   # -20% du capital total = STOP total
 CIRCUIT_BREAKER_MAX_TRADES_PER_DAY = 5      # Max 5 trades/jour/paire
 CIRCUIT_BREAKER_COOLDOWN_HOURS     = 4      # Pause de 4h après déclenchement
 CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT = 3      # 3 SL en série = pause auto

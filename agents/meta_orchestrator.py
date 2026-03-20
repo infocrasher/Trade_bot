@@ -7,6 +7,7 @@ les fusionne et prend la décision finale.
 """
 
 import time
+import config
 from typing import List
 
 try:
@@ -24,11 +25,10 @@ class MetaOrchestrator:
     Seuil live       = 0.45 (à relever après 100 trades confirmés en paper)
     """
 
-    # Poids par école (utilisés en fallback si MetaConvergenceEngine absent)
+    # Poids par école (synchronis avec config.AGENT_WEIGHTS)
     WEIGHTS = {
-        "ict":      0.55,
-        "elliott":  0.30,
-        "vsa":      0.15,
+        k: (v / 100.0) if v > 1.0 else v 
+        for k, v in getattr(config, "AGENT_WEIGHTS", {"ict": 0.55, "elliott": 0.30, "vsa": 0.15}).items()
     }
 
     # Seuil d'activation MetaConvergenceEngine — phase paper_trading
@@ -44,7 +44,7 @@ class MetaOrchestrator:
             self._mce = None
 
     # ── Point d'entrée principal ─────────────────────────────────────────────
-    def compare(self, signals: list) -> dict:
+    def compare(self, signals: list, sqn_multipliers: dict = None) -> dict:
         """
         Compare les signaux de toutes les écoles.
         Utilise MetaConvergenceEngine si disponible.
@@ -53,10 +53,14 @@ class MetaOrchestrator:
         Args:
             signals: list de dicts format standard
                      [{"school": "ict", "signal": "BUY", "score": ..., ...}, ...]
+            sqn_multipliers: dict des multiplicateurs de quarantaine par profil
 
         Returns:
             dict avec la décision finale.
         """
+        if sqn_multipliers is None:
+            sqn_multipliers = {}
+
         if not signals:
             return self._no_trade("Aucun signal reçu")
 
@@ -97,7 +101,7 @@ class MetaOrchestrator:
                     profile_signals.append(ps)
 
                 if profile_signals:
-                    activated, meta_score, details = self._mce.scorer.should_activate(profile_signals)
+                    activated, meta_score, details = self._mce.scorer.should_activate(profile_signals, sqn_multipliers)
 
                     # Dériver la direction dominante (poids net)
                     net_dir = sum(
@@ -107,7 +111,11 @@ class MetaOrchestrator:
                     direction = "BUY" if net_dir >= 0 else "SELL"
 
                     # Trouver le signal dominant (plus fort poids configuré)
-                    dominant_school = max(active_signals, key=lambda s: self.WEIGHTS.get(s.get("school", ""), 0.1))
+                    # Utiliser get_weight si l'on est dans le fallback, ou ici calculer le poids multiplié
+                    def get_dominant_weight(school):
+                        return self.WEIGHTS.get(school, 0.1) * sqn_multipliers.get(school, 1.0)
+                        
+                    dominant_school = max(active_signals, key=lambda s: get_dominant_weight(s.get("school", "")))
 
                     return {
                         "decision": direction if activated else "NO_TRADE",
@@ -130,10 +138,13 @@ class MetaOrchestrator:
                 pass
 
         # ── Fallback — vote pondéré classique (sans MetaConvergenceEngine) ──
-        return self._weighted_vote(signals, active_signals)
+        return self._weighted_vote(signals, active_signals, sqn_multipliers)
 
     # ── Vote pondéré classique (fallback) ────────────────────────────────────
-    def _weighted_vote(self, signals, active_signals):
+    def _weighted_vote(self, signals, active_signals, sqn_multipliers):
+        def get_weight(school):
+            return self.WEIGHTS.get(school, 0.1) * sqn_multipliers.get(school, 1.0)
+
         if len(active_signals) == 1:
             sig = active_signals[0]
             return {
@@ -159,17 +170,17 @@ class MetaOrchestrator:
         if len(directions) > 1:
             best_dir, best_weight = None, 0
             for direction, sigs in directions.items():
-                total_weight = sum(self.WEIGHTS.get(s["school"], 0.1) for s in sigs)
+                total_weight = sum(get_weight(s["school"]) for s in sigs)
                 if total_weight > best_weight:
                     best_weight = total_weight
                     best_dir = direction
 
             aligned     = directions[best_dir]
             conflicting = [s for d, sigs in directions.items() if d != best_dir for s in sigs]
-            score_positif = sum(s["score"] * self.WEIGHTS.get(s["school"], 0.1) for s in aligned)
-            score_negatif = sum(s["score"] * self.WEIGHTS.get(s["school"], 0.1) for s in conflicting)
+            score_positif = sum(s["score"] * get_weight(s["school"]) for s in aligned)
+            score_negatif = sum(s["score"] * get_weight(s["school"]) for s in conflicting)
             weighted_score = max(0, score_positif - score_negatif)
-            dominant = max(aligned, key=lambda s: self.WEIGHTS.get(s["school"], 0))
+            dominant = max(aligned, key=lambda s: get_weight(s["school"]))
 
             return {
                 "decision": best_dir,
@@ -185,15 +196,15 @@ class MetaOrchestrator:
                 "reasons": [f"{s['school']}: {', '.join(s.get('reasons', []))}" for s in aligned],
                 "warnings": [
                     f"CONFLIT: {s['school']} dit {s['signal']} ({s['score']}/100) "
-                    f"[pénalité -{round(s['score'] * self.WEIGHTS.get(s['school'], 0.1), 1)}pts]"
+                    f"[pénalité -{round(s['score'] * get_weight(s['school']), 1)}pts]"
                     for s in conflicting
                 ],
             }
         else:
             direction = list(directions.keys())[0]
             aligned   = directions[direction]
-            total_w   = sum(self.WEIGHTS.get(s["school"], 0.1) for s in aligned)
-            weighted_score = sum(s["score"] * self.WEIGHTS.get(s["school"], 0.1) for s in aligned) / total_w
+            total_w   = sum(get_weight(s["school"]) for s in aligned)
+            weighted_score = sum(s["score"] * get_weight(s["school"]) for s in aligned) / total_w if total_w > 0 else 0
             if len(aligned) >= 2:
                 weighted_score *= 1.10
             if len(aligned) >= 3:

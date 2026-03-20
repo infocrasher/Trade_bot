@@ -1,0 +1,32 @@
+{
+  "titre": "📊 Rapport Quotidien TakeOption — 2026-03-20",
+  "resume": "Journée sans activité de trading. Le bot a effectué des analyses continues sur 6 paires (USDCHF, GBPUSD, BTCUSD, EURGBP, XAUUSD, ETHUSD) en mode scalp, mais aucun trade n'a été exécuté. Un trade papier GBPUSD a été initié (VENTE @ 1.32725) et est devenu actif avec un ratio R:R de 3.0, mais reste en cours. Une tentative de PENDING sur XAUUSD a été rejetée (écart de 23 pips dépassant le seuil de 20 pips).",
+  "points_positifs": [
+    "✅ Discipline respectée : 0 trade en conditions défavorables (tous les scores = 0/100)",
+    "✅ Gestion stricte des ordres PENDING : rejet automatique d'une entrée invalide (XAUUSD écart > max)",
+    "✅ Trade papier initié avec ratio R:R cohérent (3.0) et stop loss serré",
+    "✅ Surveillance continue multi-paires (couverture 6 symboles majeurs)"
+  ],
+  "points_negatifs": [
+    "⚠️ Aucune opportunité convertie en trade réel (0 clôture)",
+    "⚠️ Conditions de marché peu propices (tous les signaux = RESTER_DEHORS)",
+    "⚠️ XAUUSD : distance excessive à l'entrée (23 pips) suggère une volatilité ou un slippage potentiel",
+    "⚠️ Trade papier incomplet : pas de résultat finalisé pour validation"
+  ],
+  "trades_notables": [
+    "📝 GBPUSD VENTE (papier) @ 1.32725 | SL:1.3275 | TP:1.32686 | Activé à 1.32734 (1 pip du point d'entrée) | R:R: 3.0 | Convergence: independent",
+    "❌ XAUUSD PENDING rejeté | Écart 23 pips > max 20 | Prix 4849.19786 vs entry 4851.4522"
+  ],
+  "observation_marche": "Marché en phase de faible conviction : l'algorithme a rejeté systématiquement toutes les opportunités scalp (6 paires analysées, 0 signal viable). Les scores uniformes de 0/100 indiquent une absence de confluence suffisante. La volatilité sur XAUUSD (23 pips de glissement) suggère des conditions fragmentées. Le trade papier GBPUSD montre une structure techniquement valide (R:R 3.0) mais reste suspendu — utile pour validation en paper.",
+  "perspectives": "La journée reflète une sélectivité correcte du bot (refus du bruit de marché). À surveiller : finalisation du trade papier GBPUSD et conditions d'entrée sur XAUUSD (vérifier si le dépassement des 20 pips est une anomalie ou un pattern). Aucune action requise — continuation de la surveillance en attente de configurations meilleures.",
+  "kpis": {
+    "nb_trades": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "best_trade": 0,
+    "worst_trade": 0,
+    "top_profile": "N/A"
+  },
+  "date": "2026-03-20",
+  "_source": "generated"
+}

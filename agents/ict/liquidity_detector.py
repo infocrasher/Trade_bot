@@ -47,7 +47,8 @@ class LiquidityDetector:
         df_m5: Optional[pd.DataFrame],
         df_h1: Optional[pd.DataFrame],
         df_d1: Optional[pd.DataFrame],
-        bias: str = "bullish"
+        bias: str = "bullish",
+        **kwargs
     ) -> dict:
         """
         Lance la détection complète de tous les niveaux de liquidité.
@@ -91,8 +92,8 @@ class LiquidityDetector:
         }
         sweeps = self._calc_sweeps(intraday_df, all_levels)
 
-        # 7. DOL — Draw On Liquidity
-        current_price = self._get_current_price(intraday_df)
+        # 7. DOL — Draw On Liquidity (nécessaire pour LRLR)
+        current_price = float(intraday_df.iloc[-1]["close"]) if intraday_df is not None and not intraday_df.empty else 0
         dol = self._calc_dol(
             current_price, bias,
             pdh, pdl, pwh, pwl,
@@ -100,6 +101,10 @@ class LiquidityDetector:
             equal_highs, equal_lows,
             sweeps
         )
+
+        # 8. LRLR / HRLR — Low/High Resistance Liquidity Run (P-F4)
+        fvgs = kwargs.get("fvgs", [])
+        lrlr_res = self.detect_lrlr_hrlr(current_price, dol, fvgs)
 
         return {
             "symbol":        self.symbol,
@@ -114,6 +119,7 @@ class LiquidityDetector:
             "equal_lows":    equal_lows,
             "sweeps":        sweeps,
             "dol":           dol,
+            "lrlr":          lrlr_res,
             "bias":          bias,
             "current_price": current_price,
             "timestamp":     datetime.now(timezone.utc).isoformat(),
@@ -405,7 +411,8 @@ class LiquidityDetector:
                     candidates.append({"name": f"EQL×{eql['count']}", "price": eql["level"], "priority": 4})
 
         if not candidates:
-            return {"name": "N/A", "price": 0, "dist_pips": 0, "bias": bias}
+            # Fallback sur les niveaux déjà sweepés ou l'ERL si rien
+            return {"name": "N/A", "price": current_price, "dist_pips": 0, "bias": bias}
 
         # Tri : priorité ICT d'abord, puis le plus proche
         candidates.sort(key=lambda x: (x["priority"], abs(x["price"] - current_price)))
@@ -414,6 +421,50 @@ class LiquidityDetector:
         best["bias"]      = bias
         best.pop("priority", None)
         return best
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 8. LRLR / HRLR — Low/High Resistance Liquidity Run
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def detect_lrlr_hrlr(self, current_p: float, dol: dict, fvgs: list) -> dict:
+        """
+        Compte les FVG (Internal Range Liquidity) non comblés entre le prix actuel
+        et la cible DOL.
+        0-1 obstacle = LRLR (Low Resistance), 2+ = HRLR (High Resistance).
+        """
+        target_p = dol.get("price", current_p)
+        if target_p == current_p or not fvgs:
+            return {"type": "LRLR", "obstacles": 0, "label": "LRLR ✅ (No obstacles)"}
+
+        obstacles = self._count_fvg_obstacles(current_p, target_p, fvgs)
+        is_lrlr = obstacles <= 1
+
+        return {
+            "type":      "LRLR" if is_lrlr else "HRLR",
+            "obstacles": obstacles,
+            "label":     f"{'LRLR ✅' if is_lrlr else 'HRLR ⚠️'} ({obstacles} obstacles)",
+        }
+
+    def _count_fvg_obstacles(self, p_from: float, p_to: float, fvgs: list) -> int:
+        """Compte les FVGs ouverts sur le chemin direct du prix vers la cible."""
+        count = 0
+        lo, hi = min(p_from, p_to), max(p_from, p_to)
+
+        for fvg in fvgs:
+            # On ne compte que les FVGs qui bloquent la direction
+            # Ex: si on va vers le haut (Bullish DOL), on ne s'inquiète pas des FVGs baissiers
+            # Mais ici, selon la logique ICT de Fateh, tout FVG non comblé est un obstacle.
+            if fvg.get("status") != "open":
+                continue
+
+            fvg_top    = fvg.get("top", 0)
+            fvg_bottom = fvg.get("bottom", 0)
+            fvg_mid    = (fvg_top + fvg_bottom) / 2
+
+            if lo <= fvg_mid <= hi:
+                count += 1
+
+        return count
 
     # ─────────────────────────────────────────────────────────────────────────
     # UTILITAIRES

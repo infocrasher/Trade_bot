@@ -170,7 +170,7 @@ class DynamicScorer:
         return {pid: v / total for pid, v in raw.items()}
 
     def compute_meta_score(
-        self, signals: List[ProfileSignal]
+        self, signals: List[ProfileSignal], sqn_multipliers: Dict[str, float] = None
     ) -> Tuple[float, Dict[str, dict]]:
         """
         Calcule le score de méta-convergence.
@@ -197,6 +197,8 @@ class DynamicScorer:
         for sig in active_signals:
             pid = sig.profile_id
             w = perf_weights.get(pid, self.min_sharpe_weight)
+            if sqn_multipliers:
+                w *= sqn_multipliers.get(pid, 1.0)
             alpha = self._freshness_factor(sig)
             rho = indep_factors.get(pid, 1.0)
             d = sig.direction.value
@@ -223,9 +225,9 @@ class DynamicScorer:
         
         return round(score, 4), details
 
-    def should_activate(self, signals: List[ProfileSignal]) -> Tuple[bool, float, dict]:
+    def should_activate(self, signals: List[ProfileSignal], sqn_multipliers: Dict[str, float] = None) -> Tuple[bool, float, dict]:
         """Point d'entrée principal : faut-il trader ?"""
-        score, details = self.compute_meta_score(signals)
+        score, details = self.compute_meta_score(signals, sqn_multipliers)
         activated = abs(score) >= self.activation_threshold
         return activated, score, details
 

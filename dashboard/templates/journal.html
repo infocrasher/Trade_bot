@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block title %}Journal IA — TakeOption{% endblock %}
+{% block page_title %}📓 Journal IA{% endblock %}
+
+{% block head %}
+<style>
+  /* ── Journal IA Styles ─────────────────────────────────────── */
+  .journal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .journal-date-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .journal-date-input {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    padding: 7px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .journal-date-input::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+  .journal-btn {
+    padding: 7px 18px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: background 0.2s;
+  }
+  .journal-btn-load {
+    background: rgba(59,130,246,0.12);
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+  .journal-btn-load:hover { background: rgba(59,130,246,0.25); }
+  .journal-btn-regen {
+    background: rgba(139,92,246,0.12);
+    border-color: #8B5CF6;
+    color: #8B5CF6;
+  }
+  .journal-btn-regen:hover { background: rgba(139,92,246,0.25); }
+
+  .journal-title-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    border-left: 4px solid #8B5CF6;
+  }
+  .journal-title-card h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+  .journal-resume {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .journal-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .journal-kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .journal-kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .journal-kpi-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .journal-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .journal-cols { grid-template-columns: 1fr; } }
+
+  .journal-points-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+  }
+  .journal-points-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 14px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .journal-points-title.pos { color: #10B981; }
+  .journal-points-title.neg { color: #EF4444; }
+  .journal-point-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .journal-point-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .journal-point-dot.pos { background: #10B981; }
+  .journal-point-dot.neg { background: #EF4444; }
+
+  .journal-trades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .journal-trade-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    border-left: 3px solid #8B5CF6;
+  }
+
+  .journal-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .journal-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+  .journal-section-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .journal-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 60px 20px;
+    font-size: 15px;
+  }
+  .journal-empty-icon { font-size: 48px; display: block; margin-bottom: 16px; }
+
+  .journal-spinner {
+    display: none;
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px;
+    font-size: 14px;
+  }
+  .journal-spinner.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER : sélecteur de date + boutons -->
+<div class="journal-header">
+  <span class="journal-date-label">Journal du</span>
+  <input type="date" class="journal-date-input" id="journal-date" />
+  <button class="journal-btn journal-btn-load" onclick="loadJournal(false)">📂 Charger</button>
+  <button class="journal-btn journal-btn-regen" onclick="loadJournal(true)" title="Force un nouvel appel Claude Haiku">🤖 Actualiser / Générer</button>
+</div>
+
+<!-- SPINNER -->
+<div class="journal-spinner" id="journal-spinner">
+  ⏳ Génération du rapport IA en cours, veuillez patienter...
+</div>
+
+<!-- CONTENU GÉNÉRÉ -->
+<div id="journal-content"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ── Init ─────────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('journal-date');
+    if (inp) {
+      const now = new Date();
+      inp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+    loadJournal(false);  // Charge le cache du jour si disponible
+  });
+
+  /* ── Chargement / Génération ─────────────────────────────────── */
+  async function loadJournal(forceRegen = false) {
+    const dateVal = document.getElementById('journal-date').value;
+    if (!dateVal) return;
+
+    const content = document.getElementById('journal-content');
+    const spinner = document.getElementById('journal-spinner');
+    content.innerHTML = '';
+    spinner.classList.add('active');
+
+    try {
+      const res = await fetch('/api/journal/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateVal, force_regen: forceRegen })
+      });
+
+      spinner.classList.remove('active');
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        content.innerHTML = `<div class="journal-empty">
+          <span class="journal-empty-icon">⚠️</span>
+          <span>${err.error || 'Erreur lors de la génération du rapport.'}</span>
+        </div>`;
+        return;
+      }
+
+      const data = await res.json();
+      renderJournal(data, dateVal);
+
+    } catch(e) {
+      spinner.classList.remove('active');
+      content.innerHTML = `<div class="journal-empty">
+        <span class="journal-empty-icon">🔌</span>
+        <span>Impossible de contacter le serveur.</span>
+      </div>`;
+    }
+  }
+
+  /* ── Rendu du journal ─────────────────────────────────────────── */
+  function renderJournal(data, dateStr) {
+    const content = document.getElementById('journal-content');
+    const kpis = data.kpis || {};
+
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* KPIs */
+    const kpiPnl = parseFloat(kpis.total_pnl || 0);
+    const kpiColor = kpiPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const kpiSign = kpiPnl >= 0 ? '+' : '';
+
+    const kpisHtml = `
+      <div class="journal-kpis">
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value">${kpis.nb_trades ?? '—'}</div>
+          <div class="journal-kpi-label">Trades</div>
+        </div>
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value" style="color:${kpiColor}">${kpiSign}${kpiPnl.toFixed(1)} pips</div>
+          <div class="journal-kpi-label">PnL Total</div>
+        </div>
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value">${kpis.win_rate ?? '—'}%</div>
+          <div class="journal-kpi-label">Win Rate</div>
+        </div>
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value" style="color:var(--green)">${kpis.best_trade ? '+'+kpis.best_trade : '—'} pips</div>
+          <div class="journal-kpi-label">Meilleur Trade</div>
+        </div>
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value" style="color:var(--red)">${kpis.worst_trade ? kpis.worst_trade : '—'} pips</div>
+          <div class="journal-kpi-label">Pire Trade</div>
+        </div>
+        <div class="journal-kpi-card">
+          <div class="journal-kpi-value" style="font-size:14px;text-transform:capitalize">${kpis.top_profile ?? '—'}</div>
+          <div class="journal-kpi-label">Profil Actif</div>
+        </div>
+      </div>`;
+
+    /* Titre & Résumé */
+    const titleCard = `
+      <div class="journal-title-card">
+        <h2>${esc(data.titre) || 'Journal du ' + dateStr}</h2>
+        <p class="journal-resume">${esc(data.resume) || 'Aucun résumé disponible.'}</p>
+      </div>`;
+
+    /* Points + / - */
+    const positifs = Array.isArray(data.points_positifs) ? data.points_positifs : [];
+    const negatifs = Array.isArray(data.points_negatifs) ? data.points_negatifs : [];
+    const colsHtml = `
+      <div class="journal-cols">
+        <div class="journal-points-card">
+          <div class="journal-points-title pos">✅ Points Positifs</div>
+          ${positifs.length === 0
+            ? '<p style="color:var(--text-muted);font-size:13px">Aucun point positif identifié.</p>'
+            : positifs.map(p => `<div class="journal-point-item"><div class="journal-point-dot pos"></div><span>${esc(p)}</span></div>`).join('')}
+        </div>
+        <div class="journal-points-card">
+          <div class="journal-points-title neg">❌ Points Négatifs</div>
+          ${negatifs.length === 0
+            ? '<p style="color:var(--text-muted);font-size:13px">Aucun point négatif identifié.</p>'
+            : negatifs.map(p => `<div class="journal-point-item"><div class="journal-point-dot neg"></div><span>${esc(p)}</span></div>`).join('')}
+        </div>
+      </div>`;
+
+    /* Trades notables */
+    const notables = Array.isArray(data.trades_notables) ? data.trades_notables : [];
+    let notablesHtml = '';
+    if (notables.length > 0) {
+      notablesHtml = `
+        <div class="section-header">
+          <span class="section-title">🏆 Trades Notables</span>
+          <span class="section-badge">${notables.length} trade${notables.length > 1 ? 's' : ''}</span>
+        </div>
+        <div class="journal-trades-grid">
+          ${notables.map(t => `<div class="journal-trade-card">${esc(t)}</div>`).join('')}
+        </div>`;
+    }
+
+    /* Observation marché */
+    const marche = data.observation_marche || '';
+    let marcheHtml = '';
+    if (marche) {
+      marcheHtml = `
+        <div class="journal-section">
+          <div class="journal-section-title">📊 Observation Marché</div>
+          <div class="journal-section-text">${esc(marche)}</div>
+        </div>`;
+    }
+
+    /* Perspectives */
+    const persp = data.perspectives || '';
+    let perspHtml = '';
+    if (persp) {
+      perspHtml = `
+        <div class="journal-section" style="border-left: 4px solid var(--blue);">
+          <div class="journal-section-title">🔭 Perspectives</div>
+          <div class="journal-section-text">${esc(persp)}</div>
+        </div>`;
+    }
+
+    /* Meta info */
+    const source = data._source === 'cache' ? '📁 Journal chargé depuis le cache' : '🤖 Généré par Claude Haiku';
+    const metaHtml = `<p style="font-size:11px;color:var(--text-muted);text-align:right;margin:8px 0 24px;">${source}</p>`;
+
+    content.innerHTML = kpisHtml + titleCard + colsHtml + notablesHtml + marcheHtml + perspHtml + metaHtml;
+  }
+</script>
+{% endblock %}

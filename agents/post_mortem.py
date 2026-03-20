@@ -172,7 +172,223 @@ def run_post_mortem(price_fetcher=None) -> dict:
     return report
 
 
+# ─────────────────────────────────────────────────────────────────
+# ENRICHISSEMENT RÉTROACTIF — Option B simplifiée
+# ─────────────────────────────────────────────────────────────────
+def _fetch_m5_range(pair: str, start_iso: str, n_bars: int = 48) -> list:
+    """
+    Appelle TwelveData /time_series en M5 depuis start_iso (ISO 8601 UTC).
+    Retourne une liste de bougies [{time, high, low}, ...] triees ASC.
+    Limite aux n_bars bougies (48 bougies M5 ≈ 4 heures).
+    Délai intégré pour respecter le rate-limiter TwelveData (8 req/min).
+    """
+    import time
+    import requests
+
+    try:
+        import config
+        api_keys = getattr(config, "TWELVE_DATA_API_KEYS", [])
+    except ImportError:
+        api_keys = []
+
+    api_key = next((k for k in api_keys if k), None) if api_keys else None
+    if not api_key:
+        import os
+        api_key = os.environ.get("TWELVE_DATA_API_KEY", "")
+
+    if not api_key:
+        return []
+
+    # Mapping paire → symbole TwelveData
+    SYM_MAP = {
+        "EURUSD": "EUR/USD", "GBPUSD": "GBP/USD", "AUDUSD": "AUD/USD",
+        "NZDUSD": "NZD/USD", "USDJPY": "USD/JPY", "USDCAD": "USD/CAD",
+        "USDCHF": "USD/CHF", "EURGBP": "EUR/GBP", "EURJPY": "EUR/JPY",
+        "GBPJPY": "GBP/JPY", "AUDJPY": "AUD/JPY", "XAUUSD": "XAU/USD",
+        "BTCUSD": "BTC/USD", "ETHUSD": "ETH/USD",
+    }
+    td_symbol = SYM_MAP.get(pair.upper())
+    if not td_symbol:
+        return []
+
+    # Respect du rate-limiter (8 req/min)
+    time.sleep(8)
+
+    try:
+        r = requests.get(
+            "https://api.twelvedata.com/time_series",
+            params={
+                "symbol":     td_symbol,
+                "interval":   "5min",
+                "start_date": start_iso[:16].replace("T", " "),  # "YYYY-MM-DD HH:MM"
+                "outputsize": n_bars,
+                "order":      "ASC",
+                "apikey":     api_key,
+            },
+            timeout=15,
+        )
+        j = r.json()
+        if j.get("status") == "error":
+            print(f"[PostMortem] TwelveData error {pair}: {j.get('message','')}")
+            return []
+        candles = []
+        for v in j.get("values", []):
+            candles.append({
+                "time":  v.get("datetime", ""),
+                "high":  float(v.get("high", 0)),
+                "low":   float(v.get("low", 0)),
+            })
+        return candles
+    except Exception as e:
+        print(f"[PostMortem] _fetch_m5_range exception {pair}: {e}")
+        return []
+
+
+def _simulate_outcome(record: dict, candles: list) -> dict:
+    """
+    Parcourt les bougies M5 de façon chronologique.
+    Direction déduite à partir du champ 'signal' ou 'bias'.
+    - BUY  : TP atteint si high >= tp1 | SL atteint si low <= sl
+    - SELL : TP atteint si low  <= tp1 | SL atteint si high >= sl
+    """
+    entry = float(record.get("entry") or record.get("entry_price") or 0)
+    sl    = float(record.get("sl")    or record.get("stop_loss")   or 0)
+    tp1   = float(record.get("tp1",   0))
+
+    if not entry or not sl or not tp1:
+        return record
+
+    pair = record.get("pair", "")
+    pip  = _pip_size(pair)
+
+    sig  = (record.get("signal") or record.get("ict_signal") or "").upper()
+    bias = (record.get("bias")   or record.get("a1_bias")    or "").lower()
+    is_long = "BUY" in sig or "bullish" in bias
+    is_short = "SELL" in sig or "bearish" in bias
+
+    if not is_long and not is_short:
+        # Fallback : deviner d'après tp1 vs entry
+        is_long = tp1 > entry
+
+    for c in candles:
+        h = c["high"]
+        l = c["low"]
+        if is_long:
+            if h >= tp1:
+                record["would_have_won"] = True
+                record["pnl_pips"]       = round((tp1 - entry) / pip, 1)
+                return record
+            if l <= sl:
+                record["would_have_won"] = False
+                record["pnl_pips"]       = round((sl - entry) / pip, 1)
+                return record
+        else:  # short
+            if l <= tp1:
+                record["would_have_won"] = True
+                record["pnl_pips"]       = round((entry - tp1) / pip, 1)
+                return record
+            if h >= sl:
+                record["would_have_won"] = False
+                record["pnl_pips"]       = round((entry - sl) / pip, 1)
+                return record
+
+    # Ni TP ni SL atteints dans la fenêtre de 4h
+    record["would_have_won"] = None
+    record["pnl_pips"]       = 0
+    return record
+
+
+def enrich_gate_logs_retroactive(target_date: str = None, gate_log_dir: str = None) -> dict:
+    """
+    Enrichit les gate_logs d'une journée dont pnl_pips est null.
+    Pour chaque entrée dont tp1 et sl sont présents, récupère 4h de bougies
+    M5 TwelveData depuis l'heure du blocage et simule TP vs SL.
+
+    Paramètres :
+      target_date  : str "YYYY-MM-DD" (défaut = aujourd'hui UTC)
+      gate_log_dir : chemin du dossier gate_logs (défaut = data/gate_logs)
+
+    Retourne un dictionnaire de bilan par profil.
+    """
+    import time as _time
+
+    if not target_date:
+        target_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not gate_log_dir:
+        gate_log_dir = GATE_LOG_DIR
+
+    profiles = ["ict", "elliott", "vsa", "meta", "pure_pa"]
+    bilan = {}
+
+    for profile in profiles:
+        filepath = os.path.join(gate_log_dir, f"{profile}_blocked_{target_date}.json")
+        if not os.path.exists(filepath):
+            continue
+
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                records = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        enriched  = 0
+        skipped   = 0
+        updated   = []
+
+        for rec in records:
+            # Sauter si déjà enrichi (pnl_pips rempli)
+            if rec.get("pnl_pips") is not None:
+                updated.append(rec)
+                skipped += 1
+                continue
+
+            # Vérifier que les données nécessaires sont présentes
+            if not rec.get("tp1") or not rec.get("sl"):
+                updated.append(rec)
+                skipped += 1
+                continue
+
+            pair      = rec.get("pair", "")
+            timestamp = rec.get("timestamp", "")  # ISO 8601
+
+            if not pair or not timestamp:
+                updated.append(rec)
+                skipped += 1
+                continue
+
+            # Récupérer les bougies M5 (48 bougies ≈ 4 heures)
+            candles = _fetch_m5_range(pair, timestamp, n_bars=48)
+            if candles:
+                rec = _simulate_outcome(rec, candles)
+                enriched += 1
+            else:
+                skipped += 1
+
+            updated.append(rec)
+
+        # Sauvegarder les résultats enrichis
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(updated, f, indent=2, ensure_ascii=False)
+        except OSError as e:
+            print(f"[PostMortem] Erreur sauvegarde {filepath}: {e}")
+
+        total = len(updated)
+        won   = sum(1 for r in updated if r.get("would_have_won") is True)
+        bilan[profile] = {
+            "total":    total,
+            "enriched": enriched,
+            "skipped":  skipped,
+            "won":      won,
+            "regret":   round(won / total * 100, 1) if total else 0,
+        }
+        print(f"[PostMortem] {profile} — {enriched} enrichis, {skipped} skippés, regret={bilan[profile]['regret']}%")
+
+    return bilan
+
+
 if __name__ == "__main__":
+
     result = run_post_mortem()
     print("\n═══ POST-MORTEM REPORT ═══")
     for school, stats in result.items():

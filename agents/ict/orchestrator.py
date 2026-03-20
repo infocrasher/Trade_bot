@@ -161,7 +161,9 @@ class OrchestratorAgent:
                 if df_d1_ld is not None or df_m5_ld is not None:
                     _liq_det = LiquidityDetector(symbol=symbol)
                     _bias_for_det = 'bullish' if trade_signal.get('signal') == 'BUY' else 'bearish'
-                    _liq_det_report = _liq_det.detect_all(df_m5_ld, df_h1_ld, df_d1_ld, _bias_for_det)
+                    # P-F4 : On passe les FVGs pour la détection LRLR/HRLR
+                    _fvgs_ld = structure_report.get('fvg', [])
+                    _liq_det_report = _liq_det.detect_all(df_m5_ld, df_h1_ld, df_d1_ld, _bias_for_det, fvgs=_fvgs_ld)
             except Exception:
                 _liq_det_report = None
         # ─────────────────────────────────────────────────────────────────────────────
@@ -263,10 +265,20 @@ class OrchestratorAgent:
             conf_score += 0.10
             reasons.append("Algorithmic Macro active (+10% conf)")
 
-        # ── LIQUIDITY TRACKER PENALTIES ───────────────────────────────
+        # ── LIQUIDITY TRACKER / DETECTOR PENALTIES ───────────────────────────
         # Analyse ERL/IRL, DOL, Anti-Inducement, LRLR/HRLR, CBDR
-        # Pénalité appliquée sur conf_score (en proportion : -15pts = -0.15)
-        if liquidity_report:
+        if _liq_det_report:
+            # P-F4 : Malus HRLR (-15 pts)
+            _lrlr = _liq_det_report.get("lrlr", {})
+            if _lrlr.get("type") == "HRLR":
+                conf_score -= 0.15
+                warnings.append(f"HRLR détecté : {_lrlr.get('obstacles')} obstacles vers DOL (-15 pts)")
+
+            # P-F2 : Pénalité si score_penalty présent (retro-compat)
+            liq_penalty = _liq_det_report.get("score_penalty", 0)
+            conf_score = max(0.0, conf_score + liq_penalty / 100.0)
+
+        elif liquidity_report:
             liq_penalty      = liquidity_report.get("score_penalty", 0)
             conf_score       = max(0.0, conf_score + liq_penalty / 100.0)
             if liq_penalty < 0:
@@ -276,12 +288,25 @@ class OrchestratorAgent:
                 )
         elif _LIQUIDITY_TRACKER_AVAILABLE:
             # Pénalité conservatrice si LiquidityTracker indisponible
-            # On ne peut pas vérifier l'Anti-Inducement → on pénalise
             conf_score = max(0.0, conf_score - 0.15)
             warnings.append(
-                "⚠️ LiquidityTracker indisponible — pénalité conservatrice "
+                "⚠️ Liquidity rapports indisponibles — pénalité conservatrice "
                 "-15% appliquée (Anti-Inducement non vérifiable)."
             )
+        # ─────────────────────────────────────────────────────────────
+
+        # ── P-F5 — Anti-Inducement / MSS Block ───────────────────────
+        mss_list = structure_report.get("mss", [])
+        if mss_list:
+            # On cherche le MSS le plus récent ou celui qui correspond au signal
+            last_mss = mss_list[-1]
+            if not last_mss.get("valid", True):
+                return {
+                    "decision": "NO_TRADE",
+                    "reason": f"P-F5 Anti-Inducement : {last_mss.get('anti_inducement', 'MSS invalide')}"
+                }
+            else:
+                reasons.append(f"MSS Validé via Anti-Inducement Sweep")
         # ─────────────────────────────────────────────────────────────
 
         # ── HRLR Gate ─────────────────────────────────────────────

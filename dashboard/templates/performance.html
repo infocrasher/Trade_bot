@@ -5,14 +5,13 @@
 {% block content %}
 
 <!-- ALERT BANNER (VSA negative expectancy) -->
-<div class="alert-banner" id="perf-alert-banner">
+<div class="alert-banner" id="perf-alert-banner" style="display: none;">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <triangle><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></triangle>
     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
     <line x1="12" y1="9" x2="12" y2="13"></line>
     <line x1="12" y1="17" x2="12.01" y2="17"></line>
   </svg>
-  <strong>Attention:</strong>&nbsp; Le profil VSA a une expectancy négative sur les 20 derniers trades (-0.18R). Révisez les paramètres des gates.
+  <span id="alert-message"></span>
 </div>
 
 <!-- PROFILE FILTER BUTTONS -->
@@ -148,8 +147,9 @@ function applyProfile(profile) {
   /* 1. Métriques cards */
   let stats = null;
   if (_fullStats) {
-    const s = profile === 'All' ? _fullStats : (_fullStats.by_profile && _fullStats.by_profile[profile]);
-    stats = s || _fullStats;
+    const profileId = profile === 'All' ? 'All' : profile.toLowerCase().replace(' ', '_');
+    const s = profileId === 'All' ? _fullStats : (_fullStats.by_profile && _fullStats.by_profile[profileId]);
+    stats = s || (profileId === 'All' ? _fullStats : null);
   }
   if (stats) {
     const wr    = stats.win_rate    ?? 0;
@@ -171,9 +171,27 @@ function applyProfile(profile) {
     document.getElementById('m-dd').textContent  = dd ? `-${Math.abs(dd).toFixed(1)}` : '--';
     document.getElementById('m-rr').textContent  = rr ? `1:${rr}` : '--';
 
-    /* Alerte expectancy négative */
+    /* Alerte expectancy négative (Phase F Fix) */
     const banner = document.getElementById('perf-alert-banner');
-    banner.style.display = (exp < 0 || profile === 'All') ? 'flex' : 'none';
+    const msgEl  = document.getElementById('alert-message');
+    let activeAlert = null;
+    
+    if (_fullStats && _fullStats.expectancy_alerts) {
+      if (profile === 'All') {
+        // En mode "All", on montre la première alerte trouvée (ou on pourrait concaténer)
+        activeAlert = _fullStats.expectancy_alerts[0];
+      } else {
+        // En mode profil spécifique, on cherche l'alerte pour ce profil
+        activeAlert = _fullStats.expectancy_alerts.find(a => a.profile_id.toLowerCase() === profile.toLowerCase().replace(' ','_'));
+      }
+    }
+
+    if (activeAlert) {
+      msgEl.innerHTML = `<strong>Attention:</strong>&nbsp; ${activeAlert.message}`;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
   }
 
   /* 2. Historique table */

@@ -520,6 +520,168 @@ def test_risk_sizing(results: TestResults):
     except Exception as e:
         results.check("Tâche 1 : Risk Sizing", False, f"Exception: {e}")
 
+def test_circuit_breaker_dd(results):
+    try:
+        from dashboard import _check_dd_limits
+        import json, os, datetime
+        import config
+        from config import BASE_DIR
+        import tempfile
+        import shutil
+        import dashboard
+        
+        # Isoler les tests en changeant le PROJECT_ROOT du dashboard temporairement
+        old_root = dashboard.PROJECT_ROOT
+        tmp_dir = tempfile.mkdtemp()
+        dashboard.PROJECT_ROOT = tmp_dir
+        
+        paper_dir = os.path.join(tmp_dir, "paper_trades")
+        os.makedirs(paper_dir, exist_ok=True)
+        
+        # Sauvegarde variables config
+        old_w = getattr(config, "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT", 10.0)
+        old_t = getattr(config, "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT", 20.0)
+        old_k = getattr(config, "CIRCUIT_BREAKER_KELLY_DD_PCT", 5.0)
+        config.CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT = 10.0
+        config.CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT = 20.0
+        config.CIRCUIT_BREAKER_KELLY_DD_PCT = 5.0
+        
+        today = datetime.datetime.now()
+        yesterday_str = (today - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        old_str = (today - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
+        
+        f1 = os.path.join(paper_dir, f"paper_{yesterday_str}.json")
+        f2 = os.path.join(paper_dir, f"paper_{old_str}.json")
+        
+        # Test D3: DD Weekly > 10%
+        # Capital = 10000 -> 10% = -1000
+        with open(f1, "w") as f:
+            json.dump([{"pnl_money": -1100.0}], f)
+            
+        ok, reason, level, k_mult = _check_dd_limits(10000.0)
+        results.check("D3 : Weekly DD Breached", ok == False and "WEEKLY" in reason and level == "PAPER_ONLY", f"Obtenu: {reason} ({level})")
+        
+        # Test D4: Total DD > 20%
+        # -1100 (hier) + -1000 (il y a 15j) = -2100 -> 21%
+        with open(f2, "w") as f:
+            json.dump([{"pnl_money": -1000.0}], f)
+            
+        ok, reason, level, k_mult = _check_dd_limits(10000.0)
+        results.check("D4 : Total DD Breached", ok == False and "TOTAL" in reason and level == "HALT", f"Obtenu: {reason} ({level})")
+        
+        # Test D12 : Kelly/8 activé (DD hebdo à -6%)
+        # On remet le DD weekly à -600 (=-6%), le total à -600
+        with open(f1, "w") as f:
+            json.dump([{"pnl_money": -600.0}], f)
+        with open(f2, "w") as f:
+            json.dump([{"pnl_money": 0.0}], f) # Efface l'ancien total excessif
+        
+        ok, reason, level, k_mult = _check_dd_limits(10000.0)
+        results.check("D12 : Kelly/8 activé (DD hebdo à -6%)", ok == True and k_mult == 0.5, f"Obtenu: ok={ok}, mult={k_mult}")
+        
+    except Exception as e:
+        results.check("Tâche 2 : Circuit Breaker DD", False, f"Exception: {e}")
+    finally:
+        # Nettoyage et restauration
+        dashboard.PROJECT_ROOT = old_root
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        config.CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT = old_w
+        config.CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT = old_t
+        config.CIRCUIT_BREAKER_KELLY_DD_PCT = old_k
+
+def test_usd_correlation(results):
+    try:
+        from dashboard import check_usd_correlation
+        
+        # Simuler 3 trades USD actifs
+        mock_orders = [
+            {"pair": "EURUSD", "status": "active"},
+            {"pair": "GBPUSD", "status": "pending"},
+            {"pair": "USDJPY", "status": "active"},
+            {"pair": "GBPAUD", "status": "active"}, # non-USD
+        ]
+        
+        # Test D5 : 4ème trade impliquant USD
+        ok, reason = check_usd_correlation("AUDUSD", mock_orders)
+        results.check("D5 : Corrélation USD Bloqué (4ème trade)", not ok, f"Raison: {reason}")
+        
+        # Test D6 : Trade non-USD autorisé
+        ok, reason = check_usd_correlation("EURGBP", mock_orders)
+        results.check("D6 : Corrélation EURGBP Autorisé", ok, "Trade non-USD")
+        
+    except Exception as e:
+        results.check("Tâche 3 : Corrélation USD", False, f"Exception: {e}")
+
+def test_sqn_quarantine(results):
+    """Vérification G1b (SQN Quarantaine par profil)."""
+    try:
+        from agents.sqn_monitor import get_profile_weight_multiplier
+        
+        # Simuler un historique de 20 trades avec petite moyenne et gros écart-type pour faire chuter le SQN < 1.0
+        # PnL pips très disparates : moyenne = 0.5, mais écart type très grand (ex: +30, -29, etc.)
+        fake_history = []
+        import random
+        for i in range(20):
+            pnl = 30 if i % 2 == 0 else -29
+            fake_history.append({
+                "profile_id": "vsa",
+                "status": "closed",
+                "close_reason": "TP1" if pnl > 0 else "SL",
+                "pnl_pips": pnl,
+                "closed_at": f"2026-03-20 10:0{i%10}:00"
+            })
+        
+        mult = get_profile_weight_multiplier("vsa", fake_history)
+        # Moyenne = 0.5, StDev ≈ 29.5. SQN = sqrt(20) * (0.5 / 29.5) ≈ 4.47 * 0.0169 ≈ 0.075 (< 0.5)
+        # -> Multiplier attendu : 0.25 (quarantaine sévère)
+        results.check(f"D11 : SQN Quarantaine (SQN < 0.5)", mult == 0.25, f"Multiplicateur obtenu: {mult}")
+        
+    except Exception as e:
+        results.check("D11 : SQN Quarantaine", False, f"Exception: {e}")
+
+def test_phase_f_advanced(results):
+    """Vérification P-F4 (LRLR/HRLR) et P-F5 (Anti-Inducement)."""
+    try:
+        # --- P-F4: LRLR / HRLR ---
+        from agents.ict.liquidity_detector import LiquidityDetector
+        det = LiquidityDetector(symbol="EURUSD")
+        current_p = 1.1000
+        dol = {"price": 1.1050} # Bullish target
+        
+        # Test D7: LRLR (1 FVG)
+        fvgs_lrlr = [{"top": 1.1030, "bottom": 1.1020, "status": "open"}]
+        res_lrlr = det.detect_lrlr_hrlr(current_p, dol, fvgs_lrlr)
+        results.check("D7 : LRLR Detection (1 obstacle)", res_lrlr["type"] == "LRLR", res_lrlr["label"])
+        
+        # Test D8: HRLR (3 FVGs)
+        fvgs_hrlr = [
+            {"top": 1.1020, "bottom": 1.1010, "status": "open"},
+            {"top": 1.1035, "bottom": 1.1030, "status": "open"},
+            {"top": 1.1045, "bottom": 1.1040, "status": "open"}
+        ]
+        res_hrlr = det.detect_lrlr_hrlr(current_p, dol, fvgs_hrlr)
+        results.check("D8 : HRLR Detection (3 obstacles)", res_hrlr["type"] == "HRLR", res_hrlr["label"])
+
+        # --- P-F5: Anti-Inducement Sweep ---
+        from agents.ict.structure import StructureAgent
+        import pandas as pd
+        agent = StructureAgent(symbol="EURUSD")
+        bos_choch = [{"index": 100, "type": "bullish_choch", "broken_level": 1.1050}]
+        displacements = [{"index": 100}]
+        fvgs = [{"index": 101, "displacement_index": 100}] # FVG créé par le displacement
+
+        # Test D9: MSS Valide (Sweep récent)
+        sweeps_ok = [{"index": 95, "type": "sellside_sweep"}]
+        res_ok = agent.detect_mss(pd.DataFrame(), [], displacements, fvgs, bos_choch, sweeps_ok)
+        results.check("D9 : MSS Validé (Sweep ERL)", res_ok[0]["valid"] == True, res_ok[0]["anti_inducement"])
+
+        # Test D10: Inducement Trap (Pas de sweep)
+        res_trap = agent.detect_mss(pd.DataFrame(), [], displacements, fvgs, bos_choch, [])
+        results.check("D10 : Inducement Trap (Pas de sweep)", res_trap[0]["valid"] == False, res_trap[0]["anti_inducement"])
+        
+    except Exception as e:
+        results.check("Phase F Advanced", False, f"Exception: {e}")
+
 if __name__ == "__main__":
     print("="*50)
     print("TESTS UNITAIRES — Trading Bot ICT")
@@ -530,4 +692,8 @@ if __name__ == "__main__":
     test_agent2(results)
     test_news_manager(results)
     test_risk_sizing(results)
+    test_circuit_breaker_dd(results)
+    test_usd_correlation(results)
+    test_sqn_quarantine(results)
+    test_phase_f_advanced(results)
     results.summary()

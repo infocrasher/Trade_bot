@@ -84,6 +84,21 @@ def log_elliott_blocked(
         }
     )
 
+def log_correlation_blocked(pair: str, horizon: str, reason: str, direction: str, score: int) -> None:
+    """Loggue un trade bloqué pour cause de corrélation (ex: USD overexposure)."""
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    _write(
+        os.path.join(GATE_LOG_DIR, f"correlation_guard_{today}.json"),
+        {
+            "timestamp":    datetime.utcnow().isoformat(),
+            "pair":         pair,
+            "horizon":      horizon,
+            "direction":    direction,
+            "score":        score,
+            "gate_reason":  reason,
+        }
+    )
+
 
 def log_meta_blocked(
     pair: str, horizon: str, final_gate: str,

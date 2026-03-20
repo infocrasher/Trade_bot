@@ -485,6 +485,20 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
         "ttl_seconds":      ttl_seconds or 1800
     }
 
+def check_usd_correlation(pair, orders):
+    """
+    Vérifie qu'il n'y a pas déjà 3 trades actifs impliquant l'USD.
+    Renvoie (False, reason) si bloqué.
+    """
+    usd_pairs = {"EURUSD", "GBPUSD", "AUDUSD", "NZDUSD", "USDCAD", "USDCHF", "USDJPY", "XAUUSD", "BTCUSD", "ETHUSD"}
+    if pair not in usd_pairs:
+        return True, ""
+        
+    usd_count = sum(1 for o in orders if o.get("status") in ("pending", "active") and o.get("pair") in usd_pairs)
+    if usd_count >= 3:
+        return False, "CORRELATION_USD — 3 trades USD déjà actifs"
+    return True, ""
+
 
 # ─────────────────────────────────────────────────────────────────
 # LOGGING & SSE
@@ -838,6 +852,47 @@ def _minutes_until_next_killzone(now_alger):
 
     return min_wait
 
+def _check_dd_limits(capital):
+    paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
+    if not os.path.exists(paper_dir): return True, "", ""
+    
+    max_w = getattr(config, "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT", 10.0)
+    max_t = getattr(config, "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT", 20.0)
+    kelly_t = getattr(config, "CIRCUIT_BREAKER_KELLY_DD_PCT", 5.0)
+    
+    today = datetime.now()
+    w_pnl = 0.0
+    t_pnl = 0.0
+    
+    for fname in sorted(os.listdir(paper_dir)):
+        if fname.startswith("paper_") and fname.endswith(".json"):
+            fpath = os.path.join(paper_dir, fname)
+            try:
+                date_str = fname.replace("paper_", "").replace(".json", "")
+                fdate = datetime.strptime(date_str, "%Y-%m-%d")
+                
+                with open(fpath, "r") as f:
+                    trades = json.load(f)
+                
+                day_pnl = sum(t.get("pnl_money", 0) for t in trades)
+                t_pnl += day_pnl
+                
+                if (today - fdate).days <= 7:
+                    w_pnl += day_pnl
+            except Exception:
+                pass
+                
+    t_dd = (t_pnl / capital) * 100
+    w_dd = (w_pnl / capital) * 100
+    
+    kelly_mult = 0.5 if w_dd <= -kelly_t else 1.0
+    reason_kelly = f"Kelly/8 activé — DD hebdo {w_dd:.1f}% <= -{kelly_t}%" if kelly_mult == 0.5 else ""
+    
+    if t_dd <= -max_t: return False, f"MAX TOTAL DD atteint ({t_dd:.1f}% <= -{max_t}%)", "HALT", kelly_mult
+    if w_dd <= -max_w: return False, f"MAX WEEKLY DD atteint ({w_dd:.1f}% <= -{max_w}%)", "PAPER_ONLY", kelly_mult
+    
+    return True, reason_kelly, "KELLY" if kelly_mult == 0.5 else "", kelly_mult
+
 # ─────────────────────────────────────────────────────────────────
 # BOUCLE PRINCIPALE DU BOT
 # ─────────────────────────────────────────────────────────────────
@@ -1063,6 +1118,43 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                 time.sleep(1)
                 continue
 
+            # ── Vérification MAX DD ─────────────────────────────
+            capital = profiles_settings.get("capital", 10000.0)
+            dd_ok, dd_reason, dd_level, kelly_mult = _check_dd_limits(capital)
+            
+            # Application de Kelly/8
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            kelly_just_activated = False
+            with state_lock:
+                if kelly_mult == 0.5:
+                    if bot_state.get("kelly_active_date") != today_str:
+                        bot_state["kelly_active_date"] = today_str
+                        bot_state["effective_risk_pct"] = getattr(config, "RISK_PERCENT", 1.0) * 0.5
+                        kelly_just_activated = True
+                else:
+                    if bot_state.get("kelly_active_date") != today_str:
+                        bot_state["kelly_active_date"] = today_str
+                        bot_state["effective_risk_pct"] = getattr(config, "RISK_PERCENT", 1.0)
+
+            if kelly_just_activated:
+                log(dd_reason, "WARNING")
+
+            if not dd_ok:
+                if dd_level == "HALT":
+                    log(f"🚨 CRITICAL: {dd_reason}. Bot arrêté.", "ERROR")
+                    try:
+                        from notifications.telegram_notifier import get_notifier
+                        get_notifier().alert_circuit_breaker(0.0, dd_reason)
+                    except Exception: pass
+                    with state_lock: bot_state["status"] = "stopped"
+                    broadcast("status", {"status": "stopped"})
+                    stop_event.set()
+                    break
+                elif dd_level == "PAPER_ONLY":
+                    if not paper_mode:
+                        log(f"⚠️ {dd_reason}. Passage forcé en PAPER_ONLY pour 24h.", "WARNING")
+                        paper_mode = True
+
             # ── Décision Scheduler ──────────────────────────────
             from config import FORCE_ANALYZE
             sched = get_scheduler_decision(pairs, horizons, force_analyze=FORCE_ANALYZE)
@@ -1122,6 +1214,28 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                   "mt5_connected": bot_state["mt5_connected"],
                                   "min_score":     bot_state["min_score"]})
             log(f"Cycle #{cycle} — {len(pairs)} paires × {len(horizons)} horizon(s)", "INFO")
+
+            # ── Calcul des multiplicateurs SQN par profil ─────────────────
+            sqn_multipliers = {"ict": 1.0, "elliott": 1.0, "vsa": 1.0, "pure_pa": 1.0}
+            try:
+                from agents.sqn_monitor import get_profile_weight_multiplier
+                paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
+                all_closed_trades = []
+                if os.path.exists(paper_dir):
+                    # Charger les fichiers (du plus récent au plus ancien pour être opti)
+                    for filename in sorted(os.listdir(paper_dir), reverse=True):
+                        if filename.startswith("paper_") and filename.endswith(".json"):
+                            filepath = os.path.join(paper_dir, filename)
+                            try:
+                                with open(filepath, "r") as f:
+                                    trades = json.load(f)
+                                    all_closed_trades.extend([t for t in trades if t.get("status") == "closed"])
+                            except Exception:
+                                pass
+                for pid in sqn_multipliers.keys():
+                    sqn_multipliers[pid] = get_profile_weight_multiplier(pid, all_closed_trades)
+            except Exception as e:
+                log(f"Erreur calcul SQN: {e}", "WARNING")
 
             for pair in active_pairs:
                 # Anti-doublon : si un trade actif ou pending existe déjà pour cette paire,
@@ -1338,7 +1452,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                 agent5       = OrchestratorAgent(
                                     account_balance = getattr(config, "ACCOUNT_BALANCE", 500.0),
-                                    risk_percent    = getattr(config, "RISK_PERCENT", 1.0),
+                                    risk_percent    = bot_state.get("effective_risk_pct", getattr(config, "RISK_PERCENT", 1.0)),
                                 )
                                 
                                 # ── KS4 : injecter le spread réaliste dans entry_signal ────────────────────
@@ -1464,127 +1578,142 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 elif llm_validator and llm_validator.enabled and dec.startswith("EXECUTE") and conf < 0.60:
                                     log(f"[{p}] 🧠 LLM skip — score trop bas ({conf:.0%} < 60%)", "DEBUG")
 
-                                # ── Agent Elliott Wave (école 2) ─────
+                                # ── Écoles additionnelles (seulement si PURE_ICT_MODE = False) ──
                                 elliott_signal = {"school": "elliott", "pair": p, "signal": "NO_TRADE", "score": 0, "confidence": 0.0, "reasons": [], "warnings": []}
-                                try:
-                                    with state_lock: bot_state["current_api"] = "Elliott Wave"
-                                    broadcast("status", {"current_api": bot_state["current_api"]})
-                                    elliott_signal = run_elliott_analysis(dfs, pair=p, timeframe=entry_tf)
-                                    e_sig = elliott_signal.get("signal", "NO_TRADE")
-                                    e_score = elliott_signal.get("score", 0)
-                                    if e_sig != "NO_TRADE":
-                                        log(f"[{p}] 📊 Elliott: {e_sig} | Score: {e_score}/100 | {'; '.join(elliott_signal.get('reasons', [])[:2])}", "INFO")
-                                    elif e_score > 0:
-                                        log(f"[{p}] 📊 Elliott: NO_TRADE (score {e_score}) | {'; '.join(elliott_signal.get('reasons', [])[:1])}", "DEBUG")
-                                except Exception as e_err:
-                                    log(f"[{p}] Elliott erreur: {e_err}", "DEBUG")
-
-                                # ── Agent VSA / Wyckoff (école 3) ────
                                 vsa_signal = {"school": "vsa", "pair": p, "signal": "NO_TRADE", "score": 0, "confidence": 0.0, "reasons": [], "warnings": []}
-                                try:
-                                    with state_lock: bot_state["current_api"] = "VSA Wyckoff"
-                                    broadcast("status", {"current_api": bot_state["current_api"]})
-                                    from config import GEMINI_API_KEY
-                                    vsa_orchestrator = VSAOrchestrator(gemini_api_key=GEMINI_API_KEY, enable_charts=True)
-                                    vsa_res = vsa_orchestrator.get_signal_for_meta(symbol=p, timeframe=entry_tf, df=dfs[entry_tf])
-                                    
-                                    v_sig = vsa_res.get("direction", "NEUTRAL")
-                                    v_action = vsa_res.get("action", "IGNORE")
-                                    
-                                    if v_action == "IGNORE" or v_sig == "NEUTRAL":
-                                        vsa_std_sig = "NO_TRADE"
-                                    elif v_sig == "LONG":
-                                        vsa_std_sig = "BUY"
-                                    elif v_sig == "SHORT":
-                                        vsa_std_sig = "SELL"
-                                    else:
-                                        vsa_std_sig = "NO_TRADE"
-                                        
-                                    v_score = vsa_res.get("score", 0)
-                                    v_phase = vsa_res.get("wyckoff_phase", "?")
-                                    vsa_signal = {
-                                        "school": "vsa",
-                                        "pair": p,
-                                        "signal": vsa_std_sig,
-                                        "score": v_score,
-                                        "confidence": v_score / 100,
-                                        "reasons": [f"Signal: {vsa_res.get('signal', '?')} (Phase {v_phase})"],
-                                        "warnings": vsa_res.get("invalidations", []),
-                                        "details": vsa_res
-                                    }
-                                    if vsa_std_sig != "NO_TRADE":
-                                        log(f"[{p}] 📈 VSA: {vsa_std_sig} | Score: {v_score}/100 | Phase: {v_phase}", "INFO")
-                                    elif v_score > 0:
-                                        log(f"[{p}] 📈 VSA: NO_TRADE (score {v_score}) | Phase: {v_phase}", "DEBUG")
-                                except Exception as v_err:
-                                    log(f"[{p}] VSA erreur: {v_err}", "DEBUG")
+                                meta_decision = "NO_TRADE"
+                                meta_score = 0
+                                meta_alignment = ""
 
-                                # ── Méta-Orchestrateur (fusion des écoles) ──
-                                # Construire le signal ICT au format standard
-                                ict_signal = {
-                                    "school": "ict",
-                                    "pair": p,
-                                    "signal": "BUY" if dec == "EXECUTE_BUY" else ("SELL" if dec == "EXECUTE_SELL" else "NO_TRADE"),
-                                    "score": int(conf * 100) if conf <= 1.0 else int(conf),
-                                    "confidence": conf if conf <= 1.0 else conf / 100,
-                                    "entry": decision_obj.get("entry_price", 0),
-                                    "sl": decision_obj.get("stop_loss", 0),
-                                    "tp1": decision_obj.get("tp1", 0),
-                                    "reasons": decision_obj.get("reasons", []),
-                                    "warnings": [],
-                                }
-
-                                # Comparer avec le méta-orchestrateur
-                                meta = MetaOrchestrator()
-                                meta_result = meta.compare([ict_signal, elliott_signal, vsa_signal])
-
-                                # Logger le résultat méta
-                                meta_decision = meta_result.get("decision", "NO_TRADE")
-                                meta_score = meta_result.get("score", 0)
-                                meta_alignment = meta_result.get("alignment", "")
-                                if meta_decision != "NO_TRADE" and elliott_signal.get("signal") != "NO_TRADE":
-                                    log(f"[{p}] 🔀 Méta: {meta_decision} | Score: {meta_score} | {meta_alignment}", "INFO")
-
-                                # ── Gate LLM méta : ICT=NO_TRADE mais méta ≥ 60 → LLM valide ──
-                                # Placée ICI, après meta.compare(), pour avoir meta_decision réel
-                                if (llm_validator and llm_validator.enabled
-                                        and llm_result is None          # LLM ICT n'a pas déjà tourné
-                                        and meta_decision in ("BUY", "SELL")
-                                        and meta_score >= 60):
-                                    with state_lock: bot_state["current_api"] = "Agent 6 LLM Validator"
-                                    broadcast("status", {"current_api": bot_state["current_api"]})
-                                    log(f"[{p}] 🧠 Validation LLM (MetaSignal) en cours...", "INFO")
+                                if not getattr(config, "PURE_ICT_MODE", True):
+                                    # ── Agent Elliott Wave (école 2) ─────
                                     try:
-                                        llm_result = llm_validator.validate(
-                                            structure_report, time_report, entry_signal,
-                                            macro_report, decision_obj, p, horizon
-                                        )
-                                        if not llm_result.get("skipped"):
-                                            verdict = llm_result.get("verdict", "SKIP")
-                                            llm_score = llm_result.get("total", 0)
-                                            llm_conf  = llm_result.get("confiance_llm", 0.5)
-                                            cost      = llm_result.get("cost_usd", 0)
-                                            log(f"[{p}] 🧠 LLM: {verdict} | Score: {llm_score}/100 | Coût: ${cost:.4f}", "INFO")
-                                            # Guard : VALIDÉ avec score < 40 → forcer REJETÉ
-                                            if verdict != "REJETÉ" and llm_score < 40:
-                                                verdict = "REJETÉ"
-                                                log(f"[{p}] ⚠️ LLM méta score trop bas ({llm_score}/100) → forcé REJETÉ", "WARNING")
+                                        with state_lock: bot_state["current_api"] = "Elliott Wave"
+                                        broadcast("status", {"current_api": bot_state["current_api"]})
+                                        elliott_signal = run_elliott_analysis(dfs, pair=p, timeframe=entry_tf)
+                                        e_sig = elliott_signal.get("signal", "NO_TRADE")
+                                        e_score = elliott_signal.get("score", 0)
+                                        if e_sig != "NO_TRADE":
+                                            log(f"[{p}] 📊 Elliott: {e_sig} | Score: {e_score}/100 | {'; '.join(elliott_signal.get('reasons', [])[:2])}", "INFO")
+                                        elif e_score > 0:
+                                            log(f"[{p}] 📊 Elliott: NO_TRADE (score {e_score}) | {'; '.join(elliott_signal.get('reasons', [])[:1])}", "DEBUG")
+                                    except Exception as e_err:
+                                        log(f"[{p}] Elliott erreur: {e_err}", "DEBUG")
 
-                                            if verdict == "REJETÉ":
-                                                meta_decision = "NO_TRADE"
-                                                meta_score    = 0
-                                                dec           = "NO_TRADE"
-                                                conf          = 0.0
-                                                log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', []))}", "WARNING")
-                                    except Exception as llm_err:
-                                        log(f"[{p}] ⚠️ LLM méta erreur: {llm_err}", "WARNING")
-                                        if time.time() - _llm_skip_last_alert > 300:
-                                            _llm_skip_last_alert = time.time()
-                                            notifier.send_message(
-                                                f"⚠️ <b>LLM Validator ERREUR (Meta)</b>\n"
-                                                f"Paire: {p} | Horizon: {horizon}\n"
-                                                f"Erreur: {llm_err}"
+                                    # ── Agent VSA / Wyckoff (école 3) ────
+                                    try:
+                                        with state_lock: bot_state["current_api"] = "VSA Wyckoff"
+                                        broadcast("status", {"current_api": bot_state["current_api"]})
+                                        from config import GEMINI_API_KEY
+                                        vsa_orchestrator = VSAOrchestrator(gemini_api_key=GEMINI_API_KEY, enable_charts=True)
+                                        vsa_res = vsa_orchestrator.get_signal_for_meta(symbol=p, timeframe=entry_tf, df=dfs[entry_tf])
+                                        
+                                        v_sig = vsa_res.get("direction", "NEUTRAL")
+                                        v_action = vsa_res.get("action", "IGNORE")
+                                        
+                                        if v_action == "IGNORE" or v_sig == "NEUTRAL":
+                                            vsa_std_sig = "NO_TRADE"
+                                        elif v_sig == "LONG":
+                                            vsa_std_sig = "BUY"
+                                        elif v_sig == "SHORT":
+                                            vsa_std_sig = "SELL"
+                                        else:
+                                            vsa_std_sig = "NO_TRADE"
+                                            
+                                        v_score = vsa_res.get("score", 0)
+                                        v_phase = vsa_res.get("wyckoff_phase", "?")
+                                        vsa_signal = {
+                                            "school": "vsa", "pair": p, "signal": vsa_std_sig,
+                                            "score": v_score, "confidence": v_score / 100,
+                                            "reasons": [f"Signal: {vsa_res.get('signal', '?')} (Phase {v_phase})"],
+                                            "warnings": vsa_res.get("invalidations", []),
+                                            "details": vsa_res
+                                        }
+                                        if vsa_std_sig != "NO_TRADE":
+                                            log(f"[{p}] 📈 VSA: {vsa_std_sig} | Score: {v_score}/100 | Phase: {v_phase}", "INFO")
+                                        elif v_score > 0:
+                                            log(f"[{p}] 📈 VSA: NO_TRADE (score {v_score}) | Phase: {v_phase}", "DEBUG")
+                                    except Exception as v_err:
+                                        log(f"[{p}] VSA erreur: {v_err}", "DEBUG")
+
+                                    # ── Méta-Orchestrateur (fusion des écoles) ──
+                                    # Construire le signal ICT au format standard
+                                    ict_signal = {
+                                        "school": "ict",
+                                        "pair": p,
+                                        "signal": "BUY" if dec == "EXECUTE_BUY" else ("SELL" if dec == "EXECUTE_SELL" else "NO_TRADE"),
+                                        "score": int(conf * 100) if conf <= 1.0 else int(conf),
+                                        "confidence": conf if conf <= 1.0 else conf / 100,
+                                        "entry": decision_obj.get("entry_price", 0),
+                                        "sl": decision_obj.get("stop_loss", 0),
+                                        "tp1": decision_obj.get("tp1", 0),
+                                        "reasons": decision_obj.get("reasons", []),
+                                        "warnings": [],
+                                    }
+
+                                    # Comparer avec le méta-orchestrateur en injectant les multiplicateurs SQN
+                                    meta = MetaOrchestrator()
+                                    meta_result = meta.compare([ict_signal, elliott_signal, vsa_signal], sqn_multipliers=sqn_multipliers)
+
+                                    # Logger le résultat méta
+                                    meta_decision = meta_result.get("decision", "NO_TRADE")
+                                    meta_score = meta_result.get("score", 0)
+                                    meta_alignment = meta_result.get("alignment", "")
+                                    if meta_decision != "NO_TRADE" and elliott_signal.get("signal") != "NO_TRADE":
+                                        log(f"[{p}] 🔀 Méta: {meta_decision} | Score: {meta_score} | {meta_alignment}", "INFO")
+
+                                    # ── Gate LLM méta : Validation finale LLM si signal méta fort ──
+                                    if (llm_validator and llm_validator.enabled
+                                            and llm_result is None          # LLM ICT n'a pas déjà tourné
+                                            and meta_decision in ("BUY", "SELL")
+                                            and meta_score >= 60):
+                                        with state_lock: bot_state["current_api"] = "Agent 6 LLM Validator"
+                                        broadcast("status", {"current_api": bot_state["current_api"]})
+                                        log(f"[{p}] 🧠 Validation LLM (MetaSignal) en cours...", "INFO")
+                                        try:
+                                            llm_result = llm_validator.validate(
+                                                structure_report, time_report, entry_signal,
+                                                macro_report, decision_obj, p, horizon
                                             )
+                                            if not llm_result.get("skipped"):
+                                                verdict = llm_result.get("verdict", "SKIP")
+                                                llm_score = llm_result.get("total", 0)
+                                                cost      = llm_result.get("cost_usd", 0)
+                                                log(f"[{p}] 🧠 LLM Meta: {verdict} | Score: {llm_score}/100 | Coût: ${cost:.4f}", "INFO")
+
+                                                # Guard : VALIDÉ avec score < 40 → forcer REJETÉ
+                                                if verdict != "REJETÉ" and llm_score < 40:
+                                                    verdict = "REJETÉ"
+                                                    log(f"[{p}] ⚠️ LLM méta score trop bas ({llm_score}/100) → forcé REJETÉ", "WARNING")
+
+                                                if verdict == "REJETÉ":
+                                                    meta_decision = "NO_TRADE"
+                                                    meta_score    = 0
+                                                    dec           = "NO_TRADE"
+                                                    conf          = 0.0
+                                                    log(f"[{p}] 🚫 LLM a rejeté le signal méta — trade BLOQUÉ: {', '.join(llm_result.get('red_flags', []))}", "WARNING")
+                                            else:
+                                                _skip_reason = llm_result['raisons'][0] if llm_result.get('raisons') else "Unknown"
+                                                log(f"[{p}] ⚠️ LLM méta SKIP: {_skip_reason}", "WARNING")
+                                                # Alerte Telegram rate-limitée (max 1 / 5 min)
+                                                global _llm_skip_last_alert
+                                                if time.time() - _llm_skip_last_alert > 300:
+                                                    _llm_skip_last_alert = time.time()
+                                                    notifier.send_message(
+                                                        f"⚠️ <b>LLM Validator ERREUR (Meta)</b>\n"
+                                                        f"Paire: {p} | Horizon: {horizon}\n"
+                                                        f"Erreur/Skip: {_skip_reason}"
+                                                    )
+                                        except Exception as llm_err:
+                                            log(f"[{p}] ⚠️ LLM méta erreur: {llm_err}", "WARNING")
+                                            if time.time() - _llm_skip_last_alert > 300:
+                                                _llm_skip_last_alert = time.time()
+                                                notifier.send_message(
+                                                    f"⚠️ <b>LLM Validator ERREUR (Meta)</b>\n"
+                                                    f"Paire: {p} | Horizon: {horizon}\n"
+                                                    f"Erreur: {llm_err}"
+                                                )
+
 
                                 # ── Narrative ────────────────────────
                                 bias     = structure_report.get("bias", "neutral")
@@ -1909,6 +2038,19 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 log(f"[{pair}] 🚫 ICT R:R aberrant ({_rr_check} > 8) sur M5 — Bloqué (Correction 3)", "WARNING")
                                 continue
 
+                            # ── Corrélation USD Gate ──────────────────────────────────
+                            with state_lock:
+                                ok, reason = check_usd_correlation(pair, bot_state["orders"])
+                            if not ok:
+                                log(f"[{pair}] 🚫 {reason}", "WARNING")
+                                try:
+                                    from agents.gate_logger import log_correlation_blocked
+                                    log_correlation_blocked(pair, profile["entry_tf"], reason, direction_str, score)
+                                except Exception:
+                                    pass
+                                continue
+                            # ── Fin Corrélation USD Gate ──────────────────────────────
+
                             new_order = make_order(
                                 pair=pair, school="ict", direction=direction_str,
                                 entry=decision_obj.get("entry_price", 0),
@@ -2231,6 +2373,24 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                         f"Meta regret: {pm_report['meta']['gate_regret_rate']}%", "INFO")
                 except Exception as _pm_err:
                     log(f"Post-Mortem erreur: {_pm_err}", "DEBUG")
+
+                # ── Enrichissement rétroactif des gate_logs ─────────────────
+                # Lancé dans un thread séparé (peut durer plusieurs minutes
+                # à cause du rate-limiter TwelveData 8 req/min)
+                try:
+                    from agents.post_mortem import enrich_gate_logs_retroactive
+                    def _enrich_task():
+                        try:
+                            today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                            bilan = enrich_gate_logs_retroactive(target_date=today_utc)
+                            total_enriched = sum(v.get("enriched", 0) for v in bilan.values())
+                            log(f"🔁 Gate Regret enrichi — {total_enriched} setups mis à jour", "INFO")
+                        except Exception as _e:
+                            log(f"Enrichissement rétroactif erreur: {_e}", "DEBUG")
+                    threading.Thread(target=_enrich_task, daemon=True, name="GateRegretEnrich").start()
+                except Exception as _enrich_import_err:
+                    log(f"Import enrich_gate_logs_retroactive erreur: {_enrich_import_err}", "DEBUG")
+
             for _ in range(sched["next_check_seconds"]):
                 if stop_event.is_set(): return
                 time.sleep(1)
@@ -2563,6 +2723,159 @@ def page_logs():
     """Page de visualisation des logs temps réel."""
     return render_template("logs.html")
 
+@app.route("/journal")
+def page_journal():
+    """Page Journal IA (Narrateur quotidien)."""
+    return render_template("journal.html")
+
+@app.route("/api/journal/generate", methods=["POST"])
+def api_journal_generate():
+    """
+    Génère ou retourne la narration quotidienne via Claude Haiku.
+    Si force_regen=False + journal du jour déjà en cache → retourne le cache.
+    Sinon appelle Anthropic Claude Haiku avec les trades + logs.
+    """
+    data = request.json or {}
+    target_date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+    force_regen = data.get("force_regen", False)
+
+    # Dossier de sauvegarde des journaux
+    journal_dir = os.path.join(PROJECT_ROOT, "data", "journal")
+    os.makedirs(journal_dir, exist_ok=True)
+    cache_path  = os.path.join(journal_dir, f"journal_{target_date}.json")
+
+    # ── CACHE : retourner si disponible et non forcé ──────────────────
+    if not force_regen and os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            cached["_source"] = "cache"
+            return jsonify(cached)
+        except Exception:
+            pass
+
+    # ── LECTURE DES TRADES DU JOUR ─────────────────────────────
+    paper_dir = os.path.join(PROJECT_ROOT, "paper_trades")
+    trades_du_jour = []
+    paper_file = os.path.join(paper_dir, f"paper_{target_date}.json")
+    if os.path.exists(paper_file):
+        try:
+            with open(paper_file, "r", encoding="utf-8") as f:
+                trades_du_jour = json.load(f)
+        except Exception:
+            pass
+
+    # ── CALCUL DES KPIs ─────────────────────────────────
+    closed_today  = [t for t in trades_du_jour if t.get("status") == "closed"]
+    pnl_vals = [t.get("pnl_pips", 0) for t in closed_today]
+    n = len(closed_today)
+    wins = sum(1 for p in pnl_vals if p > 0)
+    total_pnl = round(sum(pnl_vals), 1)
+    wr = round(wins / n * 100, 1) if n else 0
+    best  = round(max(pnl_vals), 1) if pnl_vals else 0
+    worst = round(min(pnl_vals), 1) if pnl_vals else 0
+
+    # Profil le plus actif
+    profile_counts = {}
+    for t in closed_today:
+        pid = t.get("profile_id") or "legacy"
+        profile_counts[pid] = profile_counts.get(pid, 0) + 1
+    top_profile = max(profile_counts, key=profile_counts.get) if profile_counts else "N/A"
+
+    kpis = {
+        "nb_trades":    n,
+        "win_rate":     wr,
+        "total_pnl":    total_pnl,
+        "best_trade":   best,
+        "worst_trade":  worst,
+        "top_profile":  top_profile,
+    }
+
+    # ── LECTURE LOG (100 dernières lignes) ──────────────────────
+    log_snippet = ""
+    log_paths = [
+        os.path.join(PROJECT_ROOT, "logs", "trades.log"),
+        os.path.join(PROJECT_ROOT, "bot_output.log"),
+        os.path.join(PROJECT_ROOT, "dashboard.log"),
+    ]
+    for lp in log_paths:
+        if os.path.exists(lp):
+            try:
+                with open(lp, "r", encoding="utf-8", errors="replace") as f:
+                    lines = f.readlines()
+                log_snippet = "".join(lines[-100:])
+                break
+            except Exception:
+                pass
+
+    # ── APPEL CLAUDE HAIKU ────────────────────────────────
+    anthropic_key = getattr(config, "ANTHROPIC_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not anthropic_key:
+        return jsonify({"error": "ANTHROPIC_API_KEY non configurée."}), 503
+
+    # Contexte pour le LLM
+    trades_str = json.dumps(closed_today[:30], ensure_ascii=False, indent=2)[:4000]
+    user_context = f"""Date d'analyse : {target_date}
+
+KPIs du jour :
+- Trades clôturés : {n}
+- Win Rate : {wr}%
+- PnL total : {total_pnl:+.1f} pips
+- Meilleur trade : {best:+.1f} pips
+- Pire trade : {worst:+.1f} pips
+- Profil le plus actif : {top_profile}
+
+Trades du jour (30 premiers) :
+{trades_str}
+
+Extrait des logs système (100 dernières lignes) :
+{log_snippet[:2000]}"""
+
+    system_prompt = (
+        "Tu es l'analyste IA du bot de trading TakeOption. Tu rédiges un rapport quotidien "
+        "en français, clair et structuré, destiné au trader. Ton style est professionnel mais "
+        "accessible. Tu utilises des emojis pour les sections. Tu analyses objectivement les "
+        "performances, identifies les patterns de succès et d'échec, et donnes des observations "
+        "concrètes sur ce qui s'est passé. Tu ne donnes jamais de conseils d'investissement \u2014 "
+        "tu observes et analyses uniquement.\n\n"
+        "Réponds UNIQUEMENT avec un JSON strict (sans markdown, sans ```json, juste le JSON brut) :\n"
+        '{"titre": "...", "resume": "...", "points_positifs": ["..."], '
+        '"points_negatifs": ["..."], "trades_notables": ["..."], '
+        '"observation_marche": "...", "perspectives": "..."}'
+    )
+
+    try:
+        import anthropic as _anthro
+        client = _anthro.Anthropic(api_key=anthropic_key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=2000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_context}]
+        )
+        raw_text = msg.content[0].text.strip()
+        # Nettoyer si Claude enveloppe dans ```json ... ```
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        narrative = json.loads(raw_text)
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Réponse Claude invalide (JSON parse error): {e}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Erreur Claude Haiku: {str(e)}"}), 500
+
+    # ── SAUVEGARDE DU CACHE ──────────────────────────────────
+    result = dict(narrative)
+    result["kpis"] = kpis
+    result["date"] = target_date
+    result["_source"] = "generated"
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    return jsonify(result)
+
 @app.route("/api/performance_stats")
 def api_performance_stats():
     """Calcule et retourne les statistiques complètes depuis tous les paper trades.
@@ -2699,7 +3012,7 @@ def api_performance_stats():
     global_stats = _compute_stats(closed)
 
     # ── Stats par profil ──────────────────────────────────────────────────
-    PROFILES = ["ict_strict", "pure_pa", "legacy"]
+    PROFILES = ["ict_strict", "pure_pa", "vsa", "elliott", "legacy"]
     by_profile = {}
     for pid in PROFILES:
         if pid == "legacy":
@@ -2711,8 +3024,8 @@ def api_performance_stats():
 
     # ── Alertes expectancy négative sur 20 derniers trades par profil ─────
     expectancy_alerts = []
-    all_profile_ids = list(set(t.get("profile_id", "legacy") or "legacy" for t in closed))
-    for pid in all_profile_ids:
+    # On itère sur les profils actifs + legacy
+    for pid in set(list(by_profile.keys()) + ["legacy"]):
         if pid == "legacy":
             recent20 = sorted(
                 [t for t in closed if not t.get("profile_id")],
@@ -2723,18 +3036,22 @@ def api_performance_stats():
                 [t for t in closed if t.get("profile_id") == pid],
                 key=lambda x: x.get("closed_at", ""), reverse=True
             )[:20]
-        if len(recent20) >= 5:  # Minimum 5 trades pour déclencher l'alerte
+
+        if len(recent20) >= 20:  # Seuil de 20 trades requis
             w20 = [t for t in recent20 if t.get("pnl_pips", 0) > 0]
             l20 = [t for t in recent20 if t.get("pnl_pips", 0) <= 0]
+            count = len(recent20)
             aw = (sum(t.get("pnl_pips", 0) for t in w20) / len(w20)) if w20 else 0
             al = (sum(t.get("pnl_pips", 0) for t in l20) / len(l20)) if l20 else 0
-            exp20 = round((len(w20) / len(recent20)) * aw + (len(l20) / len(recent20)) * al, 2)
+            # Calcul expectancy (moyenne par trade)
+            exp20 = round((len(w20) / count) * aw + (len(l20) / count) * al, 2)
+            
             if exp20 < 0:
                 expectancy_alerts.append({
                     "profile_id": pid,
-                    "expectancy_20": exp20,
-                    "trades_count": len(recent20),
-                    "message": f"⚠️ Expectancy négative sur 20 derniers trades : {exp20:+.1f} pips/trade",
+                    "expectancy": exp20,
+                    "trades_count": count,
+                    "message": f"Le profil {pid.upper()} a une expectancy négative sur les {count} derniers trades ({exp20:+.2f}R).",
                 })
 
     return jsonify({
@@ -2815,6 +3132,8 @@ def api_get_settings():
         "RISK_PER_TRADE_PCT":             getattr(config, "RISK_PER_TRADE_PCT", 1.0),
         "MIN_RISK_REWARD":                getattr(config, "MIN_RISK_REWARD", 2.0),
         "CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT":  getattr(config, "CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT", 3.0),
+        "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT":   getattr(config, "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT", 10.0),
+        "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT":    getattr(config, "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT", 20.0),
         "CIRCUIT_BREAKER_MAX_TRADES_PER_DAY":  getattr(config, "CIRCUIT_BREAKER_MAX_TRADES_PER_DAY", 5),
         "CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT":  getattr(config, "CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT", 3),
         # Paires actives
@@ -2870,6 +3189,8 @@ def api_save_settings():
         "MIN_CONFIDENCE_SCORE", "FORCE_ANALYZE", "PAPER_TRADING",
         "RISK_PER_TRADE_PCT", "MIN_RISK_REWARD",
         "CIRCUIT_BREAKER_MAX_DAILY_LOSS_PCT",
+        "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT",
+        "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT",
         "CIRCUIT_BREAKER_MAX_TRADES_PER_DAY",
         "CIRCUIT_BREAKER_MAX_STOPLOSS_COUNT",
         "TRADING_PAIRS",
