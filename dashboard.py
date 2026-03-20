@@ -897,7 +897,13 @@ def _check_dd_limits(capital):
 # BOUCLE PRINCIPALE DU BOT
 # ─────────────────────────────────────────────────────────────────
 def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
+    """
+    Boucle principale du bot : scanne périodiquement les paires.
+    """
     global mt5_conn
+    global _llm_skip_last_alert
+    global bot_state, bot_executor
+    stop_event.clear()
 
     if horizons is None:
         horizons = ["scalp"]
@@ -1566,7 +1572,6 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                         _skip_reason = llm_result['raisons'][0] if llm_result.get('raisons') else "Unknown"
                                         log(f"[{p}] ⚠️ LLM SKIP: {_skip_reason}", "WARNING")
                                         # Alerte Telegram rate-limitée (max 1 / 5 min)
-                                        global _llm_skip_last_alert
                                         if time.time() - _llm_skip_last_alert > 300:
                                             _llm_skip_last_alert = time.time()
                                             notifier.send_message(
@@ -1696,7 +1701,6 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 _skip_reason = llm_result['raisons'][0] if llm_result.get('raisons') else "Unknown"
                                                 log(f"[{p}] ⚠️ LLM méta SKIP: {_skip_reason}", "WARNING")
                                                 # Alerte Telegram rate-limitée (max 1 / 5 min)
-                                                global _llm_skip_last_alert
                                                 if time.time() - _llm_skip_last_alert > 300:
                                                     _llm_skip_last_alert = time.time()
                                                     notifier.send_message(

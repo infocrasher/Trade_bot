@@ -521,17 +521,23 @@ def test_risk_sizing(results: TestResults):
         results.check("Tâche 1 : Risk Sizing", False, f"Exception: {e}")
 
 def test_circuit_breaker_dd(results):
+    import dashboard
+    import config
+    # Initialisations pour le bloc finally
+    old_root = getattr(dashboard, "PROJECT_ROOT", None)
+    old_w = getattr(config, "CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT", 10.0)
+    old_t = getattr(config, "CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT", 20.0)
+    old_k = getattr(config, "CIRCUIT_BREAKER_KELLY_DD_PCT", 5.0)
+    tmp_dir = None
+
     try:
         from dashboard import _check_dd_limits
         import json, os, datetime
-        import config
         from config import BASE_DIR
         import tempfile
         import shutil
-        import dashboard
         
         # Isoler les tests en changeant le PROJECT_ROOT du dashboard temporairement
-        old_root = dashboard.PROJECT_ROOT
         tmp_dir = tempfile.mkdtemp()
         dashboard.PROJECT_ROOT = tmp_dir
         
@@ -583,8 +589,10 @@ def test_circuit_breaker_dd(results):
         results.check("Tâche 2 : Circuit Breaker DD", False, f"Exception: {e}")
     finally:
         # Nettoyage et restauration
-        dashboard.PROJECT_ROOT = old_root
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        if old_root is not None:
+            dashboard.PROJECT_ROOT = old_root
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
         config.CIRCUIT_BREAKER_MAX_WEEKLY_DD_PCT = old_w
         config.CIRCUIT_BREAKER_MAX_TOTAL_DD_PCT = old_t
         config.CIRCUIT_BREAKER_KELLY_DD_PCT = old_k
