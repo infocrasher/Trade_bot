@@ -243,14 +243,7 @@ class TwelveDataProvider:
 
     # ─────────────────────────────────────────────────
     # RÉCUPÉRATION D'UN TIMEFRAME
-    # ─────────────────────────────────────────────────
-    def _fetch_candles(self, td_symbol: str, tf: str, n_bars: int) -> list[dict]:
-        """
-        Appelle l'endpoint /time_series de Twelve Data.
-        Retourne une liste de dicts [{"time", "open", "high", "low", "close", "volume"}, ...]
-        triée du plus ancien au plus récent.
-        """
-    def _fetch_candles(self, td_symbol: str, tf: str, n_bars: int) -> list[dict]:
+    def _fetch_candles(self, td_symbol: str, tf: str, n_bars: int, end_date: str = None) -> list[dict]:
         """
         Appelle l'endpoint /time_series de Twelve Data.
         Retourne une liste de dicts [{"time", "open", "high", "low", "close", "volume"}, ...]
@@ -272,6 +265,8 @@ class TwelveDataProvider:
             "apikey":     self.api_key,
             "order":      "ASC",   # plus ancien → plus récent
         }
+        if end_date:
+            params["end_date"] = end_date
 
         try:
             r = self._session.get(

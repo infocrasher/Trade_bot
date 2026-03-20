@@ -98,6 +98,7 @@
 
   <!-- Statut polling -->
   <span id="logs-status" style="font-size:11px;color:var(--text-muted);">En attente...</span>
+  <span id="heartbeat-status" style="font-size:11px;color:var(--text-muted);margin-left:15px;padding-left:15px;border-left:1px solid var(--border);">Dernière activité : --</span>
 </div>
 
 <div class="log-terminal" id="log-terminal">
@@ -210,5 +211,36 @@ function clearDisplay() {
 /* Lancement du polling */
 fetchLogs();
 setInterval(fetchLogs, 2000);
+
+/* Heartbeat / Watchdog indicator */
+async function updateHeartbeat() {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) return;
+    const data = await res.json();
+    const lastTimeStr = data.last_activity_time;
+    if (!lastTimeStr) return;
+    
+    const lastTime = new Date(lastTimeStr);
+    const now = new Date();
+    const diffSec = Math.floor((now - lastTime) / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    
+    const hbEl = document.getElementById('heartbeat-status');
+    if (hbEl) {
+      if (diffSec < 60) {
+        hbEl.innerHTML = `Dernière activité : <span style="color:#3fb950">à l'instant</span>`;
+      } else {
+        let color = '#8b949e';
+        if (diffMin >= 10) color = '#f85149'; // Rouge
+        else if (diffMin >= 5) color = '#d29922'; // Orange
+        
+        hbEl.innerHTML = `Dernière activité : <span style="color:${color}">il y a ${diffMin} min</span>`;
+      }
+    }
+  } catch(e) {}
+}
+setInterval(updateHeartbeat, 10000);
+updateHeartbeat();
 </script>
 {% endblock %}

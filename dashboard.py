@@ -336,6 +336,7 @@ bot_state = {
     "mt5_connected":      False,
     "current_api":        "Algo (5 Agents)",
     "horizon":            "scalp",
+    "last_activity_time": datetime.now().isoformat(),
 }
 
 bot_thread  = None
@@ -345,6 +346,8 @@ state_lock  = threading.Lock()
 sse_clients = []
 sse_lock    = threading.Lock()
 llm_validator = None
+_watchdog_thread = None
+_watchdog_stop_event = threading.Event()
 _llm_skip_last_alert = 0.0  # timestamp de la dernière alerte Telegram LLM skip
 
 # ── File lock anti-double-instance ────────────────────────────────
@@ -625,6 +628,7 @@ def init_system_async():
 # ─────────────────────────────────────────────────────────────────
 def shutdown_handler():
     stop_event.set()
+    _watchdog_stop_event.set() # Stop watchdog on shutdown
     if mt5_mod:
         try:
             mt5_mod.shutdown()
@@ -832,6 +836,69 @@ def get_scheduler_decision(all_pairs, all_horizons, force_analyze=False):
         "next_check_seconds": 300,  # cycle toutes les 5min en KZ
     }
 
+# ─────────────────────────────────────────────────────────────────
+# WATCHDOG & HEARTBEAT
+# ─────────────────────────────────────────────────────────────────
+_watchdog_thread = None
+_watchdog_stop_event = threading.Event()
+
+def is_currently_in_killzone():
+    """Détecte si nous sommes actuellement dans une killzone ICT (New York Time)."""
+    try:
+        from zoneinfo import ZoneInfo
+        NYC = ZoneInfo("America/New_York")
+    except ImportError:
+        # Fallback si zoneinfo n'est pas dispo (Python < 3.9)
+        return False
+        
+    now = datetime.now(NYC)
+    t = now.hour * 60 + now.minute
+    # Killzones en minutes depuis minuit NY
+    # Asia (20:00-22:00), London (02:00-05:00), NY (07:00-10:00), London Close (10:00-12:00)
+    kzs = [(20*60, 22*60), (2*60, 5*60), (7*60, 10*60), (10*60, 12*60)]
+    
+    for s, e in kzs:
+        if s > e: # Passage de minuit
+            if t >= s or t <= e: return True
+        else:
+            if s <= t <= e: return True
+    return False
+
+def _watchdog_loop():
+    """Vérifie le heartbeat du bot toutes les 60 secondes."""
+    log("[Watchdog] Démarrage du thread de surveillance.", "INFO")
+    while not _watchdog_stop_event.is_set():
+        try:
+            # Attendre 60s ou signal d'arrêt
+            if _watchdog_stop_event.wait(timeout=60):
+                break
+                
+            with state_lock:
+                status = bot_state.get("status")
+                last_activity_str = bot_state.get("last_activity_time")
+            
+            if status == "running" and last_activity_str:
+                last_activity = datetime.fromisoformat(last_activity_str)
+                silence_duration = (datetime.now() - last_activity).total_seconds() / 60
+                
+                # Alerte si silence > 10 min ET en killzone
+                if silence_duration > 10 and is_currently_in_killzone():
+                    msg = (
+                        f"⚠️ <b>Watchdog : bot silencieux</b>\n"
+                        f"Aucune activité depuis {int(silence_duration)} minutes en Killzone.\n"
+                        f"Possible blocage API ou moteur figé."
+                    )
+                    log(f"WATCHDOG: {msg}", "CRITICAL")
+                    notifier.send_message(msg)
+                    
+        except Exception as e:
+            log(f"Erreur Watchdog: {e}", "ERROR")
+
+    log("[Watchdog] Arrêt du thread de surveillance.", "INFO")
+
+# ─────────────────────────────────────────────────────────────────
+# BOT ENGINE
+# ─────────────────────────────────────────────────────────────────
 
 def _minutes_until_next_killzone(now_alger):
     """Calcule les minutes jusqu'à la prochaine Killzone."""
@@ -916,25 +983,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
         bot_state["status"]     = "running"
         bot_state["start_time"] = datetime.now().isoformat()
         bot_state["horizon"]    = "+".join(horizons)
+        bot_state["last_activity_time"] = datetime.now().isoformat() # Update heartbeat
     broadcast("status", {"status": "running", "cycle": 0,
                          "mt5_connected": bot_state["mt5_connected"],
                          "mt5_status":    bot_state["mt5_status"]})
 
     try:
-        # ── Helper killzone ──────────────────────────────────────
-        def in_killzone():
-            from zoneinfo import ZoneInfo
-            NYC = ZoneInfo("America/New_York")
-            now = datetime.now(NYC)
-            t = now.hour * 60 + now.minute
-            kzs = [(20*60, 22*60), (2*60, 5*60), (7*60, 10*60), (10*60, 12*60)]
-            for s, e in kzs:
-                if s > e:
-                    if t >= s or t <= e: return True
-                else:
-                    if s <= t <= e: return True
-            return False
-
         log("Mode algorithmique — 5 Agents ICT.", "INFO")
 
         # Thread Paper Monitor — vérifie SL/TP toutes les 30 secondes
@@ -1124,6 +1178,10 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                 time.sleep(1)
                 continue
 
+            # Update heartbeat
+            with state_lock:
+                bot_state["last_activity_time"] = datetime.now().isoformat()
+            
             # ── Vérification MAX DD ─────────────────────────────
             capital = profiles_settings.get("capital", 10000.0)
             dd_ok, dd_reason, dd_level, kelly_mult = _check_dd_limits(capital)
@@ -1214,6 +1272,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                 if hasattr(mt5_conn, "simulation_mode"):
                     bot_state["mt5_status"] = "SIMU" if mt5_conn.simulation_mode else "LIVE"
                 bot_state["mt5_connected"] = mt5_conn.connected
+                bot_state["last_activity_time"] = datetime.now().isoformat() # Update heartbeat
 
             broadcast("status", {"status": "running", "cycle": cycle,
                                   "mt5_status":    bot_state["mt5_status"],
@@ -1575,7 +1634,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                         if time.time() - _llm_skip_last_alert > 300:
                                             _llm_skip_last_alert = time.time()
                                             notifier.send_message(
-                                                f"⚠️ <b>LLM Validator SKIP</b>\n"
+                                                f"⚠️ <b>LLM Validator DÉSACTIVÉ</b>\n"
                                                 f"Paire: {p} | Horizon: {horizon}\n"
                                                 f"Raison: {_skip_reason}"
                                             )
@@ -2852,7 +2911,7 @@ Extrait des logs système (100 dernières lignes) :
         import anthropic as _anthro
         client = _anthro.Anthropic(api_key=anthropic_key)
         msg = client.messages.create(
-            model="claude-haiku-4-5",
+            model="claude-3-haiku-20240307",
             max_tokens=2000,
             system=system_prompt,
             messages=[{"role": "user", "content": user_context}]
@@ -3276,7 +3335,7 @@ def stream():
 
 @app.route("/api/start", methods=["POST"])
 def api_start():
-    global bot_thread
+    global bot_thread, _watchdog_thread
     data       = request.json or {}
     pairs      = data.get("pairs") or getattr(config, "TRADING_PAIRS", ["EURUSD"])
     interval   = int(data.get("interval", 15))
@@ -3305,6 +3364,13 @@ def api_start():
         target=run_bot_loop, args=(pairs, interval, paper_mode, horizons), daemon=True
     )
     bot_thread.start()
+
+    # Start Watchdog
+    _watchdog_stop_event.clear()
+    if _watchdog_thread is None or not _watchdog_thread.is_alive():
+        _watchdog_thread = threading.Thread(target=_watchdog_loop, daemon=True)
+        _watchdog_thread.start()
+        
     labels = " + ".join(HORIZON_PROFILES[h]["label"] for h in horizons)
     log(f"Bot démarré sur {len(pairs)} paires | Horizons: {labels} | Intervalle: {interval} min", "SUCCESS")
     return jsonify({"ok": True, "horizons": horizons})
@@ -3315,6 +3381,7 @@ def api_stop():
     stop_event.set()
     pause_event.clear()
     _release_bot_lock()
+    _watchdog_stop_event.set() # Stop watchdog on stop
     with state_lock: bot_state["status"] = "stopped"
     broadcast("status", {"status": "stopped"})
     log("Bot arrêté.", "INFO")
@@ -3341,8 +3408,9 @@ def api_state():
             "mt5_connected":bot_state["mt5_connected"],
             "current_pair": bot_state["current_pair"],
             "cycle_count":  bot_state["cycle_count"],
-            "current_api":  bot_state["current_api"],
-            "min_score":    bot_state["min_score"],
+            "current_api":        bot_state["current_api"],
+            "min_score":          bot_state["min_score"],
+            "last_activity_time": bot_state["last_activity_time"],
         }
     snap["stats"] = _compute_stats()
     return jsonify(snap)

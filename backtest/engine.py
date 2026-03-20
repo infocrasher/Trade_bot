@@ -387,7 +387,7 @@ class BacktestEngine:
             ny_time = to_ny_time(broker_time, self.broker_utc_offset)
 
             time_report = self.a2.analyze(
-                df_m5=dfs_cut.get("M5", pd.DataFrame()),
+                df=dfs_cut.get("M5", pd.DataFrame()),
                 current_broker_time=broker_time,
             )
             if not time_report.get("can_trade", False):

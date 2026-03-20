@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>TakeOption Backtest — scalp — 2026-02-18 → 2026-03-20</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #ccc; font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; }
+h1 { color: #00d4aa; margin-bottom: 5px; }
+h2 { color: #7c8aff; margin: 30px 0 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+.subtitle { color: #888; margin-bottom: 20px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+.card { background: #1a1a2e; border-radius: 8px; padding: 15px; text-align: center; }
+.card .value { font-size: 28px; font-weight: bold; margin: 5px 0; }
+.card .label { font-size: 12px; color: #888; text-transform: uppercase; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+th { background: #1a1a2e; color: #7c8aff; text-align: left; padding: 8px 12px; font-size: 13px; }
+td { padding: 6px 12px; border-bottom: 1px solid #222; font-size: 13px; }
+tr:hover { background: #16213e; }
+.win { color: #00d4aa; }
+.loss { color: #e74c3c; }
+.neutral { color: #f39c12; }
+.chart { text-align: center; margin: 15px 0; }
+.chart img { max-width: 100%; border-radius: 8px; }
+.verdict { padding: 15px; border-radius: 8px; margin: 10px 0; font-size: 16px; font-weight: bold; }
+.verdict.pass { background: #0a2e1a; color: #00d4aa; border: 1px solid #00d4aa; }
+.verdict.fail { background: #2e0a0a; color: #e74c3c; border: 1px solid #e74c3c; }
+.verdict.warn { background: #2e2a0a; color: #f39c12; border: 1px solid #f39c12; }
+footer { margin-top: 40px; text-align: center; color: #555; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>TakeOption Backtest Report</h1>
+<p class="subtitle">SCALP — EURUSD — 2026-02-18 → 2026-03-20</p>
+
+<!-- 1. RÉSUMÉ -->
+<h2>1. Résumé</h2>
+<div class="grid">
+    <div class="card"><div class="label">Total Trades</div><div class="value">0</div></div>
+    <div class="card"><div class="label">Win Rate</div><div class="value" style="color:#e74c3c">0.0%</div></div>
+    <div class="card"><div class="label">Profit Factor</div><div class="value" style="color:#e74c3c">0.00</div></div>
+    <div class="card"><div class="label">SQN</div><div class="value" style="color:#e74c3c">0.00</div></div>
+    <div class="card"><div class="label">Max Drawdown</div><div class="value" style="color:#e74c3c">0.0 pips</div></div>
+    <div class="card"><div class="label">Sharpe Ratio</div><div class="value">0.00</div></div>
+    <div class="card"><div class="label">Total PnL</div><div class="value" style="color:#e74c3c">0.0 pips</div></div>
+    <div class="card"><div class="label">Avg R-Multiple</div><div class="value">0.00</div></div>
+</div>
+
+<!-- 2. COURBE D'EQUITY -->
+<h2>2. Courbe d'Equity</h2>
+<div class="chart">
+    <p>Pas assez de données pour le graphique</p>
+</div>
+
+<!-- 3. PERFORMANCE PAR PAIRE -->
+<h2>3. Performance par Paire</h2>
+<table>
+<tr><th>Paire</th><th>Trades</th><th>Wins</th><th>WR%</th><th>PnL (pips)</th><th>PF</th></tr>
+</table>
+
+<!-- 4. PERFORMANCE PAR SESSION -->
+<h2>4. Performance par Session</h2>
+<table>
+<tr><th>Session</th><th>Trades</th><th>Wins</th><th>WR%</th><th>PnL (pips)</th></tr>
+</table>
+
+<!-- 5. PERFORMANCE PAR JOUR -->
+<h2>5. Performance par Jour</h2>
+<table>
+<tr><th>Jour</th><th>Trades</th><th>Wins</th><th>WR%</th><th>PnL (pips)</th></tr>
+<tr><td>Lundi</td><td>0</td><td>0</td><td>0%</td><td class="loss">0</td></tr>
+<tr><td>Mardi</td><td>0</td><td>0</td><td>0%</td><td class="loss">0</td></tr>
+<tr><td>Mercredi</td><td>0</td><td>0</td><td>0%</td><td class="loss">0</td></tr>
+<tr><td>Jeudi</td><td>0</td><td>0</td><td>0%</td><td class="loss">0</td></tr>
+<tr><td>Vendredi</td><td>0</td><td>0</td><td>0%</td><td class="loss">0</td></tr>
+</table>
+
+<!-- 6. DISTRIBUTION DES R-MULTIPLES -->
+<h2>6. Distribution des R-Multiples</h2>
+<div class="chart">
+    <p>Pas assez de données</p>
+</div>
+
+<!-- 7. TRADES INDIVIDUELS -->
+<h2>7. Trades (0)</h2>
+<table>
+<tr><th>Date</th><th>Paire</th><th>Dir</th><th>Entry</th><th>SL</th><th>TP</th><th>Exit</th><th>PnL</th><th>R</th><th>Spread</th><th>Result</th></tr>
+</table>
+
+<!-- 8. GATE ANALYSIS -->
+<h2>8. Gate Analysis (74 setups bloqués)</h2>
+<table>
+<tr><th>Gate</th><th>Bloqués</th><th>Auraient gagné</th><th>Regret Rate</th></tr>
+<tr><td>A5_orchestrator</td><td>74</td><td>0</td><td class="win">0.0%</td></tr>
+</table>
+
+<!-- 9. CRITÈRE D'ARRÊT -->
+<h2>9. Critère d'Arrêt</h2>
+<div class="verdict warn">⏳ INSUFFISANT — Seulement 0 trades. Minimum 200 requis pour conclure.</div>
+<footer>
+    Généré le 2026-03-20 02:20 par TakeOption Backtester v0.1.0<br>
+    Spreads réalistes inclus. Slippage 0.5 pips. SL prioritaire si SL+TP même bougie.
+</footer>
+</body>
+</html>

@@ -15,8 +15,18 @@ echo "========================================"
 echo "  RUNNING ALL TESTS"
 echo "========================================"
 
-# Trouver tous les fichiers test_*.py en excluant Fateh_bot, Sentinelle bot, FNewbot et venv
-TEST_FILES=$(find . -name "test_*.py" -type f -not -path "./Fateh_bot/*" -not -path "./Sentinelle bot/*" -not -path "./FNewbot/*" -not -path "./venv/*" -not -name "test_agent1.py" -not -name "test_agent2.py" -not -name "test_structure.py" -not -name "test_structure3.py" -not -name "test_e2.py" | sort)
+# Trouver tous les fichiers test_*.py en excluant Fateh_bot, Sentinelle bot, FNewbot, .claude et venv
+TEST_FILES=$(find . -name "test_*.py" -type f \
+    -not -path "./Fateh_bot/*" \
+    -not -path "./Sentinelle bot/*" \
+    -not -path "./FNewbot/*" \
+    -not -path "./.claude/*" \
+    -not -path "./venv/*" \
+    -not -name "test_agent1.py" \
+    -not -name "test_agent2.py" \
+    -not -name "test_structure.py" \
+    -not -name "test_structure3.py" \
+    -not -name "test_e2.py" | sort)
 
 for file in $TEST_FILES; do
     echo "----------------------------------------"
@@ -30,8 +40,9 @@ for file in $TEST_FILES; do
     echo "$FILE_OUTPUT"
     
     # Compter les PASS et FAIL dans la sortie (ignorer ❌ qui est utilisé par Elliott pour raison de fonction métier)
-    FILE_PASS=$(echo "$FILE_OUTPUT" | grep -oE "PASS|PASSED|✅" | wc -l)
-    FILE_FAIL=$(echo "$FILE_OUTPUT" | grep -oE "FAIL|FAILED" | wc -l)
+    # On compte les lignes uniques contenant les mots clés pour éviter le double comptage ✅ PASS
+    FILE_PASS=$(echo "$FILE_OUTPUT" | grep -E "PASS|PASSED|✅" | wc -l)
+    FILE_FAIL=$(echo "$FILE_OUTPUT" | grep -E "FAIL|FAILED" | wc -l)
     
     if [ $FILE_STATUS -ne 0 ]; then
         echo "⚠️  [ERREUR] $file a terminé avec un code d'erreur: $FILE_STATUS"

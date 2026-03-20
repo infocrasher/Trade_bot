@@ -1,7 +1,7 @@
 """
 download_history.py — Télécharge des données historiques OHLCV via TwelveData.
 
-Stocke les résultats en Parquet dans backtest/data/.
+Stocke les résultats en CSV dans backtest/data/.
 Utilise le TwelveDataProvider existant avec rate limiting et key rotation.
 
 Usage :
@@ -94,7 +94,7 @@ def _detect_gaps(df: pd.DataFrame, tf: str) -> list:
 def download_pair(provider: TwelveDataProvider, symbol: str, months: int = 6,
                   verbose: bool = True) -> dict:
     """
-    Télécharge toutes les timeframes pour une paire et sauvegarde en Parquet.
+    Télécharge toutes les timeframes pour une paire et sauvegarde en CSV.
 
     Returns:
         dict avec les stats de download par TF
@@ -109,26 +109,44 @@ def download_pair(provider: TwelveDataProvider, symbol: str, months: int = 6,
 
     for tf in TIMEFRAMES:
         total_bars_needed = BARS_PER_MONTH.get(tf, 5000) * months
-        output_path = os.path.join(DATA_DIR, f"{symbol}_{tf}.parquet")
+        output_path = os.path.join(DATA_DIR, f"{symbol}_{tf}.csv")
 
         if verbose:
             print(f"[Download] {symbol} {tf} — {total_bars_needed} bars demandées...", end=" ")
 
         all_candles = []
 
-        if total_bars_needed <= MAX_BARS_PER_REQUEST:
-            # Une seule requête suffit
-            candles = provider._fetch_candles(td_symbol, tf, total_bars_needed)
-            all_candles.extend(candles)
-        else:
-            # Pagination : plusieurs requêtes de 5000 bars
-            # TwelveData ne supporte pas la pagination native en mode gratuit,
-            # donc on télécharge le max (5000) et on prend ce qu'on peut.
-            candles = provider._fetch_candles(td_symbol, tf, MAX_BARS_PER_REQUEST)
-            all_candles.extend(candles)
+        remaining_bars = total_bars_needed
+        end_date = None
 
-            if verbose and len(candles) < total_bars_needed:
-                print(f"({len(candles)}/{total_bars_needed} récupérées — limite API)", end=" ")
+        while remaining_bars > 0:
+            batch_size = min(remaining_bars, MAX_BARS_PER_REQUEST)
+            candles = provider._fetch_candles(td_symbol, tf, batch_size, end_date=end_date)
+
+            if not candles:
+                break
+
+            # Conversion du timestamp le plus ancien pour la prochaine requête (end_date exclusif/inclusif selon l'API)
+            try:
+                dt = pd.to_datetime(candles[0]["time"])
+                end_date = (dt - pd.Timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                end_date = candles[0]["time"]
+
+            # On préfixe pour garder l'ordre ASC global
+            all_candles = candles + all_candles
+            remaining_bars -= len(candles)
+
+            if len(candles) < batch_size:
+                break
+                
+            time.sleep(0.5)
+
+        if verbose:
+            if len(all_candles) < total_bars_needed:
+                print(f"({len(all_candles)}/{total_bars_needed} récupérées — limite historique)", end=" ")
+            else:
+                print(f"({len(all_candles)} récupérées)", end=" ")
 
         if not all_candles:
             if verbose:
@@ -144,8 +162,8 @@ def download_pair(provider: TwelveDataProvider, symbol: str, months: int = 6,
         # Détecter les gaps
         gaps = _detect_gaps(df, tf)
 
-        # Sauvegarder en Parquet
-        df.to_parquet(output_path, index=False)
+        # Sauvegarder en CSV
+        df.to_csv(output_path, index=False)
 
         date_range = f"{df['time'].iloc[0].strftime('%Y-%m-%d')} → {df['time'].iloc[-1].strftime('%Y-%m-%d')}"
 
@@ -205,16 +223,16 @@ def download_all(pairs: list = None, months: int = 6, verbose: bool = True) -> d
 
 def load_pair_data(symbol: str) -> dict:
     """
-    Charge les données Parquet d'une paire en mémoire.
+    Charge les données CSV d'une paire en mémoire.
 
     Returns:
         dict {"M5": DataFrame, "H1": DataFrame, "H4": DataFrame, "D1": DataFrame}
     """
     dfs = {}
     for tf in TIMEFRAMES:
-        path = os.path.join(DATA_DIR, f"{symbol}_{tf}.parquet")
+        path = os.path.join(DATA_DIR, f"{symbol}_{tf}.csv")
         if os.path.exists(path):
-            dfs[tf] = pd.read_parquet(path)
+            dfs[tf] = pd.read_csv(path, parse_dates=["time"])
         else:
             dfs[tf] = pd.DataFrame()
     return dfs
@@ -227,14 +245,14 @@ def list_available_data() -> dict:
         return available
 
     for f in sorted(os.listdir(DATA_DIR)):
-        if f.endswith(".parquet"):
-            parts = f.replace(".parquet", "").split("_")
+        if f.endswith(".csv"):
+            parts = f.replace(".csv", "").split("_")
             if len(parts) >= 2:
                 symbol = parts[0]
                 tf = parts[1]
                 path = os.path.join(DATA_DIR, f)
                 size_mb = os.path.getsize(path) / (1024 * 1024)
-                df = pd.read_parquet(path)
+                df = pd.read_csv(path, parse_dates=["time"])
                 if symbol not in available:
                     available[symbol] = {}
                 available[symbol][tf] = {

@@ -1,0 +1,539 @@
+{
+  "start_date": "2026-02-18",
+  "end_date": "2026-03-20",
+  "horizon": "scalp",
+  "pairs": [
+    "EURUSD"
+  ],
+  "total_trades": 0,
+  "wins": 0,
+  "losses": 0,
+  "win_rate": 0.0,
+  "profit_factor": 0.0,
+  "sqn": 0.0,
+  "max_drawdown_pips": 0.0,
+  "total_pnl_pips": 0,
+  "avg_r_multiple": 0.0,
+  "blocked_setups": 74,
+  "trades": [],
+  "blocked_details": [
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:05:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-23 21:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "Manque de consensus : seul 2/4 agents sont align\u00e9s sur bullish (minimum 3 requis).",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 02:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 02:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 02:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 02:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 02:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:00:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:05:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 03:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-02-24 04:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "PO3 Phase ACCUMULATION \u2014 Asian range en formation, attente manipulation/distribution. (Asian Range en formation)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:00:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:05:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 16:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:00:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:05:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 17:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "SOD=UNKNOWN \u2014 Hors horaires ICT principaux et hors phase de distribution (tf=M5) \u2014 contexte insuffisant",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:45:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:50:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 19:55:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:00:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:05:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:10:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:15:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:20:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:25:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:30:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:35:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    },
+    {
+      "pair": "EURUSD",
+      "time": "2026-03-16 20:40:00",
+      "gate": "A5_orchestrator",
+      "reason": "P-F5 Anti-Inducement : Inducement Trap (No Sweep)",
+      "would_have_won": null
+    }
+  ]
+}
