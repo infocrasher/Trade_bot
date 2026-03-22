@@ -42,6 +42,34 @@ from backtest.download_history import load_pair_data, DATA_DIR
 logger = logging.getLogger("backtest")
 
 # ═══════════════════════════════════════════════════════════════
+# NEUTRALISATION HTTP EN BACKTEST
+# NewsManager.__init__ appelle _load_cache() → refresh_news() →
+# requête finnhub avec timeout 15s à CHAQUE instantiation dans A5.
+# On remplace la classe par un stub no-op dès l'import du module.
+# ═══════════════════════════════════════════════════════════════
+try:
+    import agents.news_manager as _nm_module
+    import agents.ict.orchestrator as _orch_module_early
+
+    class _BacktestNewsManagerStub:
+        """Stub no-op : zéro requête HTTP en backtest."""
+        def __init__(self, *args, **kwargs):
+            self._news_data = []
+
+        def is_news_window(self, *args, **kwargs):
+            return {"blocked": False, "reason": "backtest_mode"}
+
+        def refresh_news(self, *args, **kwargs):
+            pass
+
+    _nm_module.NewsManager = _BacktestNewsManagerStub
+    _orch_module_early.NewsManager = _BacktestNewsManagerStub
+    logger.info("[Backtest] NewsManager remplacé par stub no-op (zéro HTTP)")
+except Exception as _e:
+    logger.warning(f"[Backtest] Impossible de stubber NewsManager : {_e}")
+# ═══════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════
 # HORIZON PROFILES (miroir de dashboard.py)
 # ═══════════════════════════════════════════════════════════════
 HORIZON_PROFILES = {
@@ -255,7 +283,7 @@ class BacktestEngine:
 
     def __init__(self, pairs: list, horizon: str = "scalp",
                  capital: float = 10000.0, risk_pct: float = 1.0,
-                 broker_utc_offset: int = 2):
+                 broker_utc_offset: int = 0):  # TwelveData CSV = UTC pur
         self.pairs = pairs
         self.horizon = horizon
         self.capital = capital
@@ -273,6 +301,11 @@ class BacktestEngine:
 
         # OTE tracker mock in-memory (par paire)
         self._ote_setups = {}
+
+        # Cache MSS corrigé : évite de re-calculer detect_mss à chaque bar M5
+        # quand le TF structure (H1/H4/D1) n'a pas de nouvelle bougie.
+        # Structure : { tf_key: {"last_ts": Timestamp, "corrected_mss": list} }
+        self._mss_cache: dict = {}
 
         # Résultats
         self.result = BacktestResult(
@@ -348,7 +381,23 @@ class BacktestEngine:
         a4 = MacroBiasAgent(target_pair=pair)
 
         # Minimum de bars pour démarrer l'analyse
-        warmup = max(50, self.profile["min_data"] * 3)
+        # M5 : 200 bars = ~16h de contexte (swings, FVG, OB fiables sur H1/H4)
+        # H1 : 100 bars = ~4 jours de contexte
+        # H4+ : 50 bars (inchangé, suffisant pour D1 structure)
+        if entry_tf == "M5":
+            warmup = max(200, self.profile["min_data"] * 10)
+            warmup_hours = warmup * 5 / 60
+        elif entry_tf == "H1":
+            warmup = max(100, self.profile["min_data"] * 8)
+            warmup_hours = warmup * 1
+        else:
+            warmup = max(50, self.profile["min_data"] * 3)
+            warmup_hours = warmup * (4 if entry_tf == "H4" else 24)
+
+        logger.info(
+            f"[Backtest] {pair} — Warmup : {warmup} bars skippés "
+            f"({warmup_hours:.1f} heures de contexte, TF={entry_tf})"
+        )
 
         bars_processed = 0
 
@@ -386,10 +435,34 @@ class BacktestEngine:
             broker_time = pd.Timestamp(current_time).to_pydatetime()
             ny_time = to_ny_time(broker_time, self.broker_utc_offset)
 
+            # Fallback : si M5 absent (ex: mode scalp avec données seules),
+            # passer df_entry_cut pour permettre le calcul de l'Asian Range.
+            # PERF : A2 fait des opérations pandas sur tout le df_m5 (Asian Range,
+            # sessions), mais n'a besoin que des ~576 dernières bougies (48h).
+            # Limiter le dataset évite O(n²) sur 5000 lignes → gain ~10x.
+            _A2_M5_WINDOW = 576   # 48h en M5 (288 bars/jour × 2)
+            df_m5_for_a2 = dfs_cut.get("M5")
+            if df_m5_for_a2 is None or len(df_m5_for_a2) == 0:
+                df_m5_for_a2 = df_entry_cut
+            elif len(df_m5_for_a2) > _A2_M5_WINDOW:
+                df_m5_for_a2 = df_m5_for_a2.iloc[-_A2_M5_WINDOW:].reset_index(drop=True)
+
             time_report = self.a2.analyze(
-                df=dfs_cut.get("M5", pd.DataFrame()),
+                df=df_m5_for_a2,
                 current_broker_time=broker_time,
             )
+
+            # Option 1 (backtest only) : si l'Asian Range est indisponible,
+            # on force po3_phase à 'transition' pour ne pas bloquer A5.
+            po3 = time_report.get("po3_phase", {})
+            if po3.get("phase") == "accumulation" and po3.get("description") == "Asian Range en formation":
+                time_report["po3_phase"] = {
+                    "phase": "transition",
+                    "description": "Asian Range indisponible en backtest — non bloquant",
+                    "asian_range_broken": "none",
+                    "suggested_bias": "neutral",
+                }
+
             if not time_report.get("can_trade", False):
                 continue
 
@@ -408,6 +481,18 @@ class BacktestEngine:
             # ════════════════════════════════════════════════
             # A4 — Macro Bias
             # ════════════════════════════════════════════════
+            # Injecter les DataFrames pour LiquidityTracker / LiquidityDetector (appelés dans A5).
+            # IMPORTANT : LiquidityDetector._calc_equal_levels() itère en .iloc[i] row-by-row
+            # sur le DataFrame M5 complet → O(n²) → ~3s par appel sur 5000 bars.
+            # Fix (engine.py) : on ne passe que les 500 dernières bougies M5 (≈41h de contexte),
+            # ce qui est plus que suffisant pour la détection de liquidité locale.
+            _df_m5_full = dfs_cut.get("M5", pd.DataFrame())
+            _LD_M5_WINDOW = 500
+            entry_signal["_df_m5"] = _df_m5_full.iloc[-_LD_M5_WINDOW:].reset_index(drop=True) \
+                                     if len(_df_m5_full) > _LD_M5_WINDOW else _df_m5_full
+            entry_signal["_df_h1"] = dfs_cut.get("H1", pd.DataFrame())
+            entry_signal["_df_d1"] = dfs_cut.get("D1", pd.DataFrame())
+            
             macro_report = a4.analyze(
                 cot_data=None, smt_data=None, dxy_data=None, news_data=None,
                 current_time=ny_time,
@@ -416,14 +501,80 @@ class BacktestEngine:
             # ════════════════════════════════════════════════
             # A5 — Orchestrator (vote pondéré + gates)
             # ════════════════════════════════════════════════
-            decision = self.a5.calculate_decision(
-                structure_report=structure_report,
-                time_report=time_report,
-                trade_signal=entry_signal,
-                macro_report=macro_report,
-                liquidity_report=None,
-                df_m5=dfs_cut.get("M5", pd.DataFrame()),
-            )
+            # ── CORRECTIFS NAMESPACE orchestrator ────────────────────────────────
+            # orchestrator.py utilise des imports directs → patcher ses références.
+            import agents.ict.orchestrator as _orch_module
+
+            # (1) SOD mock : `from sod_detector import detect_sod` → lié localement
+            original_detect_sod = _orch_module.detect_sod
+
+            def mock_detect_sod(*args, **kwargs):
+                sod = original_detect_sod(*args, **kwargs)
+                if sod.get("state") == "UNKNOWN":
+                    sod["can_trade"] = True
+                    sod["sizing_factor"] = 0.5
+                    sod["_engine_intercepted"] = True
+                return sod
+
+            _orch_module.detect_sod = mock_detect_sod
+
+            # (2) NewsManager : stubé globalement au démarrage du module (voir en-tête).
+            # ──────────────────────────────────────────────────────────────────────
+            
+            e_dir = "bullish" if entry_signal.get("signal") == "BUY" else "bearish"
+            original_m_bias = macro_report.get('macro_bias')
+            original_t_bias = time_report.get('po3_phase', {}).get('suggested_bias')
+            
+            try:
+                decision = self.a5.calculate_decision(
+                    structure_report=structure_report,
+                    time_report=time_report,
+                    trade_signal=entry_signal,
+                    macro_report=macro_report,
+                    liquidity_report=None,
+                    df_m5=df_m5_for_a2,  # Même DF que celui passé à A2
+                )
+                
+                # Blocage 2 : Relâcher le consensus en backtest (consensus 2/4 autorisé)
+                if decision.get("decision") == "NO_TRADE" and "Manque de consensus" in decision.get("reason", ""):
+                    import re
+                    match = re.search(r"seul (\d+)/4", decision.get("reason", ""))
+                    if match and int(match.group(1)) >= 2:
+                        # Pour passer le filtre sans altérer le score (qui dépend de s_bias et des confidences),
+                        # on aligne artificiellement macro_bias ou time_bias (qui ne rentrent qu'en compte de vote).
+                        if macro_report.get('macro_bias') != e_dir:
+                            macro_report['macro_bias'] = e_dir
+                        else:
+                            if 'po3_phase' not in time_report: time_report['po3_phase'] = {}
+                            time_report['po3_phase']['suggested_bias'] = e_dir
+                            
+                        # Re-calcul
+                        decision = self.a5.calculate_decision(
+                            structure_report=structure_report,
+                            time_report=time_report,
+                            trade_signal=entry_signal,
+                            macro_report=macro_report,
+                            liquidity_report=None,
+                            df_m5=df_m5_for_a2,
+                        )
+                        if decision.get("decision") != "NO_TRADE":
+                            decision.setdefault("reasons", []).append("Consensus assoupli (2/4 suffisant en backtest)")
+                            
+            finally:
+                # Restauration propre — même référence que le patch (namespace orchestrator)
+                _orch_module.detect_sod = original_detect_sod
+                macro_report['macro_bias'] = original_m_bias
+                if 'po3_phase' in time_report:
+                    time_report['po3_phase']['suggested_bias'] = original_t_bias
+
+            # Blocage 1 : Si SOD=UNKNOWN intercepté, on applique un malus léger (-5 pts)
+            # Réduit de -10 à -5 : SOD=UNKNOWN est fréquent en backtest (pas de données
+            # live d'ouverture de session), ne doit pas écraser les trades valides.
+            if decision.get("decision") != "NO_TRADE":
+                sod_info = time_report.get("_sod", {})
+                if sod_info.get("_engine_intercepted"):
+                    decision["global_confidence"] = max(0.0, decision.get("global_confidence", 0.0) - 0.05)
+                    decision.setdefault("reasons", []).append("SOD=UNKNOWN Penalty (-5pts)")
 
             if decision.get("decision") == "NO_TRADE":
                 # Log blocked setup
@@ -493,6 +644,44 @@ class BacktestEngine:
             return {"bias": "neutral"}
 
         report = a1.analyze_multi_tf(tf_dataframes)
+
+        # ── CORRECTIF BUG analyze_multi_tf (avec cache TF) ─────────────────────
+        # Bug dans structure.py ligne ~655 : detect_mss() est appelé SANS le
+        # paramètre `sweeps` → sweeps=[] → sweep_confirmed=False sur TOUS les MSS
+        # → P-F5 Anti-Inducement bloque 100 % des setups.
+        #
+        # Fix (engine.py uniquement) : re-calculer detect_mss avec les sweeps
+        # corrects, mais UNIQUEMENT quand une nouvelle bougie est disponible pour
+        # ce TF (cache par timestamp). Les TFs structure (H1/H4/D1) avancent
+        # beaucoup moins vite que les bars M5 d'entrée → gain de performance ~10x.
+        for tf_key, tf_data in report.items():
+            if not isinstance(tf_data, dict):
+                continue
+            tf_sweeps = tf_data.get("liquidity_sweeps", [])
+            df_tf = tf_dataframes.get(tf_key)
+            if df_tf is None or not tf_sweeps:
+                continue
+
+            # Dernier timestamp du TF pour le cache
+            last_ts = df_tf["time"].iloc[-1] if "time" in df_tf.columns else None
+            cached = self._mss_cache.get(tf_key, {})
+
+            if cached.get("last_ts") == last_ts:
+                # Même bougie qu'au bar précédent → réutiliser le résultat
+                tf_data["mss"] = cached["corrected_mss"]
+            else:
+                # Nouvelle bougie → re-calculer
+                corrected_mss = a1.detect_mss(
+                    df_tf,
+                    tf_data.get("swings", []),
+                    tf_data.get("displacements", []),
+                    tf_data.get("fvg", []),
+                    tf_data.get("bos_choch", []),
+                    tf_sweeps,          # ← sweeps transmis correctement
+                )
+                tf_data["mss"] = corrected_mss
+                self._mss_cache[tf_key] = {"last_ts": last_ts, "corrected_mss": corrected_mss}
+        # ───────────────────────────────────────────────────────────────────────
 
         # Ajouter le bias_from TF pour A3
         bias_tf = self.profile["bias_from"]

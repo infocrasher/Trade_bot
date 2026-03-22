@@ -138,7 +138,9 @@ class OrchestratorAgent:
             try:
                 symbol = trade_signal.get("symbol") or structure_report.get("symbol", "EURUSD")
                 import pandas as pd
-                df_h1 = trade_signal.get("_df_h1") or structure_report.get("_df_h1") or pd.DataFrame()
+                _ts_h1 = trade_signal.get("_df_h1")
+                _sr_h1 = structure_report.get("_df_h1")
+                df_h1 = _ts_h1 if _ts_h1 is not None and not _ts_h1.empty else (_sr_h1 if _sr_h1 is not None and not _sr_h1.empty else pd.DataFrame())
                 tf_data = structure_report.get("H1", structure_report)
                 liq_tracker = LiquidityTracker(symbol=symbol)
                 liquidity_report = liq_tracker.analyze(df_h1, tf_data, tf="H1")
@@ -155,9 +157,17 @@ class OrchestratorAgent:
             try:
                 symbol = (trade_signal.get('symbol') or structure_report.get('symbol', 'EURUSD')).upper()
                 import pandas as pd
-                df_m5_ld = trade_signal.get('_df_m5') or structure_report.get('_df_m5')
-                df_h1_ld = trade_signal.get('_df_h1') or structure_report.get('_df_h1')
-                df_d1_ld = trade_signal.get('_df_d1') or structure_report.get('_df_d1')
+                _ts_m5 = trade_signal.get('_df_m5')
+                _sr_m5 = structure_report.get('_df_m5')
+                df_m5_ld = _ts_m5 if _ts_m5 is not None and not _ts_m5.empty else _sr_m5
+
+                _ts_h1_ld = trade_signal.get('_df_h1')
+                _sr_h1_ld = structure_report.get('_df_h1')
+                df_h1_ld = _ts_h1_ld if _ts_h1_ld is not None and not _ts_h1_ld.empty else _sr_h1_ld
+
+                _ts_d1 = trade_signal.get('_df_d1')
+                _sr_d1 = structure_report.get('_df_d1')
+                df_d1_ld = _ts_d1 if _ts_d1 is not None and not _ts_d1.empty else _sr_d1
                 if df_d1_ld is not None or df_m5_ld is not None:
                     _liq_det = LiquidityDetector(symbol=symbol)
                     _bias_for_det = 'bullish' if trade_signal.get('signal') == 'BUY' else 'bearish'

@@ -9,7 +9,7 @@
 
 import sys, os, json, time, threading, queue, uuid, re, atexit, signal
 from datetime import datetime, timedelta, timezone
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response, send_from_directory
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -865,12 +865,14 @@ def is_currently_in_killzone():
     return False
 
 def _watchdog_loop():
-    """Vérifie le heartbeat du bot toutes les 60 secondes."""
+    """Vérifie le heartbeat du bot toutes les 300 secondes (5 minutes)."""
     log("[Watchdog] Démarrage du thread de surveillance.", "INFO")
+    last_watchdog_alert = None
+    
     while not _watchdog_stop_event.is_set():
         try:
-            # Attendre 60s ou signal d'arrêt
-            if _watchdog_stop_event.wait(timeout=60):
+            # Attendre 300s ou signal d'arrêt
+            if _watchdog_stop_event.wait(timeout=300):
                 break
                 
             with state_lock:
@@ -879,17 +881,20 @@ def _watchdog_loop():
             
             if status == "running" and last_activity_str:
                 last_activity = datetime.fromisoformat(last_activity_str)
-                silence_duration = (datetime.now() - last_activity).total_seconds() / 60
+                now = datetime.now()
+                silence_duration = (now - last_activity).total_seconds() / 60
                 
                 # Alerte si silence > 10 min ET en killzone
                 if silence_duration > 10 and is_currently_in_killzone():
-                    msg = (
-                        f"⚠️ <b>Watchdog : bot silencieux</b>\n"
-                        f"Aucune activité depuis {int(silence_duration)} minutes en Killzone.\n"
-                        f"Possible blocage API ou moteur figé."
-                    )
-                    log(f"WATCHDOG: {msg}", "CRITICAL")
-                    notifier.send_message(msg)
+                    if last_watchdog_alert is None or (now - last_watchdog_alert).total_seconds() >= 300:
+                        msg = (
+                            f"⚠️ <b>Watchdog : bot silencieux</b>\n"
+                            f"Aucune activité depuis {int(silence_duration)} minutes en Killzone.\n"
+                            f"Possible blocage API ou moteur figé."
+                        )
+                        log(f"WATCHDOG: {msg}", "CRITICAL")
+                        notifier.send_message(msg)
+                        last_watchdog_alert = now
                     
         except Exception as e:
             log(f"Erreur Watchdog: {e}", "ERROR")
@@ -1347,7 +1352,10 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                     profile = HORIZON_PROFILES.get(horizon, HORIZON_PROFILES["scalp"])
                     try:
-                        with state_lock: bot_state["current_pair"] = pair
+                        with state_lock: 
+                            bot_state["current_pair"] = pair
+                            bot_state["last_activity_time"] = datetime.now().isoformat()  # Update heartbeat per pair/horizon analysis!
+                            
                         broadcast("status", {"status": "running", "cycle": cycle,
                                               "current_pair": pair,
                                               "mt5_connected": bot_state["mt5_connected"],
@@ -1384,7 +1392,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 with state_lock: bot_state["current_api"] = "Agent 2 Time"
                                 broadcast("status", {"current_api": bot_state["current_api"]})
 
+                                # Si le fournisseur de données est TwelveData (UTC pur), on force l'offset à 0 
+                                # pour éviter de décaler de 2 heures le fuseau (sinon London KZ = hors horaires).
                                 broker_offset = getattr(config, "BROKER_UTC_OFFSET", 2)
+                                if type(mt5_conn).__name__ == "TwelveDataProvider":
+                                    broker_offset = 0
+                                    
                                 agent2      = TimeSessionAgent(broker_utc_offset=broker_offset)
                                 time_report = agent2.analyze(df_entry)
 
@@ -2790,6 +2803,43 @@ def page_logs():
 def page_journal():
     """Page Journal IA (Narrateur quotidien)."""
     return render_template("journal.html")
+
+@app.route("/backtest")
+def page_backtest():
+    """Page Backtest — liste des rapports JSON générés."""
+    import glob
+    results_dir = os.path.join(PROJECT_ROOT, "backtest", "results")
+    reports = []
+    for json_path in sorted(glob.glob(os.path.join(results_dir, "*.json")), reverse=True):
+        try:
+            with open(json_path, "r") as f:
+                data = json.load(f)
+            html_path = json_path.replace(".json", ".html")
+            basename = os.path.basename(json_path)
+            reports.append({
+                "filename": basename,
+                "start_date": data.get("start_date", "—"),
+                "end_date": data.get("end_date", "—"),
+                "horizon": data.get("horizon", "—"),
+                "pairs": ", ".join(data.get("pairs", [])),
+                "total_trades": data.get("total_trades", 0),
+                "win_rate": data.get("win_rate", 0.0),
+                "profit_factor": data.get("profit_factor", 0.0),
+                "sqn": data.get("sqn", 0.0),
+                "max_drawdown_pips": data.get("max_drawdown_pips", 0.0),
+                "blocked_setups": data.get("blocked_setups", 0),
+                "has_html": os.path.exists(html_path),
+                "html_filename": os.path.basename(html_path) if os.path.exists(html_path) else None,
+            })
+        except Exception:
+            continue
+    return render_template("backtest.html", reports=reports)
+
+@app.route("/backtest/report/<filename>")
+def backtest_report_html(filename):
+    """Sert le rapport HTML d'un backtest."""
+    results_dir = os.path.join(PROJECT_ROOT, "backtest", "results")
+    return send_from_directory(results_dir, filename)
 
 @app.route("/api/journal/generate", methods=["POST"])
 def api_journal_generate():

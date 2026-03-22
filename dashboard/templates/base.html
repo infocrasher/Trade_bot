@@ -64,6 +64,13 @@
         </svg>
         <span>Journal IA</span>
       </a>
+      <a href="{{ url_for('page_backtest') }}" class="nav-item {% if request.endpoint == 'page_backtest' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+          <polyline points="16 7 22 7 22 13"></polyline>
+        </svg>
+        <span>Backtest</span>
+      </a>
       <a href="{{ url_for('page_logs') }}" class="nav-item {% if request.endpoint == 'page_logs' %}active{% endif %}">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line>
