@@ -401,6 +401,12 @@ class BacktestEngine:
 
         bars_processed = 0
 
+        # Anti-duplication OTE : dernière entrée par direction.
+        # Empêche de re-entrer sur le MÊME niveau OTE pendant qu'un trade est ouvert.
+        # La clé est (direction, entry_price arrondi, sl arrondi) → bloqué jusqu'à exit_bar.
+        # Une NOUVELLE zone OTE (entry/SL différents) est autorisée immédiatement.
+        _active_ote: dict[str, tuple] = {}   # direction → (entry_price, sl, exit_bar_idx)
+
         for bar_idx in range(warmup, len(df_entry_full)):
             current_time = df_entry_full["time"].iloc[bar_idx]
 
@@ -472,6 +478,24 @@ class BacktestEngine:
             entry_signal = a3.analyze(structure_report, time_report, df_entry_cut)
             if entry_signal.get("signal") == "NO_TRADE":
                 continue
+
+            # ── Anti-duplication OTE : même niveau = pas de re-entrée ────────
+            # L'OTE sur H1 reste stable plusieurs barres M5 consécutives.
+            # On bloque si : même direction + même entry_price (± 1 pip) + même SL
+            # ET le trade précédent est encore "ouvert" (bar_idx < exit_bar).
+            # Un NOUVEAU niveau OTE (prix différent) est autorisé immédiatement.
+            _sig   = entry_signal.get("signal", "BUY")
+            _ep    = entry_signal.get("entry_price", 0)
+            _sl    = entry_signal.get("stop_loss", 0)
+            _active = _active_ote.get(_sig)
+            if _active is not None:
+                _prev_ep, _prev_sl, _exit_bar = _active
+                # Tolérance = 5 pips pour regrouper les micro-variations d'un même OTE
+                _tol = 5 * pip_value
+                _same_zone = (abs(_ep - _prev_ep) <= _tol and abs(_sl - _prev_sl) <= _tol)
+                if _same_zone and bar_idx <= _exit_bar:
+                    continue    # Même OTE, position encore ouverte → skip
+            # ─────────────────────────────────────────────────────────────────
 
             # Injecter le spread réaliste
             spread = get_realistic_spread_pips(pair, ny_time)
@@ -623,6 +647,12 @@ class BacktestEngine:
             )
             if trade:
                 self.result.trades.append(trade)
+                # Enregistrer le niveau OTE actif pour ce trade
+                _active_ote[trade.direction] = (
+                    round(trade.entry_price, 4),
+                    round(trade.stop_loss, 4),
+                    trade.exit_bar_idx,
+                )
 
         return bars_processed
 
