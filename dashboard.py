@@ -409,7 +409,7 @@ def get_pip_size_safe(pair):
     if any(c in pair_upper for c in ["BTC", "ETH"]):
         return 1.0        # Crypto : 1 pip = 1$
     elif "XAU" in pair_upper:
-        return 0.1         # Or : 1 pip = 0.1$
+        return 1.0        # Or : 1 pip = 1$ mouvement de prix (lot=100oz)
     elif "XAG" in pair_upper:
         return 0.01        # Argent : 1 pip = 0.01$
     elif "OIL" in pair_upper:
@@ -418,6 +418,27 @@ def get_pip_size_safe(pair):
         return 0.01        # Paires JPY : 1 pip = 0.01
     else:
         return 0.0001      # Forex standard : 1 pip = 0.0001
+
+def get_pip_dollar_value(pair, entry_price=0.0):
+    """Valeur d'1 pip en USD pour 1 lot standard.
+    XAUUSD : lot=100oz, 1pip=$1 → $100/pip/lot
+    XAGUSD : lot=5000oz, 1pip=$0.01 → $50/pip/lot
+    JPY    : pip_value = 1000/entry_price (variable)
+    Forex  : $10/pip/lot standard
+    Crypto : $1/pip/lot (approximatif)
+    """
+    pair_upper = pair.upper()
+    if any(c in pair_upper for c in ["BTC", "ETH"]):
+        return 1.0
+    elif "XAU" in pair_upper:
+        return 100.0   # 100 oz × $1/pip = $100/pip/lot
+    elif "XAG" in pair_upper:
+        return 50.0    # 5000 oz × $0.01/pip = $50/pip/lot
+    elif "JPY" in pair_upper:
+        return (1000.0 / entry_price) if entry_price > 0 else 6.66
+    else:
+        return 10.0    # Forex standard : $10/pip/lot
+
 
 def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, checklist,
                pending_conditions=None, status="pending", volume=0.10,
@@ -437,24 +458,13 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
         
     if sl_pips <= 0:
         dynamic_lot = 0.01
+        pip_value = get_pip_dollar_value(pair, entry_val)
     else:
-        pair_upper = pair.upper()
-        if any(c in pair_upper for c in ["BTC", "ETH"]):
-            pip_value = 1.0
-        elif "XAU" in pair_upper:
-            pip_value = 10.0
-        elif "JPY" in pair_upper:
-            if entry_val > 0:
-                pip_value = 1000.0 / entry_val
-            else:
-                pip_value = 6.66 # fallback
-        else:
-            pip_value = 10.0
-            
+        pip_value = get_pip_dollar_value(pair, entry_val)
         risk_amount = capital * (risk_pct / 100.0)
         dynamic_lot = risk_amount / (sl_pips * pip_value)
         dynamic_lot = round(dynamic_lot, 2)
-        
+
         # Guards obligatoires
         if dynamic_lot < 0.01:
             dynamic_lot = 0.01
@@ -462,7 +472,7 @@ def make_order(pair, school, direction, entry, sl, tp1, tp2, score, narrative, c
             dynamic_lot = 1.0
 
     final_volume = dynamic_lot
-    montant = round(final_volume * sl_pips * 10, 2) if pip_size > 0 else 0.0
+    montant = round(final_volume * sl_pips * pip_value, 2) if pip_size > 0 else 0.0
 
     return {
         "id":               f"{pair}_{str(uuid.uuid4())[:8]}",
@@ -1157,7 +1167,7 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
 
                                 if hit:
                                     final_pips = round(((close_price - real_entry) if direction in ("ACHAT","BUY") else (real_entry - close_price)) / pip_size, 1)
-                                    pnl_money  = round(final_pips * 10 * order.get("volume", 0.1), 2)
+                                    pnl_money  = round(final_pips * get_pip_dollar_value(pair, real_entry) * order.get("volume", 0.1), 2)
                                     # Sprint 1 — calculer MFE/MAE à la clôture
                                     _mfe_stats = _tracker.get_stats(close_price) if _tracker else MFETracker._empty_stats()
                                     with state_lock:
@@ -2772,7 +2782,7 @@ def _reload_paper_trades():
                             pnl_pips = round((close_price - entry) / pip_size, 1)
                         else:
                             pnl_pips = round((entry - close_price) / pip_size, 1)
-                        pnl_money = round(pnl_pips * 10 * trade.get("volume", 0.1), 2)
+                        pnl_money = round(pnl_pips * get_pip_dollar_value(trade["pair"], entry) * trade.get("volume", 0.1), 2)
                         
                         trade["status"] = "closed"
                         trade["closed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -2878,9 +2888,11 @@ def _compute_stats():
         orders = list(bot_state["orders"])
 
     today = datetime.now().date()
+    today_str = today.strftime("%Y-%m-%d")
+    # Task 2 fix — filtrer par opened_at (date d'ouverture) et non closed_at.
+    # Les trades ouverts hier et fermés aujourd'hui ne comptent PAS dans le PnL du jour.
     daily_closed = [o for o in orders if o["status"] == "closed" and
-                    o.get("closed_at") and
-                    datetime.strptime(o["closed_at"], "%Y-%m-%d %H:%M").date() == today]
+                    o.get("opened_at", "").startswith(today_str)]
 
     day_pnl  = sum(o.get("pnl_money", 0) for o in daily_closed)
     wins     = sum(1 for o in daily_closed if o.get("pnl_money", 0) > 0)
