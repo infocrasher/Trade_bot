@@ -2036,6 +2036,21 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 _v3_entry = elliott_signal.get("entry") or 0
                                                 _v3_sl    = elliott_signal.get("sl") or 0
                                                 _v3_tp1   = elliott_signal.get("tp1") or 0
+
+                                                # Fix C — fallback PA si Elliott n'a pas de niveaux
+                                                if not (_v3_entry and _v3_sl and _v3_tp1) and pure_pa_result:
+                                                    _pa_dir = pure_pa_result.get("direction", "")
+                                                    _pa_matches = (
+                                                        (_v3_dec == "BUY" and _pa_dir == "buy") or
+                                                        (_v3_dec == "SELL" and _pa_dir == "sell")
+                                                    )
+                                                    if _pa_matches:
+                                                        _v3_entry = pure_pa_result.get("entry") or 0
+                                                        _v3_sl    = pure_pa_result.get("sl") or 0
+                                                        _v3_tp1   = pure_pa_result.get("tp1") or 0
+                                                        if _v3_entry and _v3_sl and _v3_tp1:
+                                                            log(f"[{p}] V3 Elliott — niveaux PA utilisés (même direction {_v3_dec})", "INFO")
+
                                                 if _v3_entry and _v3_sl and _v3_tp1:
                                                     decision_obj["entry_price"] = _v3_entry
                                                     decision_obj["stop_loss"]   = _v3_sl

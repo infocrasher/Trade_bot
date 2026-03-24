@@ -1049,6 +1049,111 @@ class MetaConvergenceEngine:
         )
         self.learner = MetaLearner()
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # CONVERGENCE LIBRE V3
+    # ─────────────────────────────────────────────────────────────────────────
+    def evaluate_convergence_libre_v3(
+        self,
+        elliott_score: float,
+        elliott_signal: str,
+        pa_signal: str,
+        pa_confidence: float,
+        ict_signal: str,
+        ict_confidence: float,
+    ) -> dict:
+        """
+        Convergence Libre V3 — ICT n'est plus requis pour trader.
+
+        Règles (par priorité décroissante) :
+          1. Cohérence < 0.4 → DO_NOTHING (incoherence directionnelle)
+          2. Elliott ≥ 80/100 → trade indépendamment (sizing_factor=0.5)
+          3. Pure PA + Elliott alignés (même direction) → sizing_factor=1.0
+          4. ICT confirme → +10 pts au score final (bonus, non bloquant)
+
+        Weights fixes : PA×0.35 + Elliott×0.35 + ICT×0.30
+        Champ absent = contribution 0 (pas de pénalité).
+
+        Returns:
+            decision       : "BUY" | "SELL" | "NO_TRADE" | "DO_NOTHING"
+            sizing_factor  : 0.0 | 0.5 | 1.0
+            coherence_ratio: |Σ(score×dir)| / Σ|score×dir| ∈ [0, 1]
+            do_nothing_score: 1 − coherence (utile pour dashboard log)
+            weighted_score : score brut pondéré (0–100)
+            convergence_count : nb de profils avec signal actif
+            elliott_autonomous : bool
+            pa_elliott_aligned : bool
+            ict_confirming : bool
+        """
+        WEIGHTS = {"pa": 0.35, "elliott": 0.35, "ict": 0.30}
+
+        def _dir(sig: str) -> int:
+            if sig in ("BUY", "EXECUTE_BUY"):
+                return 1
+            if sig in ("SELL", "EXECUTE_SELL"):
+                return -1
+            return 0
+
+        e_dir = _dir(elliott_signal)
+        p_dir = _dir(pa_signal)
+        i_dir = _dir(ict_signal)
+
+        e_conf = max(0.0, min(1.0, elliott_score / 100.0))
+        p_conf = max(0.0, min(1.0, pa_confidence))
+        i_conf = max(0.0, min(1.0, ict_confidence))
+
+        profiles = [
+            ("pa",      p_dir, p_conf),
+            ("elliott", e_dir, e_conf),
+            ("ict",     i_dir, i_conf),
+        ]
+
+        # ── Cohérence = alignement directionnel pondéré ──────────────────────
+        numerator   = abs(sum(WEIGHTS[n] * d * c for n, d, c in profiles if d != 0))
+        denominator = sum(WEIGHTS[n] * abs(d) * c for n, d, c in profiles if d != 0)
+        coherence = round(numerator / denominator, 4) if denominator > 0 else 0.0
+
+        # ── Score pondéré (valeur signée → direction dominante) ───────────────
+        weighted_signed = sum(WEIGHTS[n] * d * c for n, d, c in profiles)
+        convergence_count = sum(1 for _, d, _ in profiles if d != 0)
+
+        # Flags dérivés
+        elliott_autonomous = elliott_score >= 80
+        pa_elliott_aligned = (p_dir != 0 and e_dir != 0 and p_dir == e_dir)
+        dominant_dir = 1 if weighted_signed > 0 else (-1 if weighted_signed < 0 else 0)
+        ict_confirming = (i_dir != 0 and i_dir == dominant_dir)
+
+        # Bonus ICT +10 pts (non bloquant)
+        bonus_pts = 10.0 if ict_confirming else 0.0
+        raw_score_100 = abs(weighted_signed) * 100 + bonus_pts
+
+        # ── Décision finale ───────────────────────────────────────────────────
+        if coherence < 0.4:
+            decision      = "DO_NOTHING"
+            sizing_factor = 0.0
+        elif elliott_autonomous or pa_elliott_aligned:
+            decision = "BUY" if dominant_dir > 0 else ("SELL" if dominant_dir < 0 else "NO_TRADE")
+            if pa_elliott_aligned:
+                sizing_factor = 1.0
+            else:
+                sizing_factor = 0.5
+        else:
+            decision      = "NO_TRADE"
+            sizing_factor = 0.0
+
+        return {
+            "decision":          decision,
+            "sizing_factor":     sizing_factor,
+            "coherence_ratio":   coherence,
+            "do_nothing_score":  round(1.0 - coherence, 4),
+            "weighted_score":    round(raw_score_100, 1),
+            "convergence_count": convergence_count,
+            "elliott_autonomous": elliott_autonomous,
+            "pa_elliott_aligned": pa_elliott_aligned,
+            "ict_confirming":    ict_confirming,
+            "regime":            "",  # placeholder — enrichi par post-mortem
+        }
+
+    # ─────────────────────────────────────────────────────────────────────────
     def evaluate_opportunity(
         self,
         signals: List[ProfileSignal],
