@@ -119,6 +119,13 @@ from agents.elliott import ElliottOrchestrator
 from agents.fondamental import FondamentalOrchestrator
 from agents.meta_orchestrator import MetaOrchestrator
 from agents.elliott.orchestrator import run_elliott_analysis
+try:
+    from agents.meta_convergence import MetaConvergenceEngine as _MetaConvergenceEngine
+    _MCE_V3_AVAILABLE = True
+except ImportError:
+    _MetaConvergenceEngine = None
+    _MCE_V3_AVAILABLE = False
+from agents.mfe_tracker import MFETracker
 from agents.vsa.orchestrator import VSAOrchestrator
 from agents.llm_validator import LLMValidatorAgent
 
@@ -1113,6 +1120,12 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                             order["activated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                             order["activated_price"] = current_price
                                             order["real_rr"] = real_rr
+                                            # Sprint 1 — init MFE tracker dès activation
+                                            order["_mfe_tracker"] = MFETracker(
+                                                entry=current_price,
+                                                sl=sl,
+                                                direction=direction,
+                                            )
                                         log(f"[{pair}] ✅ PENDING → ACTIF — prix ({current_price}) entry ({entry}) | Dist:{distance_pips:.0f} pips | R:R réel:{real_rr}", "SUCCESS")
                                         broadcast("order_update", {"action": "update", "order": order})
                                         _update_paper_trade(order)
@@ -1123,6 +1136,15 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 hit = None
                                 close_price = current_price
                                 real_entry = order.get("activated_price", entry)
+
+                                # Sprint 1 — mise à jour MFE tracker chaque tick
+                                _tracker = order.get("_mfe_tracker")
+                                if _tracker is None and real_entry:
+                                    # Tracker absent (trade rechargé depuis JSON) — re-créer
+                                    _tracker = MFETracker(entry=real_entry, sl=sl, direction=direction)
+                                    order["_mfe_tracker"] = _tracker
+                                if _tracker:
+                                    _tracker.update(current_price)
 
                                 if direction in ("ACHAT", "BUY"):
                                     pnl_pips = round((current_price - real_entry) / pip_size, 1)
@@ -1136,6 +1158,8 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 if hit:
                                     final_pips = round(((close_price - real_entry) if direction in ("ACHAT","BUY") else (real_entry - close_price)) / pip_size, 1)
                                     pnl_money  = round(final_pips * 10 * order.get("volume", 0.1), 2)
+                                    # Sprint 1 — calculer MFE/MAE à la clôture
+                                    _mfe_stats = _tracker.get_stats(close_price) if _tracker else MFETracker._empty_stats()
                                     with state_lock:
                                         order["status"]       = "closed"
                                         order["closed_at"]    = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1143,8 +1167,9 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                         order["pnl_money"]    = pnl_money
                                         order["close_reason"] = hit
                                         order["close_price"]  = close_price
+                                        order.update(_mfe_stats)
                                     emoji = "✅" if final_pips > 0 else "❌"
-                                    log(f"{emoji} PAPER CLOSE {pair} — {hit} @ {close_price:.5f} | Entry théo:{entry} Réelle:{real_entry} | PnL:{final_pips:+.1f} pips ({pnl_money:+.2f}$) | {horizon}", "SUCCESS" if final_pips > 0 else "WARNING")
+                                    log(f"{emoji} PAPER CLOSE {pair} — {hit} @ {close_price:.5f} | Entry théo:{entry} Réelle:{real_entry} | PnL:{final_pips:+.1f} pips ({pnl_money:+.2f}$) | MFE:{_mfe_stats['mfe_r']}R MAE:{_mfe_stats['mae_r']}R | {horizon}", "SUCCESS" if final_pips > 0 else "WARNING")
                                     broadcast("order_update", {"action": "update", "order": order})
                                     _update_paper_trade(order)
                                 else:
@@ -1964,6 +1989,73 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                     convergence_state = "aligned"
                                     log(f"[{p}] ✨ CONVERGENCE ICT+PurePA — tous deux {ict_direction.upper()}", "INFO")
 
+                                # ── Convergence Libre V3 ──────────────────────────────────────
+                                _v3_result = {}
+                                _v3_convergence_count = 0
+                                if _MCE_V3_AVAILABLE:
+                                    try:
+                                        _mce_v3 = _MetaConvergenceEngine()
+                                        _pa_sig  = ("BUY" if pa_direction == "buy" else ("SELL" if pa_direction == "sell" else "NO_TRADE"))
+                                        _pa_conf = pure_pa_result.get("confidence", 0.5) if pure_pa_result else 0.0
+                                        _ict_sig = ("BUY" if dec == "EXECUTE_BUY" else ("SELL" if dec == "EXECUTE_SELL" else "NO_TRADE"))
+                                        _ict_conf = conf if conf <= 1.0 else conf / 100.0
+                                        _v3_result = _mce_v3.evaluate_convergence_libre_v3(
+                                            elliott_score=elliott_signal.get("score", 0),
+                                            elliott_signal=elliott_signal.get("signal", "NO_TRADE"),
+                                            pa_signal=_pa_sig,
+                                            pa_confidence=_pa_conf,
+                                            ict_signal=_ict_sig,
+                                            ict_confidence=_ict_conf,
+                                        )
+                                        _v3_dec = _v3_result.get("decision", "NO_TRADE")
+                                        _v3_convergence_count = _v3_result.get("convergence_count", 0)
+                                        log(f"[{p}] V3 coherence={_v3_result.get('coherence_ratio'):.2f} "
+                                            f"sizing={_v3_result.get('sizing_factor')} dec={_v3_dec} "
+                                            f"elliott_auto={_v3_result.get('elliott_autonomous')} "
+                                            f"pa_aligned={_v3_result.get('pa_elliott_aligned')}", "DEBUG")
+
+                                        # Si ICT dit NO_TRADE mais V3 dit BUY/SELL → override OUVRIR
+                                        if (dashboard_decision == "RESTER_DEHORS"
+                                                and _v3_dec in ("BUY", "SELL")
+                                                and _v3_result.get("sizing_factor", 0) > 0):
+                                            dashboard_decision = "OUVRIR"
+                                            score = int(_v3_result.get("weighted_score", 60))
+                                            convergence_state = "v3_libre"
+                                            # Injecter la direction V3 si niveaux absents
+                                            if not decision_obj.get("entry_price"):
+                                                _v3_entry = elliott_signal.get("entry") or 0
+                                                _v3_sl    = elliott_signal.get("sl") or 0
+                                                _v3_tp1   = elliott_signal.get("tp1") or 0
+                                                if _v3_entry and _v3_sl and _v3_tp1:
+                                                    decision_obj["entry_price"] = _v3_entry
+                                                    decision_obj["stop_loss"]   = _v3_sl
+                                                    decision_obj["tp1"]         = _v3_tp1
+                                                    decision_obj["decision"]    = f"EXECUTE_{_v3_dec}"
+                                                    decision_obj["direction"]   = _v3_dec.lower()
+                                                    log(f"[{p}] V3 LIBRE → OUVRIR {_v3_dec} "
+                                                        f"sf={_v3_result['sizing_factor']} "
+                                                        f"Entry:{_v3_entry} SL:{_v3_sl} TP:{_v3_tp1}", "INFO")
+                                                    # Fix — DEBUG log Elliott autonome
+                                                    if _v3_result.get("elliott_autonomous"):
+                                                        file_logger.debug(
+                                                            f"[{p}] V3 Elliott autonome → OUVRIR"
+                                                            f" | score:{elliott_signal.get('score', 0)}"
+                                                            f" | sizing:{_v3_result.get('sizing_factor')}"
+                                                            f" | entry:{_v3_entry} sl:{_v3_sl} tp:{_v3_tp1}"
+                                                        )
+                                                else:
+                                                    dashboard_decision = "RESTER_DEHORS"
+                                                    # Fix — WARNING log quand niveaux manquants
+                                                    file_logger.warning(
+                                                        f"[{p}] V3 Elliott score"
+                                                        f" {elliott_signal.get('score', 0)}"
+                                                        f" mais pas de niveaux entry/sl/tp1"
+                                                        f" — signal ignoré"
+                                                    )
+                                                    log(f"[{p}] V3 LIBRE — niveaux Elliott absents — RESTER_DEHORS", "WARNING")
+                                    except Exception as _v3_err:
+                                        log(f"[{p}] Convergence V3 erreur (non bloquant): {_v3_err}", "DEBUG")
+
                                 profile_version = profiles_settings.get("profile_version", "v1.0")
 
                                 with state_lock:
@@ -2141,6 +2233,19 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                 convergence_state=convergence_state,
                                 ttl_seconds=1800
                             )
+                            # Sprint 1 — entry_profile + convergence_count
+                            new_order["entry_profile"] = convergence_state
+                            new_order["convergence_count"] = _v3_convergence_count or (
+                                sum(1 for s in [ict_direction, pa_direction, (elliott_signal or {}).get("signal")]
+                                    if s and s not in ("NO_TRADE", None))
+                            )
+                            # Sprint 2 — sizing_factor V3 + profile_id elliott autonome
+                            if _v3_result:
+                                new_order["sizing_factor"] = _v3_result.get("sizing_factor", 1.0)
+                                new_order["v3_coherence"]  = _v3_result.get("coherence_ratio", 1.0)
+                                # Fix — profile_id → "elliott" si Elliott a déclenché seul
+                                if _v3_result.get("elliott_autonomous"):
+                                    new_order["profile_id"] = "elliott"
 
                             action = None
                             with state_lock:
@@ -2419,6 +2524,11 @@ def run_bot_loop(pairs, interval_minutes, paper_mode, horizons=None):
                                                 ttl_seconds=pure_pa_result.get("ttl_seconds", 1800)
                                             )
                                             pa_order["horizon"] = "scalp"
+                                            # Sprint 2 — propager V3 vers pure_pa (chemin B)
+                                            if _v3_result:
+                                                pa_order["sizing_factor"]     = _v3_result.get("sizing_factor", 1.0)
+                                                pa_order["v3_coherence"]      = _v3_result.get("coherence_ratio", None)
+                                                pa_order["convergence_count"] = _v3_result.get("convergence_count", 0)
 
                                             with state_lock:
                                                 bot_state["orders"].append(pa_order)
@@ -2539,6 +2649,20 @@ def _save_paper_trade(order):
         "close_reason": None,
         "narrative": order.get("narrative", ""),
         "checklist": order.get("checklist", []),
+        # Sprint 1 — MFE/MAE (remplis à la clôture)
+        "mfe_r":           None,
+        "mae_r":           None,
+        "mfe_time_bars":   None,
+        "mae_time_bars":   None,
+        "mfe_before_mae":  None,
+        "efficiency_ratio": None,
+        "regime":          order.get("regime", ""),
+        # Sprint 1 — profil d'entrée
+        "entry_profile":   order.get("entry_profile", order.get("profile_id", "legacy")),
+        "convergence_count": order.get("convergence_count", 0),
+        # Sprint 2 — Convergence Libre V3
+        "sizing_factor":   order.get("sizing_factor", 1.0),
+        "v3_coherence":    order.get("v3_coherence", None),
     })
     
     with open(filepath, "w") as f:
@@ -2565,6 +2689,11 @@ def _update_paper_trade(order):
             t["close_reason"] = order.get("close_reason")
             if "narrative" in order: t["narrative"] = order["narrative"]
             if "checklist" in order: t["checklist"] = order["checklist"]
+            # Sprint 1 — MFE/MAE (présents uniquement sur close)
+            for _mfe_key in ("mfe_r", "mae_r", "mfe_time_bars", "mae_time_bars",
+                             "mfe_before_mae", "efficiency_ratio", "regime"):
+                if _mfe_key in order:
+                    t[_mfe_key] = order[_mfe_key]
             break
     
     with open(filepath, "w") as f:
